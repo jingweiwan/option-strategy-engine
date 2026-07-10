@@ -1,0 +1,25 @@
+{
+  "name": "option-strategy-engine",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.9.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "preinstall": "node -e \"if(!/pnpm/.test(process.env.npm_execpath||'')){console.error('\\n  ✖ Use pnpm for this repo (npm/yarn will corrupt node_modules).\\n    Run: pnpm install\\n');process.exit(1)}\"",
+    "build": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "clean:client-ghost-js": "node scripts/clean-client-ghost-js.mjs",
+    "dev:clean": "pnpm clean:client-ghost-js && pnpm -r --parallel dev",
+    "dev:server": "pnpm --filter option-strategy-engine-server dev",
+    "dev:client": "pnpm clean:client-ghost-js && pnpm --filter option-strategy-engine-client dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

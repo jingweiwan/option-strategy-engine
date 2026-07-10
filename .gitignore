@@ -1,0 +1,27 @@
+node_modules
+dist
+
+# Volar / editor: generated next to Vue SFCs — must not be committed (also confuses tooling)
+**/*.vue.js
+
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+
+# AI response cache (regenerated on demand)
+**/cache/
+
+# Self-accumulated IV history (runtime data, per-deployment)
+server/data/iv-history.json
+
+# Scraped transcript cache (runtime data, 30-day TTL)
+server/data/transcripts/
+
+# Daily CBOE chain archive (runtime data for offline replay, per-deployment)
+server/data/chains/
+
+# Local RH bridge / scratch under data (defense-in-depth; real account data)
+server/data/*.json
+!server/data/view-skill.json

@@ -1,0 +1,29 @@
+services:
+  ose:
+    build: .
+    ports:
+      - "3001:3001"
+    env_file:
+      - server/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      # Persist cache across container restarts (avoids re-fetching API data)
+      - cache-data:/app/server/cache
+      # Persist self-accumulated IV history + scraped transcripts. Without this,
+      # every redeploy wipes data/ → IV Rank silently falls back to RV-percentile
+      # until 30 fresh days re-accumulate, degrading regime/strategy selection.
+      - app-data:/app/server/data
+    restart: unless-stopped
+    # Health check — auto-restart if server dies
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  cache-data:
+  app-data:

@@ -1,0 +1,189 @@
+{
+  "state": {
+    "iv": 0.6,
+    "ivRank": 85,
+    "dte": 30,
+    "regime": "sell",
+    "volatility": "high",
+    "expectedMove": 17.2
+  },
+  "skipped": [],
+  "results": [
+    {
+      "strategy": "bear_call_spread",
+      "tier": "primary",
+      "netPremium": 2,
+      "pop": 0.719,
+      "ev": 0.24,
+      "cvar95": -3.31,
+      "maxProfit": 2,
+      "maxLoss": -13,
+      "breakevens": [
+        114.5
+      ],
+      "legs": [
+        {
+          "type": "call",
+          "action": "sell",
+          "strike": 112.5,
+          "premium": 2.73
+        },
+        {
+          "type": "call",
+          "action": "buy",
+          "strike": 127.5,
+          "premium": 0.73
+        }
+      ]
+    },
+    {
+      "strategy": "bear_put_spread",
+      "tier": "reference",
+      "netPremium": -4.16,
+      "pop": 0.281,
+      "ev": -0.46,
+      "cvar95": -2.71,
+      "maxProfit": 5.84,
+      "maxLoss": -4.16,
+      "breakevens": [
+        95.8
+      ],
+      "legs": [
+        {
+          "type": "put",
+          "action": "buy",
+          "strike": 100,
+          "premium": 6.73
+        },
+        {
+          "type": "put",
+          "action": "sell",
+          "strike": 90,
+          "premium": 2.57
+        }
+      ]
+    },
+    {
+      "strategy": "bull_call_spread",
+      "tier": "reference",
+      "netPremium": -2.77,
+      "pop": 0.237,
+      "ev": -0.48,
+      "cvar95": -1.77,
+      "maxProfit": 7.23,
+      "maxLoss": -2.77,
+      "breakevens": [
+        107.8
+      ],
+      "legs": [
+        {
+          "type": "call",
+          "action": "buy",
+          "strike": 105,
+          "premium": 4.99
+        },
+        {
+          "type": "call",
+          "action": "sell",
+          "strike": 115,
+          "premium": 2.22
+        }
+      ]
+    },
+    {
+      "strategy": "bull_put_spread",
+      "tier": "primary",
+      "netPremium": 2.36,
+      "pop": 0.677,
+      "ev": 0.23,
+      "cvar95": -3.02,
+      "maxProfit": 2.36,
+      "maxLoss": -7.64,
+      "breakevens": [
+        90.1
+      ],
+      "legs": [
+        {
+          "type": "put",
+          "action": "sell",
+          "strike": 92.5,
+          "premium": 3.36
+        },
+        {
+          "type": "put",
+          "action": "buy",
+          "strike": 82.5,
+          "premium": 1
+        }
+      ]
+    },
+    {
+      "strategy": "iron_condor",
+      "tier": "primary",
+      "netPremium": 1.61,
+      "pop": 0.854,
+      "ev": 0.41,
+      "cvar95": -0.94,
+      "maxProfit": 1.61,
+      "maxLoss": -8.39,
+      "breakevens": [
+        85.9,
+        124.1
+      ],
+      "legs": [
+        {
+          "type": "put",
+          "action": "sell",
+          "strike": 87.5,
+          "premium": 1.91
+        },
+        {
+          "type": "put",
+          "action": "buy",
+          "strike": 82.5,
+          "premium": 1
+        },
+        {
+          "type": "call",
+          "action": "sell",
+          "strike": 122.5,
+          "premium": 1.15
+        },
+        {
+          "type": "call",
+          "action": "buy",
+          "strike": 132.5,
+          "premium": 0.45
+        }
+      ]
+    },
+    {
+      "strategy": "long_straddle",
+      "tier": "reference",
+      "netPremium": -14.1,
+      "pop": 0.198,
+      "ev": -4.13,
+      "cvar95": -8.05,
+      "maxProfit": "inf",
+      "maxLoss": -14.1,
+      "breakevens": [
+        88.4,
+        116.6
+      ],
+      "legs": [
+        {
+          "type": "call",
+          "action": "buy",
+          "strike": 102.5,
+          "premium": 5.98
+        },
+        {
+          "type": "put",
+          "action": "buy",
+          "strike": 102.5,
+          "premium": 8.12
+        }
+      ]
+    }
+  ]
+}
