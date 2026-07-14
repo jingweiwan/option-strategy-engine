@@ -40,3 +40,4 @@ test('non-sell-vol structures bypass the vol floor (always qualified)', () => {
   assert.equal(sellVolTier('bull_call_spread', 5, false), 'qualified')
   assert.equal(sellVolTier('long_straddle', 0, false), 'qualified')
 })
+

@@ -27,6 +27,7 @@ import {
   liquidContracts
 } from './liveStrategies.js'
 import { deriveRegime, deriveSimSigma, type Regime } from './index.js'
+import { mapSettledLimit } from './concurrency.js'
 import type { OptionContract } from '../api/types.js'
 import type { OptionLeg, Greeks, RiskMetrics } from './types.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank } from '../api/marketdata.js'
@@ -388,8 +389,14 @@ export async function runSellPutScan(
     console.log(`[sellPut] scanning ${watchlist.length} symbols...`)
     const t0 = Date.now()
 
-    const results = await Promise.allSettled(
-      watchlist.map((entry) => scanSellPuts(entry))
+    // Throttle the fan-out — an unbounded parallel map over a large watchlist
+    // bursts the quote provider's rate limit and every 429'd symbol lands in
+    // `skipped` (that's the "跳过" list swallowing the whole board). See
+    // mapSettledLimit; SELL_PUT_CONCURRENCY is env-tunable.
+    const results = await mapSettledLimit(
+      watchlist,
+      Number(process.env.SELL_PUT_CONCURRENCY) || 6,
+      (entry) => scanSellPuts(entry)
     )
 
     const allCandidates: SellPutCandidate[] = []

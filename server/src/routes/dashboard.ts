@@ -19,6 +19,16 @@ import {
   type WatchlistEntry
 } from '../watchlistDefaults.js'
 
+/** One upcoming earnings date for a watchlist symbol. `spansEntry` = a new
+ *  position opened today at the max scan DTE would straddle it (event risk). */
+export type EarningsCalendarEntry = {
+  sym: string
+  date: string // ISO YYYY-MM-DD
+  label: string // e.g. "Jul 22"
+  daysUntil: number
+  spansEntry: boolean
+}
+
 export type Market = {
   asof: string
   /** SPY (S&P 500 ETF) — price ≈ SPX / 10. Free tier has no SPX index access. */
@@ -29,8 +39,14 @@ export type Market = {
   fearGreed: number | null
   ivRankAvg: number | null
   earningsToday: number
+  /** Watchlist earnings within MAX_ENTRY_SPAN_DAYS, soonest first. */
+  earningsCalendar: EarningsCalendarEntry[]
   fedDays: number
 }
+
+/** A new 30/45-DTE position opened today spans any earnings within this many
+ *  days — the window that actually matters for the sell-vol board. */
+const MAX_ENTRY_SPAN_DAYS = 45
 
 export type Mood = {
   /** 0-100 fear-greed score. null when CNN feed is unavailable. */
@@ -58,6 +74,9 @@ export type Ticker = {
   iv: number | null
   /** IV Rank (0-100 percentile); null when computation unavailable. */
   ivr: number | null
+  /** How the IVR was derived — 'rv-fallback' means no real IV history, so the
+   *  rank is an unreliable RV proxy (don't treat as a vol-richness signal). */
+  ivrSource?: 'iv-history' | 'dolt-iv' | 'rv-fallback' | null
   /** Expected move ±$ (ATM straddle mid); null when chain unavailable. */
   em: number | null
   /** Next earnings date ('May 28' format); '—' when unknown. */
@@ -126,31 +145,54 @@ async function fetchEarningsData(symbols: string[]): Promise<{
   todayCount: number
   nextEarnBySymbol: Record<string, string>
   nextEarnIsoBySymbol: Record<string, string>
+  calendar: EarningsCalendarEntry[]
 }> {
   const etNow = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
   )
   const today = etNow.toISOString().slice(0, 10)
-  const future = new Date(etNow.getTime() + 90 * 86400000).toISOString().slice(0, 10)
 
-  // One Finnhub call covers both: today's count + next dates for watchlist
-  const calendar = await fetchEarningsCalendar(today, future)
+  // Finnhub's free calendar caps each response at 1500 rows and truncates the
+  // NEAR end first, so a wide window silently drops the SOONEST earnings — the
+  // ones that matter most (e.g. UNH reporting in 3 days vanished behind 45 days
+  // of small-caps). Chunk the horizon into ≤15-day slices, each well under the
+  // cap, and merge. Cached daily, so the extra calls cost nothing.
+  const CHUNK_DAYS = 15
+  const HORIZON_DAYS = 90
+  const ranges: Array<[string, string]> = []
+  for (let start = 0; start < HORIZON_DAYS; start += CHUNK_DAYS) {
+    const from = new Date(etNow.getTime() + start * 86400000).toISOString().slice(0, 10)
+    const to = new Date(etNow.getTime() + Math.min(start + CHUNK_DAYS, HORIZON_DAYS) * 86400000).toISOString().slice(0, 10)
+    ranges.push([from, to])
+  }
+  const chunks = await Promise.all(ranges.map(([f, t]) => fetchEarningsCalendar(f, t).catch(() => [])))
+  const calendar = chunks.flat()
 
   let todayCount = 0
   const nextEarnBySymbol: Record<string, string> = {}
   const nextEarnIsoBySymbol: Record<string, string> = {}
   const symSet = new Set(symbols.map((s) => s.toUpperCase()))
 
+  // Chunks may not be globally date-sorted (and can overlap on boundaries), so
+  // keep the EARLIEST future date per symbol explicitly rather than first-seen.
   for (const entry of calendar) {
     if (entry.date === today) todayCount++
     const sym = entry.symbol.toUpperCase()
-    if (symSet.has(sym) && !(sym in nextEarnBySymbol)) {
+    if (symSet.has(sym) && (!(sym in nextEarnIsoBySymbol) || entry.date < nextEarnIsoBySymbol[sym])) {
       nextEarnBySymbol[sym] = formatEarnDate(entry.date)
       nextEarnIsoBySymbol[sym] = entry.date
     }
   }
 
-  return { todayCount, nextEarnBySymbol, nextEarnIsoBySymbol }
+  const todayMs = Date.parse(today)
+  const entryCalendar: EarningsCalendarEntry[] = Object.entries(nextEarnIsoBySymbol)
+    .map(([sym, date]) => {
+      const daysUntil = Math.round((Date.parse(date) - todayMs) / 86400000)
+      return { sym, date, label: formatEarnDate(date), daysUntil, spansEntry: daysUntil <= MAX_ENTRY_SPAN_DAYS }
+    })
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  return { todayCount, nextEarnBySymbol, nextEarnIsoBySymbol, calendar: entryCalendar }
 }
 
 // ==================== Dashboard seed (minimal — only non-live parts) ====================
@@ -172,6 +214,7 @@ export const DASHBOARD: DashboardData = {
     fearGreed: null,
     ivRankAvg: null,
     earningsToday: 0,
+    earningsCalendar: [],
     fedDays: 0
   },
   mood: {
@@ -225,13 +268,13 @@ export function dashboardSeedToMarketSnapshot(data: DashboardData): MarketSnapsh
     vixy: { ...m.vixy },
     ivRankMedian,
     fearGreed: m.fearGreed,
-    earningsToday: m.earningsToday,
+    earningsUpcoming: m.earningsCalendar.map((e) => ({ sym: e.sym, label: e.label, daysUntil: e.daysUntil })),
     fedDays: m.fedDays,
     // Only include tickers with live chg — keeps the AI snapshot honest.
     watchlistTickers: data.tickers.flatMap((t) =>
       t.chg == null || t.iv == null || t.ivr == null || t.em == null
         ? []
-        : [{ sym: t.sym, iv: t.iv, ivr: t.ivr, em: t.em, chg: t.chg }]
+        : [{ sym: t.sym, iv: t.iv, ivr: t.ivr, ivrReliable: t.ivrSource !== 'rv-fallback', em: t.em, chg: t.chg }]
     ),
     board: {
       qualifiedCount: qualified.length,
@@ -380,9 +423,9 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
       }),
       fetchWatchlistQuotes(symbols),
       cached(`earnings-calendar-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
-        (err): { todayCount: number; nextEarnBySymbol: Record<string, string>; nextEarnIsoBySymbol: Record<string, string> } => {
+        (err): Awaited<ReturnType<typeof fetchEarningsData>> => {
           console.warn('[dashboard] earnings calendar unavailable:', (err as Error).message)
-          return { todayCount: 0, nextEarnBySymbol: {}, nextEarnIsoBySymbol: {} }
+          return { todayCount: 0, nextEarnBySymbol: {}, nextEarnIsoBySymbol: {}, calendar: [] }
         }
       ),
       // IV data: 1 chain call per symbol, 24h self-cached in fetchLiveIvData
@@ -427,13 +470,14 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
     fearGreed,
     ivRankAvg,
     earningsToday: earningsData.todayCount,
+    earningsCalendar: earningsData.calendar,
     fedDays
   }
 
   // Phase 3: engine scan + AI copywriting + ticker notes (all daily-cached)
   const tickerDataForAi = tickersNoNotes.map((t) => ({
     sym: t.sym, px: t.px, chg: t.chg,
-    iv: t.iv, ivr: t.ivr, em: t.em, earn: t.earn
+    iv: t.iv, ivr: t.ivr, ivrReliable: t.ivrSource !== 'rv-fallback', em: t.em, earn: t.earn
   }))
 
   // Earnings lookup for AI tag inference

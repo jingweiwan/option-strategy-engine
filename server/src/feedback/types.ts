@@ -16,7 +16,16 @@ export type RecommendationSnapshot = {
   /** ET calendar day when recorded (YYYY-MM-DD). */
   etDay: string
   capturedAt: string
-  source: 'dashboard'
+  /**
+   * 'dashboard' — a recommendation that actually surfaced (passed score>0 and
+   * the board gates). 'shadow' — a tuner arm evaluated on the same chain and
+   * settled on the same price path, recorded for LEARNING even when the score
+   * filter rejected it. Without shadow rows, losing arms are never recorded,
+   * their posteriors never update, and the tuner can't learn they lose
+   * (selection bias). Shadow rows feed buildArmStats only; calibration and the
+   * exit-policy A/B measure the recommended book and skip them.
+   */
+  source: 'dashboard' | 'shadow'
   sym: string
   strategyId: StrategyType
   expiration: string

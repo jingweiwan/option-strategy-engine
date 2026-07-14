@@ -6,12 +6,12 @@ import { loadSnapshots, saveSnapshots } from './store.js'
 
 const OFF = process.env.FEEDBACK_RECORD === '0'
 
-function toSnapshot(o: ScannedOpp, etDay: string): RecommendationSnapshot {
+function toSnapshot(o: ScannedOpp, etDay: string, source: RecommendationSnapshot['source'] = 'dashboard'): RecommendationSnapshot {
   return {
     id: randomUUID(),
     etDay,
     capturedAt: new Date().toISOString(),
-    source: 'dashboard',
+    source,
     sym: o.sym,
     strategyId: o.strategyId,
     expiration: o.expiration,
@@ -53,4 +53,23 @@ export async function recordDashboardScanSnapshots(scanned: ScannedOpp[]): Promi
   const all = await loadSnapshots()
   const kept = all.filter((s) => !(s.etDay === etDay && s.source === 'dashboard'))
   await saveSnapshots([...kept, ...rows])
+}
+
+/**
+ * Replace today's `shadow` batch: every tuner arm evaluated by the scan (one
+ * row per symbol × strategy × arm), recorded regardless of score so losing
+ * arms accumulate settled evidence too (see the `source` doc in types.ts).
+ * Settling a shadow row costs nothing extra — the outcome pass replays the
+ * same daily bars it already fetches for the symbol.
+ */
+export async function recordShadowArmSnapshots(rows: ScannedOpp[]): Promise<void> {
+  if (OFF) return
+
+  const etDay = etCalendarDay()
+  const snaps = rows.filter((o) => Array.isArray(o.legs) && o.legs.length > 0).map((o) => toSnapshot(o, etDay, 'shadow'))
+  if (snaps.length === 0) return
+
+  const all = await loadSnapshots()
+  const kept = all.filter((s) => !(s.etDay === etDay && s.source === 'shadow'))
+  await saveSnapshots([...kept, ...snaps])
 }

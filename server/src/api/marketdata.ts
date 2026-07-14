@@ -141,6 +141,11 @@ async function mdGetQuote(symbol: string): Promise<Quote> {
 export async function getQuote(symbol: string): Promise<Quote> {
   return withFallback(
     [
+      // MarketData leads for QUOTES so the load spreads: MarketData's daily quota
+      // absorbs the first batch (429 → cascade), leaving Finnhub (60/min) for the
+      // overflow. Leading with Finnhub instead concentrated every quote on it and
+      // 429'd it (it's also used for earnings / SPY-VIXY macro / symbol search).
+      // NOTE: this is quotes only — IV/IVR & chains still lead CBOE, not MarketData.
       ...(hasMarketData ? [{ name: 'marketdata', fn: () => mdGetQuote(symbol) }] : []),
       ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getQuote(symbol) }] : []),
       ...(hasPolygon ? [{ name: 'polygon', fn: () => polygon.getQuote(symbol) }] : []),
@@ -633,7 +638,7 @@ async function liveIvFromCboeChain(sym: string): Promise<LiveIvData | null> {
     const result: LiveIvData = { iv: atmIv, em, dte }
     liveIvCache.set(sym, { ts: Date.now(), data: result })
     recordIv(sym, atmIv)
-    console.log(`[liveIv] ${sym}: CBOE fallback IV=${(atmIv * 100).toFixed(1)}% DTE=${dte}`)
+    console.log(`[liveIv] ${sym}: CBOE IV=${(atmIv * 100).toFixed(1)}% DTE=${dte}`)
     return result
   } catch (e) {
     console.warn(`[liveIv] ${sym}: CBOE fallback failed:`, (e as Error).message)
@@ -646,6 +651,14 @@ export async function fetchLiveIvData(symbol: string): Promise<LiveIvData | null
   const hit = liveIvCache.get(sym)
   if (hit && Date.now() - hit.ts < LIVE_IV_TTL_MS) return hit.data
 
+  // CBOE is the DEFAULT IV source — free, unlimited, and the same chain the
+  // scanner already uses. MarketData's 100/day cap silently degraded IVR to an
+  // RV-rank once exhausted, so it is now ONLY a fallback when CBOE yields nothing
+  // (rare). Set LIVE_IV_MARKETDATA_FALLBACK=0 to disable the MarketData path.
+  const cboe = await liveIvFromCboeChain(sym)
+  if (cboe) return cboe
+  if (process.env.LIVE_IV_MARKETDATA_FALLBACK === '0') return null
+
   const params = new URLSearchParams({
     dte: '30',
     'delta.gte': '0.35',
@@ -656,13 +669,13 @@ export async function fetchLiveIvData(symbol: string): Promise<LiveIvData | null
   try {
     data = await mdFetch<any>(`/v1/options/chain/${encodeURIComponent(sym)}/?${params}`)
   } catch (e) {
-    console.warn(`[liveIv] ${sym}: MarketData chain failed (${(e as Error).message}); trying CBOE`)
-    return await liveIvFromCboeChain(sym)
+    console.warn(`[liveIv] ${sym}: CBOE empty + MarketData failed (${(e as Error).message})`)
+    return null
   }
-  if (data?.s !== 'ok') return await liveIvFromCboeChain(sym)
+  if (data?.s !== 'ok') return null
 
   const n: number = data?.optionSymbol?.length ?? 0
-  if (n === 0) return await liveIvFromCboeChain(sym)
+  if (n === 0) return null
 
   let bestCallIv: number | null = null
   let bestPutIv: number | null = null
@@ -704,7 +717,7 @@ export async function fetchLiveIvData(symbol: string): Promise<LiveIvData | null
   const ivs = [bestCallIv, bestPutIv].filter(
     (x): x is number => x != null && Number.isFinite(x)
   )
-  if (ivs.length === 0) return await liveIvFromCboeChain(sym)
+  if (ivs.length === 0) return null
 
   const atmIv = ivs.reduce((a, b) => a + b, 0) / ivs.length
   // EM = ATM straddle mid price (market-implied expected move)

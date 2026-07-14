@@ -148,7 +148,19 @@ export type Market = {
   fearGreed: number | null
   ivRankAvg: number | null
   earningsToday: number
+  /** Watchlist earnings within the entry-span window (≤45d), soonest first. */
+  earningsCalendar: EarningsCalendarEntry[]
   fedDays: number
+}
+
+/** One upcoming earnings date for a watchlist symbol. `spansEntry` = a position
+ *  opened today at the max scan DTE would straddle it (event risk). */
+export type EarningsCalendarEntry = {
+  sym: string
+  date: string
+  label: string
+  daysUntil: number
+  spansEntry: boolean
 }
 
 export type MoodFactor = {
@@ -218,6 +230,21 @@ export type Opp = {
   aiViewReason?: string | null
   /** 自动板分级:'qualified' 达标推荐,'reference' 未达标参考位(不建议开仓) */
   boardTier?: 'qualified' | 'reference'
+  /** 每条短腿离最近关键位的距离(定行权位用) */
+  shortLevels?: ShortLevel[]
+  /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */
+  strongTrend?: boolean
+}
+
+export type ShortLevel = {
+  strike: number
+  type: 'call' | 'put'
+  level: number
+  /** 短腿到关键位的带符号 %:+在上方 / −在下方 */
+  distPct: number
+  touches: number
+  /** 短腿正压在一个被反复测试的关键位上(争夺/被钉风险) */
+  tested: boolean
 }
 
 export type Ticker = {

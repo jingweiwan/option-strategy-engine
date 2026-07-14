@@ -11,6 +11,10 @@ import type { OhlcBar } from '../api/marketdata.js'
 
 // ---------- Types ----------
 
+/** A price level that has repeatedly acted as support/resistance. `touches` is
+ *  how many swing pivots clustered there — higher = more significant. */
+export type KeyLevel = { price: number; touches: number }
+
 export type TechnicalSnapshot = {
   /** 5-trading-day cumulative return (%) */
   chg5d: number | null
@@ -22,6 +26,12 @@ export type TechnicalSnapshot = {
   week52High: number | null
   /** 52-week low price */
   week52Low: number | null
+  /** 20-day SMA value (not just above/below). */
+  sma20: number | null
+  /** 50-day SMA value. */
+  sma50: number | null
+  /** Support/resistance levels from clustered swing pivots + 52wk extremes. */
+  keyLevels: KeyLevel[]
   /** MACD line (12-EMA minus 26-EMA) */
   macd: number | null
   /** MACD signal line (9-EMA of MACD) */
@@ -138,6 +148,50 @@ function periodReturn(closes: number[], lookback: number): number | null {
   return ((cur - old) / old) * 100
 }
 
+/**
+ * Support/resistance from swing pivots. A fractal swing high/low is a bar whose
+ * high/low is the extreme of a ±k window; nearby pivots (within CLUSTER_PCT) are
+ * merged, and 52-week extremes are always included. `touches` = pivots in the
+ * cluster (how often price turned there). Kept: clusters with ≥2 pivots (a level
+ * tested more than once), capped to the most-tested. Pure + exported for tests.
+ */
+export function computeKeyLevels(bars: OhlcBar[], k = 5, clusterPct = 0.015, max = 10): KeyLevel[] {
+  if (bars.length < 2 * k + 5) return []
+  const highs = bars.map((b) => b.high)
+  const lows = bars.map((b) => b.low)
+
+  const pivots: number[] = []
+  for (let i = k; i < bars.length - k; i++) {
+    let isHigh = true
+    let isLow = true
+    for (let j = i - k; j <= i + k; j++) {
+      if (highs[j] > highs[i]) isHigh = false
+      if (lows[j] < lows[i]) isLow = false
+    }
+    if (isHigh) pivots.push(highs[i])
+    if (isLow) pivots.push(lows[i])
+  }
+  // 52-week extremes are always meaningful levels.
+  pivots.push(highs.reduce((a, b) => (b > a ? b : a), -Infinity))
+  pivots.push(lows.reduce((a, b) => (b < a ? b : a), Infinity))
+
+  pivots.sort((a, b) => a - b)
+  const clusters: number[][] = []
+  for (const p of pivots) {
+    const last = clusters[clusters.length - 1]
+    const lastAvg = last ? last.reduce((a, b) => a + b, 0) / last.length : 0
+    if (last && lastAvg > 0 && Math.abs(p - lastAvg) / lastAvg < clusterPct) last.push(p)
+    else clusters.push([p])
+  }
+
+  return clusters
+    .map((c) => ({ price: Math.round((c.reduce((a, b) => a + b, 0) / c.length) * 100) / 100, touches: c.length }))
+    .filter((l) => l.touches >= 2)
+    .sort((a, b) => b.touches - a.touches)
+    .slice(0, max)
+    .sort((a, b) => a.price - b.price)
+}
+
 // ---------- Public ----------
 
 /**
@@ -149,6 +203,7 @@ export function computeTechnicals(bars: OhlcBar[]): TechnicalSnapshot {
     return {
       chg5d: null, chg20d: null,
       week52Pct: null, week52High: null, week52Low: null,
+      sma20: null, sma50: null, keyLevels: [],
       macd: null, macdSignal: null, macdHist: null, macdView: 'neutral',
       rsi14: null, rsiView: 'neutral',
       aboveSma20: null, aboveSma50: null,
@@ -204,6 +259,9 @@ export function computeTechnicals(bars: OhlcBar[]): TechnicalSnapshot {
     week52Pct,
     week52High: w52High,
     week52Low: w52Low,
+    sma20: sma20 != null ? Math.round(sma20 * 100) / 100 : null,
+    sma50: sma50 != null ? Math.round(sma50 * 100) / 100 : null,
+    keyLevels: computeKeyLevels(bars),
     macd: macd != null ? Math.round(macd * 100) / 100 : null,
     macdSignal: macdSignal != null ? Math.round(macdSignal * 100) / 100 : null,
     macdHist: macdHist != null ? Math.round(macdHist * 100) / 100 : null,

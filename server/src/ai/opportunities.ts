@@ -11,7 +11,7 @@
 
 import { chatJson, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
-import type { ScannedOpp } from '../engine/oppScanner.js'
+import type { ScannedOpp, ShortLevel } from '../engine/oppScanner.js'
 import type { StrategyType } from '../engine/types.js'
 
 // ---------- Types ----------
@@ -66,6 +66,10 @@ export type Opp = {
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss
    *  (IVR below the floor) shown as "参考位 · 不建议开仓". */
   boardTier?: 'qualified' | 'reference'
+  /** Nearest support/resistance to each short strike (strike-placement context). */
+  shortLevels?: ShortLevel[]
+  /** Underlying in a strong aligned trend — condor easily run over (warning). */
+  strongTrend?: boolean
 }
 
 // ---------- AI copywriting ----------
@@ -263,7 +267,7 @@ export async function buildOppsFromScan(
   if (scannedOpps.length === 0) return []
 
   const symKey = [...new Set(scannedOpps.map((o) => o.sym))].sort().join(',')
-  const key = `opps-copy-v6-${etCalendarDay()}-${symKey}`
+  const key = `opps-copy-v7-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit
@@ -331,7 +335,9 @@ export async function buildOppsFromScan(
         aiView: o.aiView ?? null,
         aiViewReason: o.aiViewReason ?? null,
         lowConviction: o.regime === 'buy',
-        boardTier: o.boardTier
+        boardTier: o.boardTier,
+        shortLevels: o.shortLevels,
+        strongTrend: o.strongTrend
       }
     })
 

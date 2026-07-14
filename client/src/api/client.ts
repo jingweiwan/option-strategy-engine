@@ -18,9 +18,10 @@ export type DashboardSnapshot = {
   vixy: { v: number; chg: number }
   ivRankMedian: number
   fearGreed?: number | null
-  earningsToday?: number
+  /** Watchlist earnings within the entry-span window, soonest first. */
+  earningsUpcoming?: { sym: string; label: string; daysUntil: number }[]
   fedDays?: number
-  watchlistTickers?: { sym: string; iv: number; ivr: number; em: number; chg: number }[]
+  watchlistTickers?: { sym: string; iv: number; ivr: number; ivrReliable?: boolean; em: number; chg: number }[]
   /** What the gated board actually surfaced — grounds the AI enginePose. */
   board?: {
     qualifiedCount: number

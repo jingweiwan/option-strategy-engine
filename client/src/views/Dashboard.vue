@@ -52,6 +52,16 @@ const opps = computed(() =>
 )
 
 /** Honest reason the qualified board is empty, inferred from the watchlist snapshot. */
+// Upcoming watchlist earnings, soonest first. spansEntry (≤45d) = a new
+// 30/45-DTE position opened today would straddle the event.
+const earningsCal = computed(() => data.value?.market?.earningsCalendar ?? [])
+
+function earnTone(daysUntil: number): 'imminent' | 'span' | 'far' {
+  if (daysUntil <= 7) return 'imminent'
+  if (daysUntil <= 45) return 'span'
+  return 'far'
+}
+
 const emptyReason = computed(() => {
   const t = data.value?.tickers ?? []
   const withIvr = t.filter((x) => x.ivr != null)
@@ -191,14 +201,14 @@ async function loadNarrative() {
       vixy: m.vixy,
       ivRankMedian: ivrMedian,
       fearGreed: m.fearGreed ?? undefined,
-      earningsToday: m.earningsToday,
+      earningsUpcoming: (m.earningsCalendar ?? []).map((e) => ({ sym: e.sym, label: e.label, daysUntil: e.daysUntil })),
       fedDays: m.fedDays,
       // Only feed AI tickers with all live data available — don't pollute the
       // narrative with nulls or synthetic zeros.
       watchlistTickers: data.value.tickers.flatMap((t) =>
         t.chg == null || t.iv == null || t.ivr == null || t.em == null
           ? []
-          : [{ sym: t.sym, iv: t.iv, ivr: t.ivr, em: t.em, chg: t.chg }]
+          : [{ sym: t.sym, iv: t.iv, ivr: t.ivr, ivrReliable: t.ivrSource !== 'rv-fallback', em: t.em, chg: t.chg }]
       ),
       // Ground the narrative in what actually cleared the gates.
       board: {
@@ -423,6 +433,31 @@ watch(data, (v) => {
         </div>
       </section>
 
+      <!-- Upcoming watchlist earnings calendar -->
+      <section class="earn-section">
+        <div class="eyebrow" style="margin-bottom: 12px">财报日历 · watchlist 未来财报</div>
+        <div v-if="earningsCal.length > 0" class="earn-cal">
+          <div
+            v-for="e in earningsCal"
+            :key="e.sym"
+            class="earn-row"
+            :class="earnTone(e.daysUntil)"
+            @click="goTicker(e.sym)"
+            tabindex="0"
+            role="link"
+          >
+            <span class="earn-sym mono">{{ e.sym }}</span>
+            <span class="earn-date">{{ e.label }}</span>
+            <span class="earn-dte mono">T-{{ e.daysUntil }}</span>
+            <span v-if="e.spansEntry" class="earn-flag" title="今日按 30/45 DTE 开的新单会跨越这次财报 — 卖方结构会被门槛剔除">
+              ⚠ 新单会跨
+            </span>
+            <span v-else class="earn-clear">超出进场窗口</span>
+          </div>
+        </div>
+        <div v-else class="earn-empty">watchlist 近端无财报 — 进场窗口无事件风险</div>
+      </section>
+
       <!-- Book-level risk of the whole recommended board -->
       <BookRiskCard v-if="data.bookRisk && data.bookRisk.positions > 0" :risk="data.bookRisk" :real="data.realBook" />
 
@@ -468,6 +503,7 @@ watch(data, (v) => {
                 <span class="chip">{{ o.tag }}</span>
                 <span v-if="isHeldSym(o.sym)" class="held-chip">已持仓</span>
                 <span v-if="o.lowConviction" class="lowconv-chip" title="买方 regime(RV>IV):引擎的 edge 在卖波动,此环境无已证明优势">⚠ 低信心</span>
+                <span v-if="o.strongTrend" class="lowconv-chip" title="标的处于强单边趋势(20日涨跌≥15% 且价格同在两条均线一侧)——中性铁鹰易被趋势碾过一侧,谨慎">⚠ 强趋势</span>
               </div>
               <span class="opp-edge mono">edge {{ o.edge }}</span>
             </header>
@@ -507,6 +543,20 @@ watch(data, (v) => {
                     {{ bi > 0 ? ' / ' : '' }}${{ be.toFixed(1) }}
                   </b>
                 </span>
+              </div>
+
+              <!-- Short-strike proximity to support/resistance (strike placement) -->
+              <div v-if="o.shortLevels && o.shortLevels.length" class="opp-keylevels">
+                <div class="opp-keylevels-label mono">关键位</div>
+                <div v-for="(sl, si) in o.shortLevels" :key="si" class="keylevel-row mono" :class="{ tested: sl.tested }">
+                  <span>短 {{ sl.type === 'call' ? 'Call' : 'Put' }} <b class="tnum">${{ sl.strike }}</b></span>
+                  <span class="dim">→ {{ sl.distPct > 0 ? '上方阻力' : '下方支撑' }} <b class="tnum">${{ sl.level }}</b></span>
+                  <span class="tnum" :class="Math.abs(sl.distPct) <= 3 ? 'loss-text' : 'dim'">
+                    {{ sl.distPct > 0 ? '+' : '' }}{{ sl.distPct }}%
+                  </span>
+                  <span class="dim">· {{ sl.touches }}次</span>
+                  <span v-if="sl.tested" class="keylevel-warn">⚠ 短腿压在被测试位上</span>
+                </div>
               </div>
             </div>
 
@@ -944,6 +994,49 @@ watch(data, (v) => {
 }
 
 /* ===== opps ===== */
+.earn-section { margin-top: 44px; }
+.earn-cal {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule-hair);
+}
+.earn-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--rule-hair);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.earn-row:hover,
+.earn-row:focus-visible { background: var(--paper-3); outline: none; }
+.earn-sym { font-weight: 600; font-size: 14px; }
+.earn-date { color: var(--ink-3); font-size: 13px; }
+.earn-dte { font-size: 13px; color: var(--ink-4); text-align: right; }
+.earn-flag {
+  font-size: 12px;
+  color: var(--loss);
+  white-space: nowrap;
+  justify-self: end;
+}
+.earn-clear {
+  font-size: 12px;
+  color: var(--ink-4);
+  white-space: nowrap;
+  justify-self: end;
+}
+/* imminent (≤7d): red accent on the whole row; span (≤45d): amber-ish via loss dim; far: muted */
+.earn-row.imminent .earn-sym { color: var(--loss); }
+.earn-row.imminent .earn-dte { color: var(--loss); }
+.earn-row.far { opacity: 0.62; }
+.earn-empty {
+  padding: 14px 4px;
+  color: var(--ink-4);
+  font-size: 13px;
+  border-top: 1px solid var(--rule-hair);
+}
 .opps-section { margin-top: 44px; }
 .opps-empty {
   padding: 48px 0;
@@ -1148,6 +1241,29 @@ watch(data, (v) => {
   font-weight: 600;
   margin-left: 3px;
 }
+.opp-keylevels {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule-hair);
+}
+.opp-keylevels-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+.keylevel-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--ink-2);
+  padding: 2px 0;
+}
+.keylevel-row b { color: var(--ink); font-weight: 600; }
+.keylevel-row.tested { color: var(--loss, #e53935); }
+.keylevel-warn { color: var(--loss, #e53935); font-size: 10.5px; }
 .level-item b.loss-text {
   color: var(--loss, #e53935);
 }

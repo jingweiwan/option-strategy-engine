@@ -2,7 +2,7 @@ import { ref, computed } from 'vue'
 
 const STORAGE_V2 = 'ose-watchlist-v2'
 const STORAGE_V1 = 'ose-watchlist-syms-v1'
-const MAX_SYMBOLS = 16
+const MAX_SYMBOLS = 40
 
 export type WatchlistItem = {
   sym: string

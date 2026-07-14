@@ -103,9 +103,18 @@ export function armKey(strategy: StrategyType, regime: Regime, variant: string):
 
 export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
   const stats: ArmStats = new Map()
+  // A surfaced (dashboard) row and its same-day shadow row describe the SAME
+  // arm on the same underlying's path — count once, preferring the surfaced row.
+  const surfaced = new Set<string>()
+  for (const s of snaps) {
+    if (s.source !== 'shadow' && s.variant != null) {
+      surfaced.add(`${s.etDay}|${s.sym}|${s.strategyId}|${s.variant}`)
+    }
+  }
   for (const s of snaps) {
     if (!TUNED_STRATEGIES.includes(s.strategyId)) continue
     if (!s.outcome) continue
+    if (s.source === 'shadow' && surfaced.has(`${s.etDay}|${s.sym}|${s.strategyId}|${s.variant}`)) continue
     const pnl = outcomePnl(s.outcome)
     if (pnl == null) continue
     // Attribute to the recorded arm; variant-less snapshots seed the strategy's

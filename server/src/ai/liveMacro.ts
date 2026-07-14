@@ -51,28 +51,43 @@ type LiveMacro = {
   vixy: { v: number; chg: number }
 }
 
-/**
- * Live SPY + VIXY header. Throws if Finnhub is unavailable (no key, disabled,
- * or fetch error). Caller decides whether to return 502 or surface partial.
- *
- * Why no silent fallback: `/api/dashboard` is supposed to render TODAY's
- * market state. Stale mock data is worse than an error chip — the AI
- * narrative would dutifully analyze the wrong numbers.
- */
+// Last successful SPY/VIXY read — used as a stale fallback so a transient
+// Finnhub blip (429 / Cloudflare 502) degrades the header to slightly-old real
+// numbers instead of nuking the whole dashboard.
+let lastGoodMacro: LiveMacro | null = null
+
+/** Live SPY + VIXY. Throws if Finnhub is unavailable; use liveOrStaleMacro to
+ *  degrade gracefully. Populates the stale cache on success. */
 export async function fetchLiveMacro(): Promise<LiveMacro> {
   if (LIVE_MACRO_OFF) throw new Error('LIVE_MACRO=0 (live macro disabled by env)')
   if (!finnhubKeySet()) throw new Error('FINNHUB_API_KEY not configured')
   const { spy, vixy } = await fetchSpyVixy()
-  return { asof: formatAsofEt(), spy, vixy }
+  lastGoodMacro = { asof: formatAsofEt(), spy, vixy }
+  return lastGoodMacro
 }
 
 /**
- * Overlay live macro onto a MarketSnapshot. Throws on live failure — caller
- * should handle (e.g. `/api/dashboard` returns 502, scheduler logs and skips).
+ * Best-available macro, NEVER throws: live → else last-known (stale) → else null.
+ * The SPY/VIXY header is a secondary display; a transient Finnhub outage must not
+ * take down the opportunity board / tickers with it. Stale-by-minutes real
+ * numbers beat both a crash and fake zeros.
  */
+async function liveOrStaleMacro(): Promise<LiveMacro | null> {
+  try {
+    return await fetchLiveMacro()
+  } catch (e) {
+    console.warn(
+      `[liveMacro] live fetch failed: ${(e as Error).message}` +
+        (lastGoodMacro ? ' → using last-known (stale)' : ' → no cached macro, skipping header')
+    )
+    return lastGoodMacro
+  }
+}
+
+/** Overlay live-or-stale macro onto a MarketSnapshot (never throws). */
 export async function mergeLiveMacroIntoSnapshot(snap: MarketSnapshot): Promise<MarketSnapshot> {
-  const live = await fetchLiveMacro()
-  return { ...snap, ...live }
+  const live = await liveOrStaleMacro()
+  return live ? { ...snap, ...live } : snap
 }
 
 type MacroHeader = {
@@ -81,8 +96,9 @@ type MacroHeader = {
   vixy: { v: number; chg: number }
 }
 
-/** Patch dashboard `market` header only (SPY/VIXY/asof). Throws on failure. */
+/** Patch dashboard `market` header (SPY/VIXY/asof) with live-or-stale macro.
+ *  Never throws — a Finnhub outage degrades the header, not the whole board. */
 export async function mergeLiveMacroIntoDashboardMarket<M extends MacroHeader>(market: M): Promise<M> {
-  const live = await fetchLiveMacro()
-  return { ...market, ...live }
+  const live = await liveOrStaleMacro()
+  return live ? { ...market, ...live } : market
 }

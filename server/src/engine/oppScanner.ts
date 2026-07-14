@@ -20,22 +20,25 @@ import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from
 import type { StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
 import { impliedVolFromChain } from './liveStrategies.js'
+import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
 import { watchlistCacheSlug } from '../watchlistDefaults.js'
 import { getDirectionalViews, type SymbolContext } from '../ai/directionalView.js'
-import { computeTechnicals, type TechnicalSnapshot } from './technicals.js'
+import { computeTechnicals, type TechnicalSnapshot, type KeyLevel } from './technicals.js'
 import { pairwiseCorrelation } from './portfolioRisk.js'
 import { loadCalibrationTable, calibrationMultiplier, type CalibrationTable } from '../feedback/calibration.js'
 import {
   TUNER_ENABLED,
   TUNED_STRATEGIES,
   buildArmStats,
-  pickShortDelta,
   legsForShortDelta,
+  armsFor,
+  variantId,
   type ArmStats
 } from '../feedback/tuner.js'
 import { loadSnapshots } from '../feedback/store.js'
+import { recordShadowArmSnapshots } from '../feedback/record.js'
 import type { LegSpec } from './liveStrategies.js'
 
 // ---------- Types ----------
@@ -85,6 +88,51 @@ export type ScannedOpp = {
   spansEarnings?: boolean
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss. */
   boardTier?: OppTier
+  /** Nearest support/resistance level to each SHORT strike (for strike placement). */
+  shortLevels?: ShortLevel[]
+  /** Underlying is in a strong aligned trend — a condor is easily run over. */
+  strongTrend?: boolean
+}
+
+/** A short strike's proximity to the nearest key level — informational, for
+ *  strike placement / management. Not a filter. */
+export type ShortLevel = {
+  strike: number
+  type: 'call' | 'put'
+  /** Nearest key level to the short strike. */
+  level: number
+  /** Signed % from strike to level: +above / −below the strike. */
+  distPct: number
+  /** How many swing pivots formed the level (significance). */
+  touches: number
+  /** Short strike sits ON a well-tested level (contested/pin risk). */
+  tested: boolean
+}
+
+const LEVEL_NEAR_PCT = 3 // within this % of a level counts as "at" it
+const LEVEL_TESTED_TOUCHES = 3 // a level this well-tested near a short strike → flag
+
+/** Nearest key level to each short leg; flags shorts pinned on a tested level. */
+export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): ShortLevel[] {
+  if (keyLevels.length === 0) return []
+  const out: ShortLevel[] = []
+  for (const l of legs) {
+    if (l.action !== 'sell') continue
+    let best = keyLevels[0]
+    for (const kl of keyLevels) {
+      if (Math.abs(kl.price - l.strike) < Math.abs(best.price - l.strike)) best = kl
+    }
+    const distPct = ((best.price - l.strike) / l.strike) * 100
+    out.push({
+      strike: l.strike,
+      type: l.type,
+      level: best.price,
+      distPct: Math.round(distPct * 10) / 10,
+      touches: best.touches,
+      tested: Math.abs(distPct) <= LEVEL_NEAR_PCT && best.touches >= LEVEL_TESTED_TOUCHES
+    })
+  }
+  return out
 }
 
 // ---------- Sell-vol auto-board qualification ----------
@@ -110,6 +158,13 @@ const SELL_VOL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'bull_put
  *   - null         IVR < ref, OR earnings-spanning         → dropped entirely
  * Non-sell-vol structures are always 'qualified' (this gate is about vol
  * richness, not direction — direction is gated by autoScanEligible).
+ *
+ * The IVR floor is only a coarse screen; the real edge test is the downstream
+ * score>0 (EV) filter. An rv-fallback IVR is an unreliable *rank* but the EV
+ * is computed from real IV, so a positive-EV setup on an rv-fallback name is
+ * still a real opportunity — we DON'T demote here (that discarded genuine edge,
+ * e.g. QQQ +0.81 EV). The rv-fallback caveat lives in the display layer only
+ * (narrative/notes must not headline a fake rank as "seller's paradise").
  */
 export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: boolean): OppTier | null {
   if (!SELL_VOL_STRATEGIES.has(strategy)) return 'qualified'
@@ -285,6 +340,12 @@ export function autoScanEligible(strategy: StrategyType, view: View | undefined,
   return !!view && viewWeight(view, skill) > 0 && (STRATEGY_VIEW_MAP[strategy]?.includes(view) ?? false)
 }
 
+// Per-symbol fan-out is capped so a large watchlist doesn't burst past the
+// quote provider's rate limit (Finnhub 60/min) — 29 simultaneous quote calls
+// 429'd almost every one. See mapSettledLimit.
+const PREFETCH_CONCURRENCY = Number(process.env.SCAN_PREFETCH_CONCURRENCY) || 6
+const SCAN_CONCURRENCY = Number(process.env.SCAN_SYMBOL_CONCURRENCY) || 4
+
 /**
  * Condor exit-policy A/B assignment. EXIT_POLICY_EXPERIMENT=0 turns the
  * experiment off (everything runs 'managed'). Deterministic hash of
@@ -416,15 +477,22 @@ async function runScan(
     quote: Awaited<ReturnType<typeof getQuote>>
     ivRankInfo: Awaited<ReturnType<typeof computeIvRank>> | null
     returns: Map<string, number>
+    keyLevels: KeyLevel[]
+    strongTrend: boolean
   }
-  const preData = await Promise.allSettled(
-    watchlist.map(async (entry): Promise<PreFetchResult> => {
+  const preData = await mapSettledLimit(
+    watchlist, PREFETCH_CONCURRENCY,
+    async (entry): Promise<PreFetchResult> => {
       const [q, ivr, td] = await Promise.all([
         getQuote(entry.sym).catch(() => ({ symbol: entry.sym, last: 0, bid: 0, ask: 0 } as const)),
         computeIvRank(entry.sym, 0).catch(() => null),
         fetchTechnicals(entry.sym).catch((): TechData => ({ tech: computeTechnicals([]), returns: new Map() }))
       ])
       const tech = td.tech
+      // Strong aligned trend (both SMAs same side + a big 20d move) → a condor is
+      // likely to be run over on that side. A warning, not a hard filter.
+      const strongTrend = tech.chg20d != null && Math.abs(tech.chg20d) >= 15 &&
+        tech.aboveSma20 != null && tech.aboveSma20 === tech.aboveSma50
       const ivrVal = ivr?.rank ?? 50
       const rvVal = ivr?.currentRv ?? null
       const ivEstimate = rvVal != null && rvVal > 0 ? rvVal : null
@@ -450,8 +518,11 @@ async function runScan(
         aboveSma50: tech.aboveSma50,
         volumeRatio: tech.volumeRatio
       }
-      return { ctx, quote: q as Awaited<ReturnType<typeof getQuote>>, ivRankInfo: ivr, returns: td.returns }
-    })
+      return {
+        ctx, quote: q as Awaited<ReturnType<typeof getQuote>>, ivRankInfo: ivr,
+        returns: td.returns, keyLevels: tech.keyLevels, strongTrend
+      }
+    }
   )
 
   // Build lookup maps from pre-fetched data
@@ -482,25 +553,39 @@ async function runScan(
     console.warn('[oppScanner] AI directional view failed, proceeding without:', (err as Error).message)
   }
 
-  // Process symbols in parallel (each symbol is independent)
-  const symbolResults = await Promise.allSettled(
-    watchlist.map((entry) => {
+  // Process symbols with a bounded fan-out (each symbol is independent but does
+  // several chain fetches + engine runs; unbounded across a large watchlist
+  // bursts the data providers and thrashes CPU).
+  const symbolResults = await mapSettledLimit(
+    watchlist, SCAN_CONCURRENCY,
+    (entry) => {
       const dv = viewMap.get(entry.sym)
       // Only use view if confidence is above threshold
       const view = dv && dv.confidence >= 0.55 ? dv.view : undefined
       const reason = dv?.reason
       const confidence = dv?.confidence
       const pd = preDataMap.get(entry.sym)
-      return scanSymbol(entry, view, reason, confidence, pd?.quote, pd?.ivRankInfo, earningsIso[entry.sym], calibration, armStats, viewSkill)
-    })
+      return scanSymbol(entry, view, reason, confidence, pd?.quote, pd?.ivRankInfo, earningsIso[entry.sym], calibration, armStats, viewSkill, pd?.keyLevels ?? [], pd?.strongTrend ?? false)
+    }
   )
 
+  const shadowRows: ScannedOpp[] = []
   for (const result of symbolResults) {
     if (result.status === 'fulfilled') {
-      allOpps.push(...result.value)
+      allOpps.push(...result.value.opps)
+      shadowRows.push(...result.value.shadow)
     } else {
       console.warn('[oppScanner] symbol scan failed:', (result.reason as Error).message)
     }
+  }
+
+  // Record every evaluated arm for learning (fire-and-forget; same-day batches
+  // replace, so rescans stay idempotent). See recordShadowArmSnapshots.
+  if (shadowRows.length > 0) {
+    console.log(`[oppScanner] shadow-recording ${shadowRows.length} arm rows for learning`)
+    recordShadowArmSnapshots(shadowRows).catch((err) =>
+      console.warn('[oppScanner] shadow record failed:', (err as Error).message)
+    )
   }
 
   // Drop opps that fail the sell-vol auto-board gate (IVR too low, or earnings-
@@ -546,8 +631,10 @@ async function scanSymbol(
   earningsDate?: string,
   calibration?: CalibrationTable,
   armStats?: ArmStats,
-  viewSkill?: ViewSkillTable
-): Promise<ScannedOpp[]> {
+  viewSkill?: ViewSkillTable,
+  keyLevels: KeyLevel[] = [],
+  strongTrend = false
+): Promise<{ opps: ScannedOpp[]; shadow: ScannedOpp[] }> {
   const { sym, name } = entry
 
   // Use pre-fetched data when available; only fetch what's missing
@@ -559,13 +646,13 @@ async function scanSymbol(
 
   if (!quote.last || !Number.isFinite(quote.last)) {
     console.warn(`[oppScanner] no quote for ${sym}`)
-    return []
+    return { opps: [], shadow: [] }
   }
 
   const targetExps = pickExpirations(exps)
   if (targetExps.length === 0) {
     console.warn(`[oppScanner] no valid expirations for ${sym}`)
-    return []
+    return { opps: [], shadow: [] }
   }
 
   // Fetch chains for each expiration in parallel
@@ -574,6 +661,8 @@ async function scanSymbol(
   )
 
   const opps: ScannedOpp[] = []
+  const shadow: ScannedOpp[] = []
+  let shadowDone = false
 
   for (let i = 0; i < targetExps.length; i++) {
     const exp = targetExps[i]
@@ -596,29 +685,59 @@ async function scanSymbol(
       // Online tuner: Thompson-sample the credit-spread short delta for this
       // regime. Regime is pre-derived from the same inputs the engine uses, so
       // the arm matches the bucket the outcome will later be attributed to.
-      let specOverrides: Partial<Record<StrategyType, LegSpec[]>> | undefined
-      const variantBy: Partial<Record<StrategyType, string>> = {}
-      if (armStats && TUNER_ENABLED) {
-        const atmIv = impliedVolFromChain(chain, quote.last) ?? 0
-        const preRegime = deriveRegime(ivRank ?? 50, atmIv, ivRankInfo?.currentRv ?? undefined)
-        for (const st of TUNED_STRATEGIES) {
-          const pick = pickShortDelta(st, preRegime, armStats)
-          const legSpecs = pick && legsForShortDelta(st, pick.shortDelta)
-          if (pick && legSpecs) {
-            specOverrides = { ...(specOverrides ?? {}), [st]: legSpecs }
-            variantBy[st] = pick.variant
-          }
-        }
-        const picked = Object.entries(variantBy).map(([s, v]) => `${s}=${v}`).join(' ')
-        if (picked) console.log(`[tuner] ${sym} ${exp} regime=${preRegime}: ${picked}`)
-      }
-
       // Condor exit A/B: deterministic 50/50 by (symbol × ET day) — stable
       // across same-day rescans (snapshot replacement stays consistent), flips
       // across days so both arms accumulate on every name. The engine then
       // scores the condor UNDER the chosen policy (display = learning).
       const icPolicy = pickExitPolicy(sym)
       const exitPolicyBy: Partial<Record<StrategyType, ExitPolicy>> = { iron_condor: icPolicy }
+
+      // Tuner arm selection for the BOARD: evaluate every arm on this chain and
+      // keep the BEST-scoring one per tuned strategy. A random Thompson sample
+      // hides real edge when only the conservative arm is positive (AAPL/NVDA
+      // condors clear at 0.16 but not 0.20/0.24 — the sampled arm would drop
+      // them). Exploration/learning still covers ALL arms via the shadow
+      // snapshots below; this only decides what to SHOW. Ranking by raw
+      // scoreStrategy is exact here — the regime/view/calib multipliers are
+      // constant across a strategy's arms, so they don't change the ordering.
+      let specOverrides: Partial<Record<StrategyType, LegSpec[]>> | undefined
+      const variantBy: Partial<Record<StrategyType, string>> = {}
+      if (armStats && TUNER_ENABLED) {
+        const bestArmScore: Partial<Record<StrategyType, number>> = {}
+        const armCount = Math.max(...TUNED_STRATEGIES.map((st) => armsFor(st).length))
+        for (let k = 0; k < armCount; k++) {
+          const pinned: Partial<Record<StrategyType, LegSpec[]>> = {}
+          const pinnedVariant: Partial<Record<StrategyType, string>> = {}
+          for (const st of TUNED_STRATEGIES) {
+            const d = armsFor(st)[k]
+            const legs = d != null ? legsForShortDelta(st, d) : null
+            if (d != null && legs) {
+              pinned[st] = legs
+              pinnedVariant[st] = variantId(d)
+            }
+          }
+          const probe = runEngineLive({
+            symbol: sym, spot: quote.last, expiration: exp, chain, ivRank,
+            currentRv: ivRankInfo?.currentRv ?? undefined,
+            simulations: 800, seed: 42, view, earningsDate,
+            specOverrides: pinned, exitPolicies: exitPolicyBy
+          })
+          for (const st of TUNED_STRATEGIES) {
+            const specLegs = pinned[st]
+            if (!specLegs) continue
+            const r = probe.results.find((x) => x.strategy === st)
+            if (!r || r.legs.length === 0) continue
+            const sc = scoreStrategy(r, quote.last)
+            if (bestArmScore[st] == null || sc > (bestArmScore[st] as number)) {
+              bestArmScore[st] = sc
+              specOverrides = { ...(specOverrides ?? {}), [st]: specLegs }
+              variantBy[st] = pinnedVariant[st]
+            }
+          }
+        }
+        const picked = Object.entries(variantBy).map(([s, v]) => `${s}=${v}`).join(' ')
+        if (picked) console.log(`[tuner] ${sym} ${exp} best-arm: ${picked}`)
+      }
 
       const result = runEngineLive({
         symbol: sym,
@@ -668,6 +787,7 @@ async function scanSymbol(
       function makeOpp(sr: { r: StrategyResult; score: number }): ScannedOpp {
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
+        const legs = r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity }))
         return {
           sym,
           name,
@@ -691,20 +811,16 @@ async function scanSymbol(
           regime: result.state.regime,
           rvAtScan: ivRankInfo?.currentRv ?? null,
           breakevens: [...r.metrics.breakevens],
-          legs: r.legs.map((l) => ({
-            type: l.type,
-            action: l.action,
-            strike: l.strike,
-            premium: l.premium,
-            quantity: l.quantity
-          })),
+          legs,
           aiView: view,
           aiViewConfidence: viewConfidence,
           aiViewReason: viewReason,
           variant: variantBy[r.strategy] ?? null,
           exitPolicy: exitPolicyBy[r.strategy] ?? null,
           spansEarnings,
-          boardTier: sellVolTier(r.strategy, result.state.ivRank, spansEarnings) ?? undefined
+          boardTier: sellVolTier(r.strategy, result.state.ivRank, spansEarnings) ?? undefined,
+          shortLevels: shortLegLevels(legs, keyLevels),
+          strongTrend
         }
       }
 
@@ -730,12 +846,92 @@ async function scanSymbol(
           }
         }
       }
+
+      // Shadow arm evaluation (learning only, never displayed): rerun the
+      // engine pinned to EVERY tuner arm and record all of them, including
+      // the ones the score filter would reject. Without this, losing arms
+      // are never recorded, their posteriors never update, and the tuner
+      // can't learn they lose — the score filter would otherwise act as an
+      // unfalsifiable gate (selection bias). One expiration per symbol per
+      // day (the first valid one) keeps rows per (sym × strategy × arm)
+      // unique; earnings-spanning expirations are skipped because the board
+      // never trades them, so learning them would poison the posteriors.
+      if (!shadowDone && armStats && TUNER_ENABLED && !spansEarningsDate(earningsDate, exp)) {
+        shadowDone = true
+        const armCount = Math.max(...TUNED_STRATEGIES.map((st) => armsFor(st).length))
+        for (let k = 0; k < armCount; k++) {
+          const pinned: Partial<Record<StrategyType, LegSpec[]>> = {}
+          const pinnedVariant: Partial<Record<StrategyType, string>> = {}
+          for (const st of TUNED_STRATEGIES) {
+            const d = armsFor(st)[k]
+            const legSpecs = d != null ? legsForShortDelta(st, d) : null
+            if (d != null && legSpecs) {
+              pinned[st] = legSpecs
+              pinnedVariant[st] = variantId(d)
+            }
+          }
+          try {
+            const res = runEngineLive({
+              symbol: sym,
+              spot: quote.last,
+              expiration: exp,
+              chain,
+              ivRank,
+              currentRv: ivRankInfo?.currentRv ?? undefined,
+              simulations: 1000, // structure + rough metrics; reward comes from the realized outcome
+              seed: 42,
+              specOverrides: pinned,
+              exitPolicies: exitPolicyBy
+            })
+            for (const st of TUNED_STRATEGIES) {
+              if (!pinnedVariant[st]) continue
+              const r = res.results.find((x) => x.strategy === st)
+              if (!r || r.legs.length === 0) {
+                // Usually the liquid chain doesn't reach the arm's far wing
+                // (common on stale/weekend snapshots) — untradable that day,
+                // so not recording it is honest, but say so.
+                console.log(`[oppScanner] shadow ${sym} ${exp} ${st} ${pinnedVariant[st]}: not buildable on this chain, skipped`)
+                continue
+              }
+              shadow.push({
+                sym,
+                name,
+                expiration: exp,
+                strategyId: st,
+                strategy: STRAT_CN[st] ?? st,
+                score: scoreStrategy(r, quote.last), // raw; may be ≤0 — that's the point
+                spot: quote.last,
+                iv: res.state.iv,
+                ivr: res.state.ivRank,
+                dte: res.state.dte,
+                pop: r.metrics.probabilityProfit,
+                ev: r.metrics.ev,
+                maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
+                maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
+                netPremium: r.netPremium,
+                delta: r.netGreeks.delta,
+                gamma: r.netGreeks.gamma,
+                vega: r.netGreeks.vega,
+                theta: r.netGreeks.theta,
+                regime: res.state.regime,
+                rvAtScan: ivRankInfo?.currentRv ?? null,
+                breakevens: [...r.metrics.breakevens],
+                legs: r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity })),
+                variant: pinnedVariant[st],
+                exitPolicy: exitPolicyBy[st] ?? null
+              })
+            }
+          } catch (err) {
+            console.warn(`[oppScanner] shadow run failed for ${sym} ${exp} arm#${k}:`, (err as Error).message)
+          }
+        }
+      }
     } catch (err) {
       console.warn(`[oppScanner] engine failed for ${sym} ${exp}:`, (err as Error).message)
     }
   }
 
-  return opps
+  return { opps, shadow }
 }
 
 // ---------- Cached public API ----------
@@ -749,7 +945,7 @@ export async function getScannedOpps(
   earningsIso: Record<string, string> = {}
 ): Promise<ScannedOpp[]> {
   const wlSlug = watchlistCacheSlug(watchlist)
-  const key = `opp-scan-v8-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v10-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

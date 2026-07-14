@@ -195,6 +195,9 @@ export async function feedbackRoutes(app: FastifyInstance) {
       const acc: Record<string, { n: number; totalPnl: number; wins: number }> = {}
       for (const s of all) {
         if (s.strategyId !== 'iron_condor' || !s.outcome) continue
+        // Shadow arm rows share the day's exit policy across 3 arms — near-
+        // duplicates that would triple-count; the A/B reads the surfaced book.
+        if (s.source === 'shadow') continue
         const pnl = outcomePnl(s.outcome)
         if (pnl == null) continue
         const k = s.exitPolicy ?? 'managed'

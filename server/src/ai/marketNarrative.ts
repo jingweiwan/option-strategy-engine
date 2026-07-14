@@ -11,9 +11,15 @@ export type MarketSnapshot = {
   vixy: { v: number; chg: number }
   ivRankMedian: number
   fearGreed?: number | null
-  earningsToday?: number
+  /** Watchlist earnings within the entry-span window (≤45d), soonest first —
+   *  the honest event signal. Replaces the old whole-market `earningsToday`
+   *  count, which was 0 on most days and said nothing about the watchlist. */
+  earningsUpcoming?: { sym: string; label: string; daysUntil: number }[]
   fedDays?: number
-  watchlistTickers?: { sym: string; iv: number; ivr: number; em: number; chg: number }[]
+  /** ivrReliable=false → the IVR is an rv-fallback proxy (no real IV history);
+   *  a high value means "recently thrashing", NOT rich implied vol — don't
+   *  headline it or call it a sell-vol setup. */
+  watchlistTickers?: { sym: string; iv: number; ivr: number; ivrReliable?: boolean; em: number; chg: number }[]
   /** What the gated scanner actually surfaced — grounds enginePose so the
    *  narrative can't recommend setups the board doesn't have. */
   board?: {
@@ -74,13 +80,13 @@ ${JSON.stringify(snap, null, 2)}
 {
   "heroLine1": "8-14 字中文。带 <em>...</em> 标签包住核心判断词。例：'<em>波动率偏斜</em>加深，利率焦虑升温'",
   "heroLine2": "8-14 字中文。承接 line1 的递进。",
-  "deck": "50-120 字中文。**不要**写 SPY/VIXY 的价格或涨跌幅%（系统已写在文首）；从第二意群起写 IVR、盈利日历、FOMC、波动结构与引擎机会。",
+  "deck": "50-120 字中文。**不要**写 SPY/VIXY 的价格或涨跌幅%（系统已写在文首）；从第二意群起写 IVR、FOMC、波动结构与引擎机会。财报只依据 earningsUpcoming（watchlist 未来财报列表，含 daysUntil）来写；该数组为空才说'近端无 watchlist 财报'，**不得**因此断言'缺乏事件驱动'或'波动率难以放大'。",
   "enginePose": "70-130 字中文。**必须与 board 对齐**：board.qualifiedCount=0 → 只说明无达标机会+emptyReason+建议空仓,不推荐任何策略;>0 → 只围绕 board.setups 里实际上板的标的与策略给判断。绝不推荐 short strangle(已禁用)。",
   "factors": [
     {
       "tone": "gain | accent | ink",
       "label": "8-14 字中文现象标签",
-      "detail": "20-40 字中文；引用 IVR、earningsToday、fedDays 等；**不要**写 SPY/VIXY 价格或涨跌幅%"
+      "detail": "20-40 字中文；引用 IVR、earningsUpcoming（若非空）、fedDays 等；**不要**写 SPY/VIXY 价格或涨跌幅%，也**不要**凭 earningsUpcoming 为空就编造'缺乏事件驱动'"
     }
   ]
 }
@@ -88,16 +94,26 @@ ${JSON.stringify(snap, null, 2)}
 约束:
 - 不要使用 markdown
 - factors 至少 3 条最多 4 条
+- **IVR 可靠性**：watchlistTickers 里 ivrReliable=false 的标的，其 IVR 是缺乏真实 IV 历史时的 RV 代理值——**高值只代表近期实际波动大，不代表隐含波动贵，绝不能当卖方机会/"卖方天堂"，更不能上 heroLine 头条**。这类标的若要提及，须点明"IVR 为 RV 代理、暂不可信"。ETF（SPY/QQQ/IWM 等）无个股财报，不得为其 IVR 编造"财报预期驱动"之类理由。
 `
 
 export const narrativeCacheDayKey = etCalendarDay
 
+/** Signature of what the board actually holds — so the cached narrative refreshes
+ *  when the setups change within a day (not just on empty↔active). */
+function boardSignature(snap?: MarketSnapshot): string {
+  const b = snap?.board
+  if (!b) return 'nb' // no board info → generic IVR-based narrative
+  if (b.qualifiedCount === 0) return 'standby' // stand-aside narrative
+  const syms = (b.setups ?? []).map((s) => s.sym).sort().join('_')
+  return `${b.qualifiedCount}-${syms || 'na'}`
+}
+
 export function narrativeCacheKey(snap?: MarketSnapshot): string {
-  // v2: board-grounded prompt. Split empty vs active so a stand-aside narrative
-  // and an active one don't overwrite each other within a day (the board can
-  // flip as IVR/earnings shift).
-  const standby = snap?.board?.qualifiedCount === 0 ? '-standby' : ''
-  return `narrative-v2-${narrativeCacheDayKey()}${standby}`
+  // v2: board-grounded prompt. Key on the actual board contents so a narrative
+  // generated for one set of setups (e.g. "SPY") doesn't linger after the board
+  // changes to another (e.g. "GOOGL, UNH") within the same day.
+  return `narrative-v2-${narrativeCacheDayKey()}-${boardSignature(snap)}`
 }
 
 export function fmtSignedPct(n: number, d = 2): string {

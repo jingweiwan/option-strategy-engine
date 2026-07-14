@@ -73,6 +73,10 @@ export function buildCalibrationTable(snaps: RecommendationSnapshot[]): Calibrat
 
   for (const s of snaps) {
     if (!s.outcome) continue
+    // Calibration measures the RECOMMENDED book (was the surfaced edge real?).
+    // Shadow arm rows include never-recommended combos and would triple-weight
+    // tuned strategies — they are tuner-only evidence (see types.ts `source`).
+    if (s.source === 'shadow') continue
     // Directional debit spreads aren't calibrated — their realized P&L is the
     // sample's market direction, not skill (see DIRECTIONAL_DEBIT_SPREADS), so
     // they stay at 1× and never sway selection by which way the tape happened
