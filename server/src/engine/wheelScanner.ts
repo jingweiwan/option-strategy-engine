@@ -150,6 +150,23 @@ export function pickCoveredCallStrike(
   return { strike: pick.strike, premium, delta: pick.greeks?.delta ?? null }
 }
 
+/** One retry after a short pause — the CC fetch fires right after the heavy
+ *  CSP scan, and a momentary provider burst-limit shouldn't kill a holding. */
+async function withRetry<T>(fn: () => Promise<T>, delayMs = 1500): Promise<T> {
+  try { return await fn() } catch {
+    await new Promise((r) => setTimeout(r, delayMs))
+    return fn()
+  }
+}
+
+/** Provider errors can be whole HTML pages — reduce to something readable. */
+function cleanErr(e: unknown): string {
+  const msg = (e as Error)?.message ?? String(e)
+  const cut = msg.indexOf('<')
+  const short = (cut > 0 ? msg.slice(0, cut) : msg).trim().slice(0, 60)
+  return short || '数据源暂时不可用(已重试)'
+}
+
 async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string; reason: string }[]): Promise<CoveredCallSuggestion[]> {
   if (!rh) return []
   const holdings = rh.equities.filter((e) => e.qty >= 100)
@@ -162,15 +179,15 @@ async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string;
       skipped.push({ sym: h.sym, reason: '已有短 call 在挂,避免重复覆盖' })
       return null
     }
-    const [quote, exps] = await Promise.all([getQuote(h.sym), getExpirations(h.sym)])
-    if (!quote.last) throw new Error('no quote')
+    const [quote, exps] = await withRetry(() => Promise.all([getQuote(h.sym), getExpirations(h.sym)]))
+    if (!quote.last) throw new Error('无报价')
     const now = Date.now()
     const target = exps
       .map((e) => ({ e, d: Math.round((Date.parse(e) - now) / 86400000) }))
       .filter((x) => x.d >= 21 && x.d <= 50)
       .sort((a, b) => Math.abs(a.d - 35) - Math.abs(b.d - 35))[0]
     if (!target) throw new Error('无 21-50 DTE 到期')
-    const chain = await getOptionChain(h.sym, target.e)
+    const chain = await withRetry(() => getOptionChain(h.sym, target.e))
     const calls = chain.filter((c) => c.optionType === 'call')
     const underwater = h.avgCost > quote.last * 1.25
     const pick = pickCoveredCallStrike(calls, quote.last, h.avgCost)
@@ -197,7 +214,7 @@ async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string;
   for (let i = 0; i < holdings.length; i++) {
     const r = results[i]
     if (r.status === 'fulfilled' && r.value) out.push(r.value)
-    else if (r.status === 'rejected') skipped.push({ sym: holdings[i].sym, reason: (r.reason as Error).message })
+    else if (r.status === 'rejected') skipped.push({ sym: holdings[i].sym, reason: cleanErr(r.reason) })
   }
   return out.sort((a, b) => b.yieldAnnualized - a.yieldAnnualized)
 }
@@ -225,7 +242,7 @@ async function runWheelScanUncached(watchlist: WatchlistEntry[]): Promise<WheelS
   })
   // Symbols the sell-put scan itself failed on (rate limits etc.) — surface,
   // don't silently vanish.
-  for (const s of scan.skipped) skipped.push({ sym: s.sym, reason: `期权数据失败:${s.reason.slice(0, 60)}` })
+  for (const s of scan.skipped) skipped.push({ sym: s.sym, reason: `期权数据失败:${(s.reason.split('<')[0].trim() || '数据源暂时不可用').slice(0, 60)}` })
 
   const heldBySym = new Map<string, number>((rh?.equities ?? []).map((e) => [e.sym, e.qty]))
   const seen = new Set<string>()
