@@ -13,6 +13,7 @@ import { rhRoutes } from './routes/rh.js'
 import { symbolSearchRoutes } from './routes/symbolSearch.js'
 import { watchlistDefaultRoutes } from './routes/watchlistDefault.js'
 import { sellPutRoutes } from './routes/sellPut.js'
+import { wheelRoutes } from './routes/wheel.js'
 import { intelRoutes } from './routes/intel.js'
 import { startAiWarmer } from './ai/scheduler.js'
 
@@ -30,6 +31,7 @@ await app.register(rhRoutes)
 await app.register(symbolSearchRoutes)
 await app.register(watchlistDefaultRoutes)
 await app.register(sellPutRoutes)
+await app.register(wheelRoutes)
 await app.register(intelRoutes)
 
 app.get('/health', async () => ({ ok: true }))

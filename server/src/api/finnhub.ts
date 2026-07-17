@@ -213,6 +213,31 @@ export async function fetchEarningsCalendar(
     .map((e: any) => ({ date: e.date, symbol: String(e.symbol).toUpperCase() }))
 }
 
+/**
+ * Earliest upcoming earnings date per symbol over `horizonDays`, fetched in
+ * ≤15-day slices. A single wide query hits Finnhub's 1500-row response cap,
+ * which silently drops the NEAREST earnings (the ones that matter) — chunking
+ * keeps every slice well under the cap.
+ */
+export async function getUpcomingEarningsMap(
+  symbols: string[],
+  horizonDays = 60
+): Promise<Record<string, string>> {
+  const now = Date.now()
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10)
+  const ranges: Array<[string, string]> = []
+  for (let s = 0; s < horizonDays; s += 15) {
+    ranges.push([iso(now + s * 86400000), iso(now + Math.min(s + 15, horizonDays) * 86400000)])
+  }
+  const chunks = await Promise.all(ranges.map(([f, t]) => fetchEarningsCalendar(f, t).catch((): EarningsEntry[] => [])))
+  const want = new Set(symbols.map((s) => s.toUpperCase()))
+  const map: Record<string, string> = {}
+  for (const e of chunks.flat()) {
+    if (want.has(e.symbol) && (!(e.symbol in map) || e.date < map[e.symbol])) map[e.symbol] = e.date
+  }
+  return map
+}
+
 export async function getOptionChain(
   symbol: string,
   expiration: string

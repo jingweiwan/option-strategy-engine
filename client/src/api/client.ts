@@ -9,7 +9,8 @@ import type {
   SellPutScanResult,
   TickerResponse,
   RhPositionsView,
-  RhStrategyPnl
+  RhStrategyPnl,
+  WheelScanResult
 } from '@/types'
 
 export type DashboardSnapshot = {
@@ -116,6 +117,23 @@ export async function fetchSellPutScan(symbols?: string[]): Promise<SellPutScanR
       ? `?symbols=${encodeURIComponent(symbols.join(','))}`
       : ''
   const res = await fetch(`/api/sell-put${qs}`)
+  if (!res.ok) {
+    let msg = `API ${res.status}`
+    try {
+      const body = await res.json()
+      if (body?.error) msg = body.error
+    } catch { /* not JSON */ }
+    throw new Error(msg)
+  }
+  return res.json()
+}
+
+export async function fetchWheelScan(symbols?: string[]): Promise<WheelScanResult> {
+  const qs =
+    symbols && symbols.length > 0
+      ? `?symbols=${encodeURIComponent(symbols.join(','))}`
+      : ''
+  const res = await fetch(`/api/wheel${qs}`)
   if (!res.ok) {
     let msg = `API ${res.status}`
     try {

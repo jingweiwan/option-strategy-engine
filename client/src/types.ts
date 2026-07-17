@@ -452,6 +452,51 @@ export type SellPutScanResult = {
   criteria: { minIvr: number; targetDeltas: number[]; dteRange: [number, number] }
 }
 
+// ============ Wheel (轮子) ============
+
+export type FundamentalVerdict = {
+  pass: boolean
+  score: number
+  notes: string[]
+  kind: 'company' | 'etf'
+}
+
+export type WheelCspCandidate = SellPutCandidate & {
+  fundamentals: FundamentalVerdict
+  assignmentCost: number
+  cashOk: boolean | null
+  discountPct: number
+  heldQty: number
+  concentrated: boolean
+  nextEarnings: string | null
+  wheelScore: number
+}
+
+export type CoveredCallSuggestion = {
+  sym: string
+  heldQty: number
+  contractsAvailable: number
+  costBasis: number
+  spot: number
+  expiration: string
+  dte: number
+  strike: number
+  premium: number
+  delta: number | null
+  yieldAnnualized: number
+  ifCalledReturnPct: number
+  underwater: boolean
+  note: string
+}
+
+export type WheelScanResult = {
+  asof: string
+  csp: WheelCspCandidate[]
+  coveredCalls: CoveredCallSuggestion[]
+  skipped: { sym: string; reason: string }[]
+  cash: number | null
+}
+
 // ============ Intel / AI Scan ============
 
 export type IntelItem = {

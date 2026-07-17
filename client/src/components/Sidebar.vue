@@ -8,11 +8,12 @@ const PAGES: NavItem[] = [
   { id: 'dashboard', label: '今日总览', no: '01', section: '今日', to: '/' },
   { id: 'recommend', label: '策略推荐', no: '02', section: '今日', to: '/recommend' },
   { id: 'sell-put', label: 'Sell Put', no: '03', section: '今日', to: '/sell-put' },
-  { id: 'intel', label: 'AI 情报', no: '04', section: '研究', to: '/intel' },
-  { id: 'deep', label: 'OCIFQ 深度', no: '05', section: '研究', to: '/deep' },
-  { id: 'ticker', label: '标的 · Greeks', no: '06', section: '研究', to: '/ticker' },
-  { id: 'positions', label: '持仓监控', no: '07', section: '组合', to: '/positions' },
-  { id: 'performance', label: 'Performance', no: '08', section: '组合', to: '/performance' }
+  { id: 'wheel', label: '轮子 Wheel', no: '04', section: '今日', to: '/wheel' },
+  { id: 'intel', label: 'AI 情报', no: '05', section: '研究', to: '/intel' },
+  { id: 'deep', label: 'OCIFQ 深度', no: '06', section: '研究', to: '/deep' },
+  { id: 'ticker', label: '标的 · Greeks', no: '07', section: '研究', to: '/ticker' },
+  { id: 'positions', label: '持仓监控', no: '08', section: '组合', to: '/positions' },
+  { id: 'performance', label: 'Performance', no: '09', section: '组合', to: '/performance' }
 ]
 
 const route = useRoute()
