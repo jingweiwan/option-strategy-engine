@@ -14,12 +14,13 @@
  *
  * FALLBACK: the free tier's 100 req/day cap is easily exhausted by a full
  * watchlist scan. When MarketData returns 429 (or empty), getQuote /
- * getExpirations / getOptionChain transparently fall back to Yahoo then
- * Finnhub so the dashboard keeps working instead of collapsing to one symbol.
+ * getExpirations / getOptionChain transparently fall back to CBOE / Tradier /
+ * Polygon / Finnhub so the dashboard keeps working instead of collapsing to one
+ * symbol. Yahoo was removed: it is geo-blocked on this network (always 403) and,
+ * being last in every chain, its error masked the real upstream failure.
  */
 
 import type { Quote, OptionContract } from './types.js'
-import * as yahoo from './yahoo.js'
 import * as finnhub from './finnhub.js'
 import * as polygon from './polygon.js'
 import * as tradier from './tradier.js'
@@ -30,8 +31,7 @@ import { impliedVolFromChain, dteFromExpiration } from '../engine/liveStrategies
 
 export type { Quote, OptionContract } from './types.js'
 
-// Which fallback providers have credentials configured. Yahoo needs no token
-// (but is often geo-blocked, so it's always tried last).
+// Which fallback providers have credentials configured.
 const hasFinnhub = !!(process.env.FINNHUB_API_KEY || process.env.FINNHUB_TOKEN)
 const hasPolygon = !!process.env.POLYGON_API_KEY
 const hasTradier = !!process.env.TRADIER_TOKEN
@@ -54,13 +54,16 @@ const DEBUG = process.env.MARKETDATA_DEBUG === '1'
 // handled by the interface-layer cache below, not by skipping the provider.)
 const hasMarketData = !!token
 
-/** Try providers in order; return the first result that passes `ok`. */
+/** First provider whose result passes `ok` wins. On total failure, report what
+ *  EVERY provider did — surfacing only the last error made every message read
+ *  as that provider's fault when the real cause was upstream (a burst-limited
+ *  CBOE/MarketData). Provider errors can be whole HTML pages, so truncate. */
 async function withFallback<T>(
   attempts: { name: string; fn: () => Promise<T> }[],
   ok: (v: T) => boolean,
   label: string
 ): Promise<T> {
-  let lastErr: unknown
+  const failures: string[] = []
   for (const a of attempts) {
     try {
       const v = await a.fn()
@@ -68,11 +71,14 @@ async function withFallback<T>(
         if (DEBUG) console.log(`[marketdata] ${label} served by ${a.name}`)
         return v
       }
+      failures.push(`${a.name}=空结果`)
     } catch (e) {
-      lastErr = e
+      const raw = (e as Error)?.message ?? String(e)
+      const cut = raw.indexOf('<')
+      failures.push(`${a.name}=${((cut > 0 ? raw.slice(0, cut) : raw).trim() || '未知错误').slice(0, 50)}`)
     }
   }
-  throw lastErr ?? new Error(`all providers failed: ${label}`)
+  throw new Error(`${label}: 所有数据源失败 [${failures.join('; ')}]`)
 }
 
 async function mdFetch<T = any>(path: string): Promise<T> {
@@ -149,8 +155,7 @@ export async function getQuote(symbol: string): Promise<Quote> {
       ...(hasMarketData ? [{ name: 'marketdata', fn: () => mdGetQuote(symbol) }] : []),
       ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getQuote(symbol) }] : []),
       ...(hasPolygon ? [{ name: 'polygon', fn: () => polygon.getQuote(symbol) }] : []),
-      ...(hasTradier ? [{ name: 'tradier', fn: () => tradier.getQuote(symbol) }] : []),
-      { name: 'yahoo', fn: () => yahoo.getQuote(symbol) }
+      ...(hasTradier ? [{ name: 'tradier', fn: () => tradier.getQuote(symbol) }] : [])
     ],
     (q) => Number.isFinite(q.last) && q.last > 0,
     `quote ${symbol}`
@@ -197,7 +202,7 @@ async function mdGetExpirations(symbol: string): Promise<string[]> {
 }
 
 /** Option expirations with provider fallback, cached (they rarely change).
- *  Chain-grade providers (Tradier/Polygon) preferred; Finnhub/Yahoo chains
+ *  Chain-grade providers (Tradier/Polygon) preferred; Finnhub chains
  *  are premium/blocked here. */
 export async function getExpirations(symbol: string): Promise<string[]> {
   const sym = symbol.toUpperCase()
@@ -209,8 +214,7 @@ export async function getExpirations(symbol: string): Promise<string[]> {
         ...(hasMarketData ? [{ name: 'marketdata', fn: () => mdGetExpirations(sym) }] : []),
         ...(hasTradier ? [{ name: 'tradier', fn: () => tradier.getExpirations(sym) }] : []),
         ...(hasPolygon ? [{ name: 'polygon', fn: () => polygon.getExpirations(sym) }] : []),
-        ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getExpirations(sym) }] : []),
-        { name: 'yahoo', fn: () => yahoo.getExpirations(sym) }
+        ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getExpirations(sym) }] : [])
       ],
       (xs) => xs.length > 0,
       `expirations ${sym}`
@@ -796,7 +800,7 @@ async function mdGetOptionChain(
  *  dashboard refresh, and the Ticker/Recommend pages all reuse one fetch per
  *  (symbol, expiration) within CHAIN_TTL_MS. Order favors providers that serve
  *  full chains with IV/greeks (Tradier/Polygon) once a token is set; Finnhub
- *  chains are premium and Yahoo is geo-blocked in some networks. */
+ *  chains are premium. */
 export async function getOptionChain(
   symbol: string,
   expiration: string
@@ -810,8 +814,7 @@ export async function getOptionChain(
         ...(hasMarketData ? [{ name: 'marketdata', fn: () => mdGetOptionChain(sym, expiration) }] : []),
         ...(hasTradier ? [{ name: 'tradier', fn: () => tradier.getOptionChain(sym, expiration) }] : []),
         ...(hasPolygon ? [{ name: 'polygon', fn: () => polygon.getOptionChain(sym, expiration) }] : []),
-        ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getOptionChain(sym, expiration) }] : []),
-        { name: 'yahoo', fn: () => yahoo.getOptionChain(sym, expiration) }
+        ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getOptionChain(sym, expiration) }] : [])
       ],
       (c) => c.length > 0,
       `chain ${sym} ${expiration}`
