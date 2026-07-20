@@ -35,8 +35,11 @@ type RawOption = {
 }
 type RawData = {
   current_price: number
+  price_change: number
+  price_change_percent: number
   bid: number
   ask: number
+  prev_day_close: number
   options: RawOption[]
 }
 
@@ -45,16 +48,23 @@ type RawData = {
 const TTL_MS = 60_000
 const cache = new Map<string, { ts: number; data: RawData }>()
 
+// In-flight dedup. A scan asks for the same symbol's quote, expirations and
+// chain at once; without this each fires its own copy of a payload that can
+// exceed 1MB, tripling the load that gets us throttled in the first place.
+const inFlight = new Map<string, Promise<RawData>>()
+
+// CBOE has no daily cap but does throttle a rolling window, and it is now the
+// primary source for quotes AND chains — so a burst 429s the tail of the scan.
+// Retrying at the call site can't help (every caller shares one budget), so
+// back off here: 429 is transient, and the window clears in seconds.
+const RETRY_DELAYS_MS = [800, 2500, 6000]
+
 function cboeSymbol(sym: string): string {
   const s = sym.toUpperCase()
   return INDEX_SYMBOLS.has(s) ? `_${s}` : s
 }
 
-async function fetchRaw(symbol: string): Promise<RawData> {
-  const sym = symbol.toUpperCase()
-  const hit = cache.get(sym)
-  if (hit && Date.now() - hit.ts < TTL_MS) return hit.data
-
+async function fetchOnce(sym: string): Promise<RawData> {
   const url = `${BASE}/${encodeURIComponent(cboeSymbol(sym))}.json`
   const res = await fetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
@@ -65,8 +75,39 @@ async function fetchRaw(symbol: string): Promise<RawData> {
   if (!data || !Array.isArray(data.options)) {
     throw new Error(`CBOE: no option data for ${sym}`)
   }
-  cache.set(sym, { ts: Date.now(), data })
   return data
+}
+
+async function fetchWithBackoff(sym: string): Promise<RawData> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchOnce(sym)
+    } catch (e) {
+      const throttled = (e as Error).message.includes('CBOE 429')
+      if (!throttled || attempt >= RETRY_DELAYS_MS.length) throw e
+      // Jitter so concurrent callers don't retry in lockstep and re-burst.
+      const wait = RETRY_DELAYS_MS[attempt] * (0.75 + Math.random() * 0.5)
+      await new Promise((r) => setTimeout(r, wait))
+    }
+  }
+}
+
+async function fetchRaw(symbol: string): Promise<RawData> {
+  const sym = symbol.toUpperCase()
+  const hit = cache.get(sym)
+  if (hit && Date.now() - hit.ts < TTL_MS) return hit.data
+
+  const pending = inFlight.get(sym)
+  if (pending) return pending
+
+  const p = fetchWithBackoff(sym)
+    .then((data) => {
+      cache.set(sym, { ts: Date.now(), data })
+      return data
+    })
+    .finally(() => inFlight.delete(sym))
+  inFlight.set(sym, p)
+  return p
 }
 
 /**
@@ -101,7 +142,14 @@ export async function getQuote(symbol: string): Promise<Quote> {
   const d = await fetchRaw(symbol)
   const last = d.current_price
   if (!Number.isFinite(last) || last <= 0) throw new Error(`No price for ${symbol}`)
-  return { symbol: symbol.toUpperCase(), last, bid: d.bid ?? 0, ask: d.ask ?? 0 }
+  return {
+    symbol: symbol.toUpperCase(),
+    last,
+    bid: d.bid ?? 0,
+    ask: d.ask ?? 0,
+    change: Number.isFinite(d.price_change) ? d.price_change : undefined,
+    changePct: Number.isFinite(d.price_change_percent) ? d.price_change_percent : undefined
+  }
 }
 
 /** Pure mappers over a raw payload — shared by the live fetch and the offline
