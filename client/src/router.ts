@@ -4,7 +4,6 @@ import Dashboard from '@/views/Dashboard.vue'
 import Recommend from '@/views/Recommend.vue'
 import Ticker from '@/views/Ticker.vue'
 import Positions from '@/views/Positions.vue'
-import SellPut from '@/views/SellPut.vue'
 import Wheel from '@/views/Wheel.vue'
 import Intel from '@/views/Intel.vue'
 import DeepAnalysis from '@/views/DeepAnalysis.vue'
@@ -40,12 +39,6 @@ const routes: RouteRecordRaw[] = [
     name: 'positions',
     component: Positions,
     meta: { title: '持仓监控' }
-  },
-  {
-    path: '/sell-put',
-    name: 'sell-put',
-    component: SellPut,
-    meta: { title: 'Sell Put 扫描' }
   },
   {
     path: '/wheel',

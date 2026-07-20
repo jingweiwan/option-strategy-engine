@@ -445,13 +445,6 @@ export type SellPutCandidate = {
   scoreBreakdown: SellPutScoreBreakdown
 }
 
-export type SellPutScanResult = {
-  asof: string
-  candidates: SellPutCandidate[]
-  skipped: { sym: string; reason: string }[]
-  criteria: { minIvr: number; targetDeltas: number[]; dteRange: [number, number] }
-}
-
 // ============ Wheel (轮子) ============
 
 export type FundamentalVerdict = {
@@ -486,6 +479,8 @@ export type CoveredCallSuggestion = {
   yieldAnnualized: number
   ifCalledReturnPct: number
   underwater: boolean
+  nextEarnings: string | null
+  spansEarnings: boolean
   note: string
 }
 

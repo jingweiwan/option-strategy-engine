@@ -6,7 +6,6 @@ import type {
   LiveEngineInput,
   LiveEngineResponse,
   PerformanceData,
-  SellPutScanResult,
   TickerResponse,
   RhPositionsView,
   RhStrategyPnl,
@@ -107,23 +106,6 @@ export async function fetchTicker(symbol: string, expiration?: string): Promise<
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`API ${res.status}: ${text}`)
-  }
-  return res.json()
-}
-
-export async function fetchSellPutScan(symbols?: string[]): Promise<SellPutScanResult> {
-  const qs =
-    symbols && symbols.length > 0
-      ? `?symbols=${encodeURIComponent(symbols.join(','))}`
-      : ''
-  const res = await fetch(`/api/sell-put${qs}`)
-  if (!res.ok) {
-    let msg = `API ${res.status}`
-    try {
-      const body = await res.json()
-      if (body?.error) msg = body.error
-    } catch { /* not JSON */ }
-    throw new Error(msg)
   }
   return res.json()
 }

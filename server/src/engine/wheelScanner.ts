@@ -114,6 +114,17 @@ export type CoveredCallSuggestion = {
   ifCalledReturnPct: number
   /** Cost basis is above spot by >25% — CC income will be thin. */
   underwater: boolean
+  /** Next confirmed earnings date, if one is known within the horizon. */
+  nextEarnings: string | null
+  /**
+   * The chosen expiration lands on/after earnings. Unlike a CSP — which would be
+   * taking on brand-new jump risk — a covered call written on shares already held
+   * carries exposure the holder has anyway, and the inflated event IV is real
+   * money. So this is surfaced as a labelled trade-off (you cap the upside gap),
+   * not filtered out. An earlier, pre-earnings expiration is preferred when the
+   * 21-50 DTE window offers one.
+   */
+  spansEarnings: boolean
   note: string
 }
 
@@ -152,6 +163,26 @@ export function pickCoveredCallStrike(
 
 /** One retry after a short pause — the CC fetch fires right after the heavy
  *  CSP scan, and a momentary provider burst-limit shouldn't kill a holding. */
+/**
+ * Choose the covered-call expiration: 21-50 DTE, nearest 35, but preferring one
+ * that settles BEFORE the next report when the window offers such a date — same
+ * premium harvest, none of the gap risk. Falls back to a spanning expiration
+ * (the caller flags it) rather than dropping the suggestion, because the holder
+ * carries the earnings exposure either way.
+ */
+export function pickCcExpiration(
+  exps: string[],
+  now: number,
+  earnings: string | null
+): { e: string; d: number } | null {
+  const window = exps
+    .map((e) => ({ e, d: Math.round((Date.parse(e) - now) / 86400000) }))
+    .filter((x) => x.d >= 21 && x.d <= 50)
+    .sort((a, b) => Math.abs(a.d - 35) - Math.abs(b.d - 35))
+  const clean = earnings ? window.filter((x) => x.e < earnings) : window
+  return clean[0] ?? window[0] ?? null
+}
+
 async function withRetry<T>(fn: () => Promise<T>, delayMs = 1500): Promise<T> {
   try { return await fn() } catch {
     await new Promise((r) => setTimeout(r, delayMs))
@@ -173,6 +204,10 @@ async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string;
   const existingShortCalls = new Set(
     rh.optionLegs.filter((l) => l.side === 'short' && l.optionType === 'call').map((l) => l.sym)
   )
+  // Earnings for HELD names, which need not overlap the scanned watchlist.
+  const earnMap = await getUpcomingEarningsMap(holdings.map((h) => h.sym), 60).catch(
+    (): Record<string, string> => ({})
+  )
   const results = await mapSettledLimit(holdings, 4, async (h): Promise<CoveredCallSuggestion | null> => {
     if (LEVERAGED_ETFS.has(h.sym)) return null
     if (existingShortCalls.has(h.sym)) {
@@ -181,12 +216,10 @@ async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string;
     }
     const [quote, exps] = await withRetry(() => Promise.all([getQuote(h.sym), getExpirations(h.sym)]))
     if (!quote.last) throw new Error('无报价')
-    const now = Date.now()
-    const target = exps
-      .map((e) => ({ e, d: Math.round((Date.parse(e) - now) / 86400000) }))
-      .filter((x) => x.d >= 21 && x.d <= 50)
-      .sort((a, b) => Math.abs(a.d - 35) - Math.abs(b.d - 35))[0]
+    const earn = earnMap[h.sym] ?? null
+    const target = pickCcExpiration(exps, Date.now(), earn)
     if (!target) throw new Error('无 21-50 DTE 到期')
+    const spansEarnings = !!earn && earn <= target.e
     const chain = await withRetry(() => getOptionChain(h.sym, target.e))
     const calls = chain.filter((c) => c.optionType === 'call')
     const underwater = h.avgCost > quote.last * 1.25
@@ -207,7 +240,13 @@ async function buildCoveredCalls(rh: RhPositions | null, skipped: { sym: string;
       yieldAnnualized,
       ifCalledReturnPct: ((pick.strike - h.avgCost + pick.premium) / h.avgCost) * 100,
       underwater,
-      note: underwater ? '⚠ 深度浮亏持仓,call 收入薄——先想清楚去留' : ''
+      nextEarnings: earn,
+      spansEarnings,
+      note: underwater
+        ? '⚠ 深度浮亏持仓,call 收入薄——先想清楚去留'
+        : spansEarnings
+          ? `⚠ 跨财报(${earn})——权利金里含事件溢价,代价是封住跳空上行`
+          : ''
     }
   })
   const out: CoveredCallSuggestion[] = []
