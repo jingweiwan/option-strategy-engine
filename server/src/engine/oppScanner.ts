@@ -139,12 +139,12 @@ export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): Short
 
 export type OppTier = 'qualified' | 'reference'
 
-/** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
- *  replay a card with this exact count (+ seed 42 + same legs) for its POP/EV to
+ *  replay a card with this exact count (+ seed 42 + same legs) for POP/EV to
  *  reproduce deterministically — a different count is the last source of drift. */
 export const SCAN_SIMULATIONS = 2000
 
+/** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 export const IVR_QUALIFY_FLOOR = Number(process.env.IVR_QUALIFY_FLOOR) || 30
 /** IVR in [reference, qualify) surfaces as a labeled near-miss, not a rec. */
 export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20

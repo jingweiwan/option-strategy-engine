@@ -104,6 +104,8 @@ export type LiveEngineInput = {
    *  the card's structure (e.g. { iron_condor: 'sd0.24' }). */
   variants?: Partial<Record<StrategyType, string>>
   exitPolicies?: Partial<Record<StrategyType, 'managed' | 'runner'>>
+  /** Set when navigating from a dashboard opp card — server uses SCAN_SIMULATIONS. */
+  replay?: boolean
 }
 
 export type Regime = 'sell' | 'buy' | 'mid'

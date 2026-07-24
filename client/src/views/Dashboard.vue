@@ -123,6 +123,7 @@ function goStrategy(o: Opp) {
       sym: o.sym,
       exp: o.expiration,
       id: o.strategyId,
+      replay: '1',
       ...(o.variant ? { variant: o.variant } : {}),
       ...(o.exitPolicy ? { exitPolicy: o.exitPolicy } : {})
     }

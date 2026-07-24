@@ -2,7 +2,7 @@
 
 > 审查视角：系统架构梳理 + 逻辑/产品风险清单（非运行时压测）。
 > 初版日期：2026-07-24
-> 最近复审：2026-07-24（对照 commit `da7973f`、`12eca8a`）
+> 最近复审：2026-07-24（对照 commit `da7973f`、`12eca8a`、`84081bb` 及 follow-up `replay` 对齐）
 > 代码基线：当前 `main` 工作区（含 oppScanner、feedback、tuner、managedExit 等模块）。
 
 **状态图例：** ✅ 已修复 · 🟡 部分修复 / 残留 · ❌ 未修复
@@ -35,7 +35,7 @@ flowchart LR
     narr[marketNarrative]
   end
   D --> dash --> scan --> eng
-  D -->|"点击卡片 variant+exitPolicy"| S --> live --> eng
+  D -->|"点击卡片 replay+variant+exitPolicy"| S --> live --> eng
   scan --> view
   scan --> fb
   dash --> copy
@@ -55,8 +55,8 @@ flowchart LR
 
 1. `GET /api/dashboard?symbols=...` → `parseWatchlistSymbolsQuery` → `buildLiveDashboard(watchlist)`
 2. 行情 / IVR / IV / 链 → `getScannedOpps` → `buildOppsFromScan`（AI 仅写文案）
-3. 扫描器在每条 opp 上冻结 `variant` + `exitPolicy`；Dashboard 跳转时写入 query
-4. 详情页 `POST /api/strategies/live` 经 `specOverridesFromVariants` 重建扫描器 leg spec
+3. 扫描器在每条 opp 上冻结 `variant` + `exitPolicy`；Dashboard 跳转时写入 query（含 `replay=1`）
+4. 详情页 `POST /api/strategies/live`：`replay` 或 `variants` 时强制 `SCAN_SIMULATIONS`；经 `specOverridesFromVariants` 重建 leg spec
 5. 仅 `boardTier === 'qualified'` 的快照写入 feedback（`recordDashboardScanSnapshots`）
 
 ### 1.4 设计意图（代码中体现较清晰的部分）
@@ -65,7 +65,7 @@ flowchart LR
 - **卖波动门禁**：`sellVolTier` + IVR 下限 + 财报 spanning 过滤（`server/src/engine/oppScanner.ts`）。
 - **反馈闭环**：快照 → outcome → `calibration` / `tuner` / `viewSkill` 权重。
 - **自选单一默认源**：`server/src/watchlistDefaults.ts` + `GET /api/watchlist/default`。
-- **卡片→详情结构复现**：tuner variant + condor exitPolicy 沿 query 传递到详情重跑（commit `12eca8a`）。
+- **卡片→详情结构 + 数值复现**：tuner variant + condor exitPolicy + `replay=1` → 服务端 `SCAN_SIMULATIONS`（commit `12eca8a`、`84081bb` 及 follow-up）。
 
 ---
 
@@ -76,45 +76,45 @@ flowchart LR
 3. **`sellVolTier`、财报 spanning 过滤、相关性感知的 `selectDiverse`** — 产品层有明确门禁。
 4. **`viewSkill` 把未证实的 directional AI 权重归零**（`server/src/feedback/viewSkill.ts`）— 避免 AI 在缺乏 track record 时硬指挥选结构。
 5. **`specOverridesFromVariants` + 单测** — variant → legs 重建路径有单元测试锁住（`server/test/tuner.test.ts`）。
-6. **`server/test/`** — 100/100 通过；覆盖 regime、tuner、managed exit、diversify、exitPolicy 等。
+6. **`server/test/`** — 102/102 通过；覆盖 regime、tuner、managed exit、diversify、exitPolicy、卡片 replay 等。
 
 ---
 
 ## 3. 问题清单（含修复状态）
 
-### 3.1 卡片与详情页不一致 🟡 部分修复
+### 3.1 卡片与详情页不一致 🟡 主路径已闭合，仍有边界
 
 **初版问题（高优先级）**
 
-卡片 legs / POP / EV 来自扫描器（tuner 最优 arm、condor `exitPolicy`）；详情页曾只传 `sym/exp/id`，用静态默认腿重跑 → **展示路径 ≠ 执行路径**。
+卡片 legs / POP / EV 来自扫描器（tuner 最优 arm、condor `exitPolicy`、`SCAN_SIMULATIONS`）；详情页曾只传 `sym/exp/id`，用静态默认腿 + 5000 sim 重跑 → **展示路径 ≠ 执行路径**。
 
-**已修复（commit `12eca8a`）**
+**已修复**
 
 | 环节 | 改动 |
 |------|------|
-| `oppScanner` | 每条 opp 写入 `variant`、`exitPolicy` |
-| `opportunities.ts` | DTO 输出上述字段（修复此前客户端类型有字段但服务端未填的断链） |
-| `Dashboard.goStrategy` | query 携带 `variant`、`exitPolicy` |
-| `StrategyView` | 转发给 `fetchLiveStrategies` |
-| `strategiesLive.ts` | 接收 `variants` / `exitPolicies`，经 `specOverridesFromVariants` 传入 `runEngineLive` |
-| `tuner.ts` | 新增 `specOverridesFromVariants`（确定性重建扫描器 leg spec） |
+| `oppScanner` | 每条 opp 写入 `variant`、`exitPolicy`；导出 `SCAN_SIMULATIONS = 2000` |
+| `opportunities.ts` | DTO 输出上述字段 |
+| `Dashboard.goStrategy` | query 携带 `variant`、`exitPolicy`、**`replay=1`** |
+| `StrategyView` | `replay` 时传 `replay: true`（不再硬编码 5000 sim） |
+| `strategiesLive.ts` | `variants` 或 **`replay`** → 强制 `SCAN_SIMULATIONS`；默认 `pickExitPolicy(symbol)` 给 iron_condor |
+| `tuner.ts` | `specOverridesFromVariants` |
+| `tuner.test.ts` | 断言 `metrics.probabilityProfit` / `metrics.ev`（非顶层 `pop`/`ev`） |
 
-**从 Dashboard 点卡片**：tuned 结构（iron_condor / credit spread）的 **strike / delta 结构应与卡片一致**（单测证明两条路径共用 `legsForShortDelta`）。
+**从 Dashboard 点卡片**：tuned 与非 tuned 结构在**相同链价**下，POP/EV 应与卡片一致（同 seed + sim 数 + legs/exitPolicy）。
 
-**仍存在的差距（非 blocker，用户可能感知）**
+**仍存在的边界（非 blocker）**
 
 | 残留 | 说明 |
 |------|------|
-| **模拟次数** | 扫描器 `simulations: 2000`，详情页 `5000` → POP/EV 数值可能略有偏差 |
-| **链价刷新** | 同一 variant 的 strike 相同，但 bid/ask 变 → `netPremium` 可能漂移 |
+| **链价刷新** | 同一结构的 strike 相同，但 bid/ask 变 → `netPremium` 可能漂移 |
 | **未冻结 metrics** | 仍是重跑引擎，非展示扫描快照 |
-| **深链 / 手工 URL** | 不带 `variant` / `exitPolicy` 的 `/strategy` 链接仍回静态默认腿；`iron_condor` 缺 `exitPolicy` 时引擎默认 `managed`，扫描器当天可能是 `runner` |
+| **深链 / 手工 URL** | 不带 `replay=1` / `variant` 的 `/strategy` 仍按 Recommend 口径（5000 sim、静态腿） |
+| **Recommend 页** | 手动探索仍用 5000 sim，与 Dashboard 卡片口径不同（符合预期） |
 
-**后续建议（按性价比）**
+**后续建议（可选）**
 
-1. `StrategyView` 与扫描器对齐 `simulations`（或共用常量）
-2. `strategiesLive` 对 `iron_condor` 在未传 `exitPolicies` 时默认 `pickExitPolicy(symbol)`
-3. 长期：卡片快照 API 或 sessionStorage 冻结 legs + metrics
+- 卡片快照 API / sessionStorage 冻结 legs + metrics（消除链价漂移）
+- `buildEngineBuckets` 单测
 
 **相关代码**
 
@@ -122,6 +122,7 @@ flowchart LR
 - `client/src/views/StrategyView.vue` — `fetchLiveStrategies`
 - `server/src/routes/strategiesLive.ts`
 - `server/src/feedback/tuner.ts` — `specOverridesFromVariants`
+- `client/src/utils/constants.ts` — `SCAN_SIMULATIONS`（须与 server 同步）
 
 ---
 
@@ -176,7 +177,7 @@ flowchart LR
 | **默认自选规模** | ❌ | `DEFAULT_WATCHLIST` 已扩至多 sector / ETF；单次 scan API 调用量大，MarketData 配额仍是硬约束。 |
 | **无 API 鉴权** | ❌ | 公网暴露会烧 DeepSeek / MarketData / Finnhub，且 `/api/feedback/*` 可读。 |
 | **regimeBonus 注释** | ✅ | 注释已与实现一致（1.5×，commit `da7973f`）。 |
-| **卡片↔详情集成测** | ❌ | 仅有 `specOverridesFromVariants` 单元测；无 E2E / 同参 `runEngineLive` legs 一致性测。 |
+| **卡片↔详情集成测** | 🟡 | `tuner.test.ts` 已断言 legs + `metrics.*`；仍无 HTTP E2E。 |
 
 ---
 
@@ -185,7 +186,7 @@ flowchart LR
 - **POP / EV / CVaR** 来自模拟 + managed exit 规则，**不是**交易所结算意义上的 P&L。
 - **反馈 outcome** 的 P&L 为简化口径（日收盘 + 到期式 intrinsic 等），用于**相对比较与校准**，不能当回测净值。
 - **IVR 来源**：`ivrSource === 'rv-fallback'` 时，分位是 RV 代理，UI 已部分标注（Dashboard `ivr-src`）；叙事层需避免把其说成「卖方天堂」。
-- **卡片 vs 详情 POP**：即使腿结构一致，因 sim 次数与链价刷新，数字允许小幅偏差；若要「所见即所算」，需冻结快照而非重跑。
+- **卡片 vs 详情 POP**：Dashboard 卡片路径（`replay=1`）与扫描器同 sim 数；链价刷新仍可能导致 premium 小幅偏差。若要「所见即所算」，需冻结快照而非重跑。
 
 ---
 
@@ -198,7 +199,7 @@ flowchart LR
 | **自选默认列表** | 服务端 `watchlistDefaults.ts` + `GET /api/watchlist/default` 作为单一默认源 | 初版审查 |
 | **引擎四桶分类** | 信用价差归入卖方桶（commit `da7973f`） | 代码复审 |
 | **regimeBonus 注释** | 1.8× → 与实现 1.5× 对齐（commit `da7973f`） | 代码复审 |
-| **卡片→详情 leg 结构** | variant + exitPolicy 全链传递 + `specOverridesFromVariants`（commit `12eca8a`） | 代码复审 + 单测 |
+| **卡片→详情 leg + POP/EV** | variant + exitPolicy + `replay` + `SCAN_SIMULATIONS` + `pickExitPolicy` | commit `12eca8a`、`84081bb` + follow-up |
 | **`edge` 展示文案** | IVR 分档描述，非 σ 启发式 | 代码复审 |
 | **opportunities DTO 断链** | `variant` / `exitPolicy` 服务端现已填充 | commit `12eca8a` |
 
@@ -210,7 +211,7 @@ flowchart LR
 |------|------|
 | **架构** | 分层清楚：引擎 / 扫描 / AI / 反馈，职责边界总体可辨。 |
 | **量化诚实度** | 模拟 + 管理退出有自觉；POP/EV 仍不能当实盘胜率。 |
-| **初版最大硬伤** | 卡片腿结构 ≠ 详情 → **主路径已修复**；POP/EV 数值仍有 sim/链价/深链缺口。 |
+| **初版最大硬伤** | 卡片腿结构 / POP/EV ≠ 详情 → **Dashboard 主路径已闭合**；链价刷新与无 `replay` 深链仍有边界。 |
 | **初版次要硬伤** | 四桶分类 → **已修复**；预取 IV 语义 → **仍未修复**。 |
 | **是否「整个引擎写错了」** | **否** — `runEngineLive` 主路径相对自洽；历史问题多在 **UI 跳转、展示分类、AI 上下文**。 |
 
@@ -220,12 +221,11 @@ flowchart LR
 
 | 优先级 | 项 | 状态 |
 |--------|-----|------|
-| P0 | Strategy 详情复现扫描 **leg 结构**（variant + exitPolicy） | ✅ 已完成 |
+| P0 | Strategy 详情复现扫描 **leg 结构 + POP/EV**（variant + exitPolicy + replay + sim） | ✅ 主路径已完成 |
 | P0 | 修正 `buildEngineBuckets` | ✅ 已完成 |
-| P1 | 对齐 `simulations`；`iron_condor` 默认 `pickExitPolicy` | 🟡 待做 |
 | P1 | 预取阶段 `iv: null` + Prompt 约束 | ❌ 待做 |
-| P2 | 卡片快照 API / 冻结 metrics（消除 POP/EV 漂移） | ❌ 待做 |
-| P2 | `buildEngineBuckets` 单测 + 卡片↔详情集成测 | ❌ 待做 |
+| P2 | 卡片快照 API / 冻结 metrics（消除链价 premium 漂移） | ❌ 待做 |
+| P2 | `buildEngineBuckets` 单测 + HTTP E2E | ❌ 待做 |
 | P3 | Warmer 与用户自选对齐，或文档明确「仅预热默认列表」 | ❌ 待做 |
 | P3 | API 鉴权 / feedback 写操作保护（若对外部署） | ❌ 待做 |
 | P3 | 旧缓存 `boardTier` 缺失时的降级策略 | ❌ 待做 |
@@ -257,4 +257,5 @@ flowchart LR
 | 日期 | 说明 |
 |------|------|
 | 2026-07-24 | 初版：架构梳理 + 问题清单 |
-| 2026-07-24 | **复审更新**：标记 3.1/3.2/edge/regimeBonus 修复状态；补充残留差距与测试缺口；更新结论与优先级 |
+| 2026-07-24 | **复审更新**：标记 3.1/3.2/edge/regimeBonus 修复状态；补充残留差距与测试缺口 |
+| 2026-07-24 | **PR follow-up**：`replay=1` 对齐非 tuned 策略 sim 数；修正单测 `metrics.*` 断言；文档同步 |

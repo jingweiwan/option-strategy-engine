@@ -190,18 +190,46 @@ test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key
 
 test('scan path and detail-replay path produce identical POP/EV (deterministic)', async () => {
   const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
+  const { pickExitPolicy, SCAN_SIMULATIONS } = await import('../src/engine/oppScanner.js')
   const { chain, expiration, spot } = syntheticChain()
-  const base = { symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: 2000 }
   const d = 0.24
+  const icPolicy = pickExitPolicy('TEST')
+  const base = {
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65,
+    seed: 42, simulations: SCAN_SIMULATIONS,
+    exitPolicies: { iron_condor: icPolicy } as const
+  }
 
   // Scanner: pins the arm's legs directly.
-  const scan = runEngineLive({ ...base, specOverrides: { iron_condor: legsForShortDelta('iron_condor', d)! } })
+  const scan = runEngineLive({
+    ...base,
+    specOverrides: { iron_condor: legsForShortDelta('iron_condor', d)! }
+  })
   // Detail page: rebuilds the same legs from only the frozen variant id.
-  const detail = runEngineLive({ ...base, specOverrides: specOverridesFromVariants({ iron_condor: variantId(d) }) })
+  const detail = runEngineLive({
+    ...base,
+    specOverrides: specOverridesFromVariants({ iron_condor: variantId(d) })
+  })
 
   const sc = scan.results.find((r) => r.strategy === 'iron_condor')!
   const dt = detail.results.find((r) => r.strategy === 'iron_condor')!
   assert.deepEqual(dt.legs, sc.legs, 'legs identical')
-  assert.equal(dt.pop, sc.pop, 'POP identical')
-  assert.equal(dt.ev, sc.ev, 'EV identical')
+  assert.equal(dt.metrics.probabilityProfit, sc.metrics.probabilityProfit, 'POP identical')
+  assert.equal(dt.metrics.ev, sc.metrics.ev, 'EV identical')
+})
+
+test('replay flag (no variant) matches scanner sim count for debit spreads', async () => {
+  const { SCAN_SIMULATIONS } = await import('../src/engine/oppScanner.js')
+  const { chain, expiration, spot } = syntheticChain()
+  const atScanCount = runEngineLive({
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: SCAN_SIMULATIONS
+  })
+  const atRecommendCount = runEngineLive({
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: 5000
+  })
+  const scan = atScanCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  const replay = atScanCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  const manual = atRecommendCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  assert.equal(replay.metrics.probabilityProfit, scan.metrics.probabilityProfit)
+  assert.notEqual(manual.metrics.probabilityProfit, scan.metrics.probabilityProfit)
 })

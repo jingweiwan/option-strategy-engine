@@ -40,6 +40,8 @@ type Body = {
    *  reproduces the SAME structure the card showed (e.g. { iron_condor: 'sd0.24' }). */
   variants?: Partial<Record<StrategyType, string>>
   exitPolicies?: Partial<Record<StrategyType, ExitPolicy>>
+  /** Dashboard opp-card replay — force the scanner's sim count even when no tuner variant. */
+  replay?: boolean
 }
 
 export async function strategiesLiveRoutes(app: FastifyInstance) {
@@ -56,10 +58,11 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'expiration must be YYYY-MM-DD' })
     }
 
-    // Replaying a card (variants present) → use the scanner's exact sim count so
-    // POP/EV reproduce deterministically (same seed + count + legs). Otherwise
-    // honour the client's request, capped to prevent CPU exhaustion.
-    const simulations = b.variants
+    // Replaying a dashboard opp card (variants or replay flag) → use the
+    // scanner's exact sim count so POP/EV reproduce (same seed + count + legs).
+    // Manual Recommend flow omits replay and keeps the client's simulations cap.
+    const replayCard = b.replay === true || (b.variants != null && Object.keys(b.variants).length > 0)
+    const simulations = replayCard
       ? SCAN_SIMULATIONS
       : b.simulations != null ? Math.min(Math.max(b.simulations, 100), 50_000) : undefined
 
