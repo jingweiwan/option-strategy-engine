@@ -1,5 +1,9 @@
 import type { FastifyInstance } from 'fastify'
+import type { StrategyType } from '../engine/types.js'
+import type { ExitPolicy } from '../engine/managedExit.js'
 import { runEngineLive } from '../engine/index.js'
+import { specOverridesFromVariants } from '../feedback/tuner.js'
+import { SCAN_SIMULATIONS, pickExitPolicy } from '../engine/oppScanner.js'
 import { getQuote, getOptionChain, computeIvRank } from '../api/marketdata.js'
 import { fetchEarningsCalendar } from '../api/finnhub.js'
 import { impliedVolFromChain } from '../engine/liveStrategies.js'
@@ -32,6 +36,12 @@ type Body = {
   view?: 'bullish' | 'bearish' | 'neutral' | 'neutral-vol'
   volExpect?: 'low' | 'mid' | 'high'
   riskPref?: 'defined' | 'any'
+  /** Tuner variants the scanner froze onto the card, so the detail re-run
+   *  reproduces the SAME structure the card showed (e.g. { iron_condor: 'sd0.24' }). */
+  variants?: Partial<Record<StrategyType, string>>
+  exitPolicies?: Partial<Record<StrategyType, ExitPolicy>>
+  /** Dashboard opp-card replay — force the scanner's sim count even when no tuner variant. */
+  replay?: boolean
 }
 
 export async function strategiesLiveRoutes(app: FastifyInstance) {
@@ -48,8 +58,22 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'expiration must be YYYY-MM-DD' })
     }
 
-    // Cap simulations to prevent CPU exhaustion
-    const simulations = b.simulations != null ? Math.min(Math.max(b.simulations, 100), 50_000) : undefined
+    // Replaying a dashboard opp card (variants or replay flag) → use the
+    // scanner's exact sim count so POP/EV reproduce (same seed + count + legs).
+    // Manual Recommend flow omits replay and keeps the client's simulations cap.
+    const replayCard = b.replay === true || (b.variants != null && Object.keys(b.variants).length > 0)
+    const simulations = replayCard
+      ? SCAN_SIMULATIONS
+      : b.simulations != null ? Math.min(Math.max(b.simulations, 100), 50_000) : undefined
+
+    // The scanner only overrides iron_condor's exit policy (via pickExitPolicy,
+    // deterministic per sym+day). Default to the same here so a deep-link / manual
+    // URL without exitPolicies doesn't silently fall back to the engine's blanket
+    // 'managed'. An explicit value from the card still wins.
+    const exitPolicies: Partial<Record<StrategyType, ExitPolicy>> = {
+      iron_condor: pickExitPolicy(symbol),
+      ...b.exitPolicies
+    }
 
     try {
       const [quote, chain, earningsDate, calibration] = await Promise.all([
@@ -98,6 +122,10 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
         view: b.view,
         volExpect: b.volExpect,
         riskPref: b.riskPref,
+        // Replay the scanner's frozen tuner variant + exit policy so the detail
+        // page's legs/POP/EV match the card instead of the static default spec.
+        specOverrides: b.variants ? specOverridesFromVariants(b.variants) : undefined,
+        exitPolicies,
         earningsDate: earningsDate ?? undefined,
         calibrate: calibration
           ? (s, regime) => calibrationMultiplier(calibration, s, regime)

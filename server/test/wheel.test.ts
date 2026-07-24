@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { fundamentalGate, pickCoveredCallStrike } from '../src/engine/wheelScanner.js'
+import { fundamentalGate, pickCoveredCallStrike, pickCcExpiration } from '../src/engine/wheelScanner.js'
 import type { Fundamentals } from '../src/api/fundamentals.js'
 
 const base: Fundamentals = {
@@ -70,4 +70,39 @@ test('pickCoveredCallStrike: normal case prefers ~0.25 delta above spot', () => 
 test('pickCoveredCallStrike: no eligible strike → null (not a bad pick)', () => {
   const calls = [mkCall(20, 0.6), mkCall(22, 0.5)]
   assert.equal(pickCoveredCallStrike(calls, 23.41, 31.44), null)
+})
+
+// ---- pickCcExpiration: the earnings-tiering branch live data rarely exercises ----
+
+const NOW = Date.parse('2026-07-20T12:00:00Z')
+/** DTE → date string, so the fixtures read as intent rather than arithmetic. */
+const at = (dte: number) => new Date(NOW + dte * 86400000).toISOString().slice(0, 10)
+
+test('pickCcExpiration: no earnings → nearest 35 DTE inside the 21-50 window', () => {
+  const exps = [at(10), at(24), at(33), at(45), at(70)]
+  assert.equal(pickCcExpiration(exps, NOW, null)!.e, at(33))
+})
+
+test('pickCcExpiration: prefers a pre-earnings expiration over the closer-to-35 one', () => {
+  const exps = [at(24), at(33), at(45)]
+  // Report lands between 24 and 33 DTE: 33 is nearer the sweet spot but spans it.
+  const pick = pickCcExpiration(exps, NOW, at(28))
+  assert.equal(pick!.e, at(24))
+})
+
+test('pickCcExpiration: falls back to a spanning expiration when none is clean', () => {
+  const exps = [at(24), at(33), at(45)]
+  // Report before the whole window — dropping the suggestion would be worse than
+  // surfacing it flagged, since the holder owns the shares regardless.
+  const pick = pickCcExpiration(exps, NOW, at(22))
+  assert.equal(pick!.e, at(33))
+})
+
+test('pickCcExpiration: earnings after the window does not perturb the pick', () => {
+  const exps = [at(24), at(33), at(45)]
+  assert.equal(pickCcExpiration(exps, NOW, at(60))!.e, at(33))
+})
+
+test('pickCcExpiration: empty 21-50 window → null', () => {
+  assert.equal(pickCcExpiration([at(5), at(90)], NOW, null), null)
 })

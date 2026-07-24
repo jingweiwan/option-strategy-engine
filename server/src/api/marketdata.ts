@@ -27,6 +27,7 @@ import * as tradier from './tradier.js'
 import * as cboe from './cboe.js'
 import * as nasdaq from './nasdaq.js'
 import { cached, MIN, HOUR } from '../ai/cache.js'
+import { mapSettledLimit } from '../engine/concurrency.js'
 import { impliedVolFromChain, dteFromExpiration } from '../engine/liveStrategies.js'
 
 export type { Quote, OptionContract } from './types.js'
@@ -40,6 +41,8 @@ const hasTradier = !!process.env.TRADIER_TOKEN
 // expirations change only when new series list, so cache them for hours.
 // Both tunable via env. The cache is the existing two-tier (mem + disk) store,
 // with in-flight dedup so a parallel scan fetches each chain at most once.
+const QUOTE_CONCURRENCY = Number(process.env.QUOTE_CONCURRENCY) || 6
+
 const CHAIN_TTL_MS = (Number(process.env.CHAIN_CACHE_TTL_MIN) || 15) * MIN
 const EXPS_TTL_MS = (Number(process.env.EXPS_CACHE_TTL_HR) || 6) * HOUR
 
@@ -147,11 +150,15 @@ async function mdGetQuote(symbol: string): Promise<Quote> {
 export async function getQuote(symbol: string): Promise<Quote> {
   return withFallback(
     [
-      // MarketData leads for QUOTES so the load spreads: MarketData's daily quota
-      // absorbs the first batch (429 → cascade), leaving Finnhub (60/min) for the
-      // overflow. Leading with Finnhub instead concentrated every quote on it and
-      // 429'd it (it's also used for earnings / SPY-VIXY macro / symbol search).
-      // NOTE: this is quotes only — IV/IVR & chains still lead CBOE, not MarketData.
+      // CBOE leads: free, no cap, and its 60s raw-payload cache is shared with
+      // getExpirations/getOptionChain — during a scan the quote costs zero extra
+      // fetches. It also makes spot and chain come from the SAME snapshot; the
+      // old order paired a realtime spot with CBOE's 15-min-delayed chain, which
+      // skews moneyness and delta. Metered providers are now only the fallback,
+      // so a blown MarketData/Finnhub quota no longer empties the board.
+      // Trade-off: quotes are ~15 min delayed. Fine at 30-45 DTE; the user
+      // prices the actual fill in Robinhood anyway.
+      { name: 'cboe', fn: () => cboe.getQuote(symbol) },
       ...(hasMarketData ? [{ name: 'marketdata', fn: () => mdGetQuote(symbol) }] : []),
       ...(hasFinnhub ? [{ name: 'finnhub', fn: () => finnhub.getQuote(symbol) }] : []),
       ...(hasPolygon ? [{ name: 'polygon', fn: () => polygon.getQuote(symbol) }] : []),
@@ -172,7 +179,10 @@ export type WatchlistQuote =
   | { symbol: string; available: false; reason: string }
 
 export async function fetchWatchlistQuotes(symbols: string[]): Promise<WatchlistQuote[]> {
-  const settled = await Promise.allSettled(symbols.map((s) => getQuote(s)))
+  // Throttled, not Promise.all: CBOE has no daily cap but DOES throttle bursts,
+  // and each of its payloads carries every contract of every expiration. Firing
+  // the whole 36-name watchlist at once 429'd every single symbol.
+  const settled = await mapSettledLimit(symbols, QUOTE_CONCURRENCY, (s) => getQuote(s))
   return settled.map((r, i) => {
     const symbol = symbols[i].toUpperCase()
     if (r.status === 'fulfilled') {

@@ -139,6 +139,11 @@ export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): Short
 
 export type OppTier = 'qualified' | 'reference'
 
+/** Monte-Carlo path count for the surfaced scan result. The detail page must
+ *  replay a card with this exact count (+ seed 42 + same legs) for POP/EV to
+ *  reproduce deterministically — a different count is the last source of drift. */
+export const SCAN_SIMULATIONS = 2000
+
 /** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 export const IVR_QUALIFY_FLOOR = Number(process.env.IVR_QUALIFY_FLOOR) || 30
 /** IVR in [reference, qualify) surfaces as a labeled near-miss, not a rec. */
@@ -249,9 +254,10 @@ const STRAT_CN: Record<StrategyType, string> = {
 
 /**
  * Boost strategies that match the IV regime.
- * sell regime (high IVR) → iron_condor / short_strangle get 1.8×
- * buy regime  (low IVR)  → long_straddle / directional spreads get 1.5×
- * mid regime             → no adjustment
+ * sell regime (high IVR) → SELL_STRATEGIES get 1.5×, misaligned get 0.6×
+ * buy regime  (low IVR)  → BUY_STRATEGIES get 1.5×, misaligned get 0.6×
+ * mid regime             → no adjustment (1.0×)
+ * (An earned AI view softens the 0.6 penalty to 0.85 for its aligned strategy.)
  */
 const SELL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'short_strangle', 'bear_call_spread', 'bull_put_spread'])
 const BUY_STRATEGIES: Set<StrategyType> = new Set(['long_straddle', 'bull_call_spread', 'bear_put_spread'])
@@ -746,7 +752,7 @@ async function scanSymbol(
         chain,
         ivRank,
         currentRv: ivRankInfo?.currentRv ?? undefined,
-        simulations: 2000, // lighter for scanning
+        simulations: SCAN_SIMULATIONS, // lighter for scanning; detail page replays this exact count
         seed: 42,
         view, // AI directional view → drives viewBonus() in engine scoring
         earningsDate, // triggers earnings-jump modeling when within DTE

@@ -117,7 +117,16 @@ function fmtExp(exp: string): string {
 function goStrategy(o: Opp) {
   router.push({
     path: '/strategy',
-    query: { sym: o.sym, exp: o.expiration, id: o.strategyId }
+    // Carry the scanner's frozen tuner variant + exit policy so the detail page
+    // reproduces the SAME structure the card showed, not the static default spec.
+    query: {
+      sym: o.sym,
+      exp: o.expiration,
+      id: o.strategyId,
+      replay: '1',
+      ...(o.variant ? { variant: o.variant } : {}),
+      ...(o.exitPolicy ? { exitPolicy: o.exitPolicy } : {})
+    }
   })
 }
 

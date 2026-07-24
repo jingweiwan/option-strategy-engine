@@ -74,6 +74,8 @@ type DiscoveredTranscript = {
   url: string
   quarter: number
   year: number
+  /** Publish date as YYYYMMDD int, for recency sorting. */
+  publishedOn: number
 }
 
 const EXCHANGES = ['nasdaq', 'nyse', 'nysemkt'] as const
@@ -97,24 +99,32 @@ async function discoverTranscriptUrls(ticker: string): Promise<DiscoveredTranscr
       const matches = [...html.matchAll(URL_PATTERN)]
       if (matches.length === 0) continue
 
-      // Deduplicate (paths appear twice in the HTML — once in JSON, once in rendered links)
-      const seen = new Set<string>()
-      const results: DiscoveredTranscript[] = []
+      // Dedup by fiscal period, not by URL. The Fool page can carry TWO URLs for
+      // the same quarter — the original plus a mis-dated REPUBLISH whose path
+      // date is years later (a real case: a 2024Q3 call republished under a
+      // 2026-04-22 path). Keying on the URL keeps both; keying on (year,quarter)
+      // collapses them. When both exist, keep the earlier publish date — the
+      // original, least likely to be a truncated repost.
+      const byPeriod = new Map<string, DiscoveredTranscript>()
       for (const m of matches) {
-        const path = m[0]
-        if (seen.has(path)) continue
-        seen.add(path)
         const quarter = parseInt(m[4], 10)
         const year = parseInt(m[5], 10)
-        results.push({
-          url: `https://www.fool.com/earnings/${path}`,
-          quarter,
-          year
-        })
+        const publishedOn = parseInt(m[1] + m[2] + m[3], 10) // YYYYMMDD from the path
+        const key = `${year}Q${quarter}`
+        const prev = byPeriod.get(key)
+        if (prev && prev.publishedOn <= publishedOn) continue
+        byPeriod.set(key, { url: `https://www.fool.com/earnings/${m[0]}`, quarter, year, publishedOn })
       }
 
-      if (results.length > 0) {
-        console.log(`[transcript] ${ticker}: discovered ${results.length} transcripts via /quote/${exchange}/${tk}/`)
+      if (byPeriod.size > 0) {
+        // Rank by FISCAL period, never by publish date: within one issuer
+        // (year, quarter) is strictly chronological, so it is immune both to the
+        // republish-date corruption above and to offset fiscal calendars. Callers
+        // slice(0, N) for "the most recent N", so newest fiscal period must lead.
+        const results = [...byPeriod.values()].sort(
+          (a, b) => b.year - a.year || b.quarter - a.quarter
+        )
+        console.log(`[transcript] ${ticker}: discovered ${results.length} transcripts via /quote/${exchange}/${tk}/ (latest ${results[0].year}Q${results[0].quarter})`)
         return results
       }
     } catch {

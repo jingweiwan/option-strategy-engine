@@ -1,5 +1,8 @@
 import type { StrategyType } from '@/types'
 
+/** Must stay in sync with server `SCAN_SIMULATIONS` (oppScanner.ts). */
+export const SCAN_SIMULATIONS = 2000
+
 export const STRAT_CN: Record<StrategyType, string> = {
   bull_call_spread: '看涨债务价差',
   bear_call_spread: '看跌信用价差',

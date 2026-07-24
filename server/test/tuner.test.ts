@@ -167,3 +167,69 @@ test('engine: specOverrides moves the credit-spread short strike', () => {
     JSON.stringify(r.results.find((x) => x.strategy === 'iron_condor')?.legs.map((l) => l.strike))
   assert.equal(condorLegs(tuned), condorLegs(def))
 })
+
+// ---- specOverridesFromVariants: detail page replays the scanner's frozen arm ----
+
+test('specOverridesFromVariants rebuilds the exact legs the scanner chose', async () => {
+  const { specOverridesFromVariants, armsFor } = await import('../src/feedback/tuner.js')
+  for (const st of ['iron_condor', 'bull_put_spread', 'bear_call_spread'] as const) {
+    for (const d of armsFor(st)) {
+      const rebuilt = specOverridesFromVariants({ [st]: variantId(d) })[st]
+      assert.deepEqual(rebuilt, legsForShortDelta(st, d),
+        `${st} @ ${variantId(d)} must rebuild the scanner's leg spec`)
+    }
+  }
+})
+
+test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key)', async () => {
+  const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
+  assert.deepEqual(specOverridesFromVariants({ iron_condor: 'sd9.99' }), {})
+  assert.deepEqual(specOverridesFromVariants({ iron_condor: '' }), {})
+  assert.deepEqual(specOverridesFromVariants({}), {})
+})
+
+test('scan path and detail-replay path produce identical POP/EV (deterministic)', async () => {
+  const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
+  const { pickExitPolicy, SCAN_SIMULATIONS } = await import('../src/engine/oppScanner.js')
+  const { chain, expiration, spot } = syntheticChain()
+  const d = 0.24
+  const icPolicy = pickExitPolicy('TEST')
+  const base = {
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65,
+    seed: 42, simulations: SCAN_SIMULATIONS,
+    exitPolicies: { iron_condor: icPolicy } as const
+  }
+
+  // Scanner: pins the arm's legs directly.
+  const scan = runEngineLive({
+    ...base,
+    specOverrides: { iron_condor: legsForShortDelta('iron_condor', d)! }
+  })
+  // Detail page: rebuilds the same legs from only the frozen variant id.
+  const detail = runEngineLive({
+    ...base,
+    specOverrides: specOverridesFromVariants({ iron_condor: variantId(d) })
+  })
+
+  const sc = scan.results.find((r) => r.strategy === 'iron_condor')!
+  const dt = detail.results.find((r) => r.strategy === 'iron_condor')!
+  assert.deepEqual(dt.legs, sc.legs, 'legs identical')
+  assert.equal(dt.metrics.probabilityProfit, sc.metrics.probabilityProfit, 'POP identical')
+  assert.equal(dt.metrics.ev, sc.metrics.ev, 'EV identical')
+})
+
+test('replay flag (no variant) matches scanner sim count for debit spreads', async () => {
+  const { SCAN_SIMULATIONS } = await import('../src/engine/oppScanner.js')
+  const { chain, expiration, spot } = syntheticChain()
+  const atScanCount = runEngineLive({
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: SCAN_SIMULATIONS
+  })
+  const atRecommendCount = runEngineLive({
+    symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: 5000
+  })
+  const scan = atScanCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  const replay = atScanCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  const manual = atRecommendCount.results.find((r) => r.strategy === 'bull_call_spread')!
+  assert.equal(replay.metrics.probabilityProfit, scan.metrics.probabilityProfit)
+  assert.notEqual(manual.metrics.probabilityProfit, scan.metrics.probabilityProfit)
+})

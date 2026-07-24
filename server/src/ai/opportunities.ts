@@ -70,6 +70,11 @@ export type Opp = {
   shortLevels?: ShortLevel[]
   /** Underlying in a strong aligned trend — condor easily run over (warning). */
   strongTrend?: boolean
+  /** Tuner variant id the scanner chose (e.g. 'sd0.24'); null = static default.
+   *  Passed to the detail page so its re-run reproduces this exact structure. */
+  variant?: string | null
+  /** Exit policy the scanner scored this opp under ('managed' | 'runner'). */
+  exitPolicy?: 'managed' | 'runner' | null
 }
 
 // ---------- AI copywriting ----------
@@ -337,7 +342,9 @@ export async function buildOppsFromScan(
         lowConviction: o.regime === 'buy',
         boardTier: o.boardTier,
         shortLevels: o.shortLevels,
-        strongTrend: o.strongTrend
+        strongTrend: o.strongTrend,
+        variant: o.variant ?? null,
+        exitPolicy: o.exitPolicy ?? null
       }
     })
 

@@ -100,6 +100,12 @@ export type LiveEngineInput = {
   view?: View
   volExpect?: VolExpect
   riskPref?: RiskPref
+  /** Replay the scanner's frozen tuner variant so the detail re-run reproduces
+   *  the card's structure (e.g. { iron_condor: 'sd0.24' }). */
+  variants?: Partial<Record<StrategyType, string>>
+  exitPolicies?: Partial<Record<StrategyType, 'managed' | 'runner'>>
+  /** Set when navigating from a dashboard opp card — server uses SCAN_SIMULATIONS. */
+  replay?: boolean
 }
 
 export type Regime = 'sell' | 'buy' | 'mid'
@@ -234,6 +240,10 @@ export type Opp = {
   shortLevels?: ShortLevel[]
   /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */
   strongTrend?: boolean
+  /** 扫描器选定的 tuner 变体(如 "sd0.24");详情页据此复现同一结构 */
+  variant?: string | null
+  /** 扫描该机会时的退出策略('managed' | 'runner')*/
+  exitPolicy?: 'managed' | 'runner' | null
 }
 
 export type ShortLevel = {
@@ -445,13 +455,6 @@ export type SellPutCandidate = {
   scoreBreakdown: SellPutScoreBreakdown
 }
 
-export type SellPutScanResult = {
-  asof: string
-  candidates: SellPutCandidate[]
-  skipped: { sym: string; reason: string }[]
-  criteria: { minIvr: number; targetDeltas: number[]; dteRange: [number, number] }
-}
-
 // ============ Wheel (轮子) ============
 
 export type FundamentalVerdict = {
@@ -486,6 +489,8 @@ export type CoveredCallSuggestion = {
   yieldAnnualized: number
   ifCalledReturnPct: number
   underwater: boolean
+  nextEarnings: string | null
+  spansEarnings: boolean
   note: string
 }
 
