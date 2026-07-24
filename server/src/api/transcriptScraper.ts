@@ -21,8 +21,9 @@ const CACHE_DIR = join(__dirname, '..', '..', 'data', 'transcripts')
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 
+import type { EarningsTranscript, TranscriptEntry, QuarterlyIncome } from './fmpFinancials.js'
+
 export type { EarningsTranscript, TranscriptEntry } from './fmpFinancials.js'
-import type { EarningsTranscript, TranscriptEntry } from './fmpFinancials.js'
 
 // ---------- Disk cache ----------
 
@@ -225,29 +226,60 @@ async function fetchTranscript(
 }
 
 /**
+ * Re-order discovered transcripts so the FMP latest fiscal quarter is fetched
+ * first when it exists on the Fool quote page. If FMP is ahead (earnings just
+ * released, transcript not posted yet), logs a warning and falls back to the
+ * newest transcript Fool has.
+ */
+function orderByFmpTarget(
+  discovered: DiscoveredTranscript[],
+  incomeData: Pick<QuarterlyIncome, 'fiscalYear' | 'period'>[] | undefined,
+  symbol: string
+): DiscoveredTranscript[] {
+  if (!incomeData || incomeData.length === 0 || discovered.length === 0) return discovered
+
+  const row = incomeData[0]
+  const year = parseInt(row.fiscalYear, 10)
+  const m = row.period.match(/^Q(\d)$/i)
+  if (!Number.isFinite(year) || !m) return discovered
+
+  const targetQ = parseInt(m[1], 10)
+  const targetKey = `${year}Q${targetQ}`
+  const idx = discovered.findIndex((d) => d.year === year && d.quarter === targetQ)
+
+  if (idx >= 0) {
+    const match = discovered[idx]
+    return [match, ...discovered.filter((_, i) => i !== idx)]
+  }
+
+  console.warn(
+    `[transcript] ${symbol}: FMP latest ${targetKey} not on Fool yet — using ${discovered[0].year}Q${discovered[0].quarter} (quarter lag)`
+  )
+  return discovered
+}
+
+/**
  * Scrape the most recent N transcripts for a symbol.
  *
  * Flow: discover all transcript URLs from the quote page (1 request),
- * then fetch the N most recent ones (N requests). Total: N+1 requests.
+ * prioritize the quarter matching FMP income[0] when available,
+ * then fetch the N selected ones (N requests). Total: N+1 requests.
  */
 export async function scrapeRecentTranscripts(
   symbol: string,
   quarters: number = 3,
-  _incomeData?: unknown,
+  incomeData?: Pick<QuarterlyIncome, 'fiscalYear' | 'period'>[],
   _companyName?: string
 ): Promise<EarningsTranscript[]> {
   const sym = symbol.toUpperCase()
-
-  // Check how many quarters are already cached
-  // (avoid the discovery request if all desired quarters are cached)
-  // We don't know which quarters to check without discovery, so just proceed
 
   // Step 1: Discover transcript URLs from quote page (1 request)
   const discovered = await discoverTranscriptUrls(sym)
   if (discovered.length === 0) return []
 
-  // Step 2: Take the N most recent (they come in reverse chronological order)
-  const toFetch = discovered.slice(0, quarters)
+  // Step 2: Prefer the FMP latest fiscal quarter, then take N
+  const ordered = orderByFmpTarget(discovered, incomeData, sym)
+  const toFetch = ordered.slice(0, quarters)
 
   // Step 3: Fetch each, checking cache first
   const results: EarningsTranscript[] = []

@@ -562,6 +562,8 @@ export type ThesisItem = {
   date: string
   /** Concrete, measurable condition that would falsify this thesis. */
   invalidation?: string
+  /** Fiscal quarter this delta primarily references (e.g. "2026Q2"). */
+  referenceQuarter?: string
 }
 
 export type ToneWord = {
@@ -594,6 +596,13 @@ export type DeepAnalysis = {
   scores: OcifqScore
   dimensions: OcifqDimension[]
   thesisItems: ThesisItem[]
+  /** FMP vs transcript fiscal-quarter alignment. */
+  quarterContext?: {
+    fmpLatest: string | null
+    transcriptLatest: string | null
+    lag: boolean
+    message: string | null
+  }
   callTone?: CallTone
   summary: string
   optionImplication: string

@@ -468,6 +468,17 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
           <div class="section-head">
             <div class="eyebrow">Thesis Tracker</div>
           </div>
+          <div
+            v-if="data.quarterContext?.lag && data.quarterContext.message"
+            class="quarter-lag-banner"
+            role="status"
+          >
+            {{ data.quarterContext.message }}
+            <span class="quarter-lag-detail mono">
+              FMP {{ data.quarterContext.fmpLatest ?? '—' }}
+              · Transcript {{ data.quarterContext.transcriptLatest ?? '—' }}
+            </span>
+          </div>
           <div class="thesis-list">
             <div
               v-for="t in data.thesisItems"
@@ -489,6 +500,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
                   {{ thesisStatusConfig(t.status).icon }} {{ thesisStatusConfig(t.status).label }}
                 </span>
                 <span class="thesis-date">{{ t.date }}</span>
+                <span v-if="t.referenceQuarter" class="thesis-ref-q mono">{{ t.referenceQuarter }}</span>
               </div>
               <div class="thesis-delta">{{ t.delta }}</div>
               <div v-if="t.invalidation" class="thesis-invalidation">
@@ -505,6 +517,12 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
             <div class="stat-row"><span>季报数据</span><span class="mono">{{ data.dataStats.earningsQuarters }} 季度</span></div>
             <div class="stat-row"><span>财报明细</span><span class="mono">{{ data.dataStats.fmpIncomeQuarters ?? 0 }} 季度</span></div>
             <div class="stat-row"><span>Transcript</span><span class="mono">{{ data.dataStats.transcriptQuarters ?? 0 }} 季度</span></div>
+            <div v-if="data.quarterContext?.fmpLatest" class="stat-row">
+              <span>FMP 最新季</span><span class="mono">{{ data.quarterContext.fmpLatest }}</span>
+            </div>
+            <div v-if="data.quarterContext?.transcriptLatest" class="stat-row">
+              <span>电话会最新季</span><span class="mono">{{ data.quarterContext.transcriptLatest }}</span>
+            </div>
             <div class="stat-row"><span>Peers</span><span class="mono">{{ data.dataStats.peersCount }} 家</span></div>
           </div>
         </div>
@@ -867,6 +885,29 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
   border-radius: 5px;
 }
 .thesis-date { font-size: 11px; color: var(--ink-3); }
+.thesis-ref-q {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 1px 6px;
+  background: var(--ink-5, #eee);
+  border-radius: 3px;
+}
+.quarter-lag-banner {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--loss);
+  background: var(--loss-soft);
+  border-left: 3px solid var(--loss);
+}
+.quarter-lag-detail {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
 .thesis-delta { font-size: 13px; color: var(--ink-3); line-height: 1.45; }
 .thesis-invalidation {
   margin-top: 8px;
