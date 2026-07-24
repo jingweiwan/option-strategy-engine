@@ -83,25 +83,33 @@ export async function fetchQuarterlyIncome(symbol: string): Promise<QuarterlyInc
     `/stable/income-statement?symbol=${encodeURIComponent(sym)}&period=quarter&limit=${QUARTERS_LIMIT}`
   )
   if (!Array.isArray(data)) return []
-  return data.map((d) => ({
-    date: d.date ?? '',
-    filingDate: d.filingDate ?? '',
-    period: d.period ?? '',
-    fiscalYear: d.fiscalYear ?? d.calendarYear ?? '',
-    revenue: d.revenue ?? 0,
-    costOfRevenue: d.costOfRevenue ?? 0,
-    grossProfit: d.grossProfit ?? 0,
-    grossProfitRatio: d.grossProfitRatio ?? 0,
-    operatingIncome: d.operatingIncome ?? 0,
-    operatingIncomeRatio: d.operatingIncomeRatio ?? 0,
-    ebitda: d.ebitda ?? 0,
-    ebitdaratio: d.ebitdaratio ?? 0,
-    netIncome: d.netIncome ?? 0,
-    netIncomeRatio: d.netIncomeRatio ?? 0,
-    eps: d.eps ?? 0,
-    epsdiluted: d.epsdiluted ?? 0,
-    weightedAverageShsOutDil: d.weightedAverageShsOutDil ?? d.weightedAverageShsOut ?? 0
-  }))
+  return data.map((d) => {
+    // The FMP `stable` endpoint omits the *Ratio fields the older v3 API had, so
+    // `?? 0` fed a bogus "0.0% margin" to the LLM — it then discarded it and
+    // guessed its own margins (40.4% surfaced as 39.4%). Derive the ratios from
+    // absolutes here so downstream reads the real, exact margin.
+    const rev = d.revenue ?? 0
+    const ratioOf = (n: number) => (rev > 0 ? (n ?? 0) / rev : 0)
+    return {
+      date: d.date ?? '',
+      filingDate: d.filingDate ?? '',
+      period: d.period ?? '',
+      fiscalYear: d.fiscalYear ?? d.calendarYear ?? '',
+      revenue: rev,
+      costOfRevenue: d.costOfRevenue ?? 0,
+      grossProfit: d.grossProfit ?? 0,
+      grossProfitRatio: d.grossProfitRatio ?? ratioOf(d.grossProfit),
+      operatingIncome: d.operatingIncome ?? 0,
+      operatingIncomeRatio: d.operatingIncomeRatio ?? ratioOf(d.operatingIncome),
+      ebitda: d.ebitda ?? 0,
+      ebitdaratio: d.ebitdaratio ?? ratioOf(d.ebitda),
+      netIncome: d.netIncome ?? 0,
+      netIncomeRatio: d.netIncomeRatio ?? ratioOf(d.netIncome),
+      eps: d.eps ?? 0,
+      epsdiluted: d.epsdiluted ?? 0,
+      weightedAverageShsOutDil: d.weightedAverageShsOutDil ?? d.weightedAverageShsOut ?? 0
+    }
+  })
 }
 
 export async function fetchQuarterlyCashFlow(symbol: string): Promise<QuarterlyCashFlow[]> {

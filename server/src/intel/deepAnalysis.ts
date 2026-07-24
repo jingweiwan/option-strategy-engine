@@ -213,6 +213,13 @@ async function collectData(symbol: string): Promise<RawData> {
 
 const SYSTEM_PROMPT = `你是一个 buy-side hedge fund 的高级分析师，专注于期权策略和基本面深度研究。
 
+## ⚠️ 数据纪律（最高优先级硬约束，违反即为严重错误）
+1. **只准引用下方"源数据"中真实出现的数字。** 每一个百分比、每一个金额、每一个增速，都必须能在源数据里逐字找到（含"(computed)"预算好的块）。找不到的数字，一律不许写。
+2. **严禁计算或估算利润率。** 毛利率/营业利润率/净利率一律使用源数据里已给出的百分比（见 Margin Trend 块），不要自己用金额去除——你会算错。
+3. **前瞻指引（guidance）只能来自 transcript 原文。** 仅当电话会 transcript 中出现明确的指引数字时才可引用，并注明是哪一季电话会给的、指的是哪一季。**若源数据里没有指引数字，必须写"未获取到前瞻指引"，严禁编造任何"管理层指引 X%"。**
+4. **区分 GAAP 与 non-GAAP，区分实际值与指引值。** 不得把某季度实际毛利率说成"指引"，也不得把 GAAP 净亏损与毛利率扩张混为一谈（大额减值季可同时"毛利率上升 + GAAP 净利为负"）。
+5. evidence / delta / invalidation 里的每个数字都受本纪律约束。宁可少写一个数字，也不许编一个。
+
 你需要对给定标的做 OCIFQ 五维评分，每个维度 0-10 分：
 
 ## O — 寡头定价权 (Oligopoly Pricing Power)（满分 10）
@@ -592,6 +599,21 @@ function buildUserPrompt(symbol: string, data: RawData): string {
           )
         }
       }
+    }
+
+    // Pre-compute the margin QoQ trend so the LLM READS the trend instead of
+    // recomputing it (and getting 40.4% wrong as 39.4%). These are the ONLY
+    // margin numbers it may cite. GAAP net margin can be negative on impairment
+    // quarters even while gross margin expands — spell both out so the model
+    // doesn't conflate them.
+    parts.push(`\n--- Margin Trend QoQ, GAAP (computed — cite these exact figures, do not recompute) ---`)
+    for (const q of income) {
+      parts.push(
+        `[${q.fiscalYear} ${q.period}] ` +
+        `GrossMargin=${pct(q.grossProfitRatio)}, ` +
+        `OpMargin=${pct(q.operatingIncomeRatio)}, ` +
+        `NetMargin=${pct(q.netIncomeRatio)}`
+      )
     }
   }
 
