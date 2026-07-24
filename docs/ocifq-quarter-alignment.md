@@ -117,6 +117,7 @@ cd server && npm run check     # tsc + tests
 - **链式依赖 Fool 上架速度**：FMP 已 Q2、Fool 仍 Q1 时，分部指标只能标注「Q1 电话会」或省略，无法凭空生成 Q2 分部数
 - **LLM 仍可能违规**：Prompt 约束 + `referenceQuarter` 可审计，但未做 delta 文本的程序化校验
 - **Transcript 磁盘缓存 30 天**：Q2 上架后首次 scrape 会写入新缓存；旧 Q1 缓存仍保留但不影响「优先 Q2」逻辑
+- **⚠ 反向滞后未处理（审核 follow-up，2026-07-24）**：`buildQuarterContext` 只在 **FMP 领先 transcript** 时报 lag。若反过来——transcript 已发布但 FMP 合并财报未更新（少见但可能）——分部数据比合并财报**新**，却会被贴上更旧的 FMP 季标签，且**无横幅警示**。当前只覆盖常见方向（FMP 领先，即 Intel 的原 bug）。补法见 §7 第 4 条。
 
 ---
 
@@ -125,6 +126,7 @@ cd server && npm run check     # tsc + tests
 1. delta 后处理：正则检测 `20\d{2}Q[1-4]` 是否与 `referenceQuarter` 一致
 2. transcript 源增加 FMP paid API 作为 Fool 的补充
 3. 新季 earnings 事件主动 bust OCIFQ 缓存（webhook / cron）
+4. **对称 lag 检测**（审核 follow-up）：`buildQuarterContext` 增加 transcript **领先** FMP 的分支（`compareFiscal(transcriptLatest, fmpLatest) > 0`），此时应警示「分部数据比合并财报新」并让合并指标标注更旧的 FMP 季，防止把新分部数误贴旧季标签。改动集中在 `buildQuarterContext`，另开分支处理。
 
 ---
 
@@ -133,3 +135,4 @@ cd server && npm run check     # tsc + tests
 | 日期 | 说明 |
 |------|------|
 | 2026-07-24 | 初版：Q1/Q2 混用修复与文档 |
+| 2026-07-24 | 审核 follow-up：记录反向滞后局限（§6）+ 对称 lag 检测建议（§7.4）|
