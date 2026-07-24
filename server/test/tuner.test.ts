@@ -187,3 +187,21 @@ test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key
   assert.deepEqual(specOverridesFromVariants({ iron_condor: '' }), {})
   assert.deepEqual(specOverridesFromVariants({}), {})
 })
+
+test('scan path and detail-replay path produce identical POP/EV (deterministic)', async () => {
+  const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
+  const { chain, expiration, spot } = syntheticChain()
+  const base = { symbol: 'TEST', spot, expiration, chain, ivRank: 65, seed: 42, simulations: 2000 }
+  const d = 0.24
+
+  // Scanner: pins the arm's legs directly.
+  const scan = runEngineLive({ ...base, specOverrides: { iron_condor: legsForShortDelta('iron_condor', d)! } })
+  // Detail page: rebuilds the same legs from only the frozen variant id.
+  const detail = runEngineLive({ ...base, specOverrides: specOverridesFromVariants({ iron_condor: variantId(d) }) })
+
+  const sc = scan.results.find((r) => r.strategy === 'iron_condor')!
+  const dt = detail.results.find((r) => r.strategy === 'iron_condor')!
+  assert.deepEqual(dt.legs, sc.legs, 'legs identical')
+  assert.equal(dt.pop, sc.pop, 'POP identical')
+  assert.equal(dt.ev, sc.ev, 'EV identical')
+})
