@@ -249,9 +249,10 @@ const STRAT_CN: Record<StrategyType, string> = {
 
 /**
  * Boost strategies that match the IV regime.
- * sell regime (high IVR) → iron_condor / short_strangle get 1.8×
- * buy regime  (low IVR)  → long_straddle / directional spreads get 1.5×
- * mid regime             → no adjustment
+ * sell regime (high IVR) → SELL_STRATEGIES get 1.5×, misaligned get 0.6×
+ * buy regime  (low IVR)  → BUY_STRATEGIES get 1.5×, misaligned get 0.6×
+ * mid regime             → no adjustment (1.0×)
+ * (An earned AI view softens the 0.6 penalty to 0.85 for its aligned strategy.)
  */
 const SELL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'short_strangle', 'bear_call_spread', 'bull_put_spread'])
 const BUY_STRATEGIES: Set<StrategyType> = new Set(['long_straddle', 'bull_call_spread', 'bear_put_spread'])

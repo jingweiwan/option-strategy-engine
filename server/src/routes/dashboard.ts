@@ -310,9 +310,13 @@ export async function buildLiveMarketSnapshot(): Promise<MarketSnapshot> {
 /**
  * Classify opps into 4 strategy buckets for the dashboard gauge.
  *
- * - 看涨结构: bull_call_spread
- * - 卖方结构: iron_condor, short_strangle (credit strategies)
- * - 事件交易: long_straddle, bear_put_spread (vol/directional plays)
+ * Bucket by structure MECHANICS, not by directional bias — a bull_put_spread
+ * is a credit seller you collect theta on, even though its bias is bullish, so
+ * it belongs with the sellers, not with directional debit longs.
+ *
+ * - 看涨结构 (directional debit): bull_call_spread
+ * - 卖方结构 (credit sellers): iron_condor, short_strangle, bull_put_spread, bear_call_spread
+ * - 事件交易 (vol/directional debit): long_straddle, bear_put_spread
  * - 对冲建议: bearish opps on broad market (SPY) or high-IVR names
  */
 function buildEngineBuckets(
@@ -320,14 +324,14 @@ function buildEngineBuckets(
   tickers: { sym: string; ivr: number | null }[]
 ): EngineView {
   const bullish = opps.filter((o) =>
-    o.strategyId === 'bull_call_spread' || o.strategyId === 'bull_put_spread'
+    o.strategyId === 'bull_call_spread'
   )
   const seller = opps.filter((o) =>
-    o.strategyId === 'iron_condor' || o.strategyId === 'short_strangle'
+    o.strategyId === 'iron_condor' || o.strategyId === 'short_strangle' ||
+    o.strategyId === 'bull_put_spread' || o.strategyId === 'bear_call_spread'
   )
   const event = opps.filter((o) =>
-    o.strategyId === 'long_straddle' || o.strategyId === 'bear_put_spread' ||
-    o.strategyId === 'bear_call_spread'
+    o.strategyId === 'long_straddle' || o.strategyId === 'bear_put_spread'
   )
 
   // Hedge bucket: count symbols with IVR ≥ 70 (elevated risk)
