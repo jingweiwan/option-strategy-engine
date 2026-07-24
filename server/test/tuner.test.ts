@@ -167,3 +167,23 @@ test('engine: specOverrides moves the credit-spread short strike', () => {
     JSON.stringify(r.results.find((x) => x.strategy === 'iron_condor')?.legs.map((l) => l.strike))
   assert.equal(condorLegs(tuned), condorLegs(def))
 })
+
+// ---- specOverridesFromVariants: detail page replays the scanner's frozen arm ----
+
+test('specOverridesFromVariants rebuilds the exact legs the scanner chose', async () => {
+  const { specOverridesFromVariants, armsFor } = await import('../src/feedback/tuner.js')
+  for (const st of ['iron_condor', 'bull_put_spread', 'bear_call_spread'] as const) {
+    for (const d of armsFor(st)) {
+      const rebuilt = specOverridesFromVariants({ [st]: variantId(d) })[st]
+      assert.deepEqual(rebuilt, legsForShortDelta(st, d),
+        `${st} @ ${variantId(d)} must rebuild the scanner's leg spec`)
+    }
+  }
+})
+
+test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key)', async () => {
+  const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
+  assert.deepEqual(specOverridesFromVariants({ iron_condor: 'sd9.99' }), {})
+  assert.deepEqual(specOverridesFromVariants({ iron_condor: '' }), {})
+  assert.deepEqual(specOverridesFromVariants({}), {})
+})

@@ -1,5 +1,8 @@
 import type { FastifyInstance } from 'fastify'
+import type { StrategyType } from '../engine/types.js'
+import type { ExitPolicy } from '../engine/managedExit.js'
 import { runEngineLive } from '../engine/index.js'
+import { specOverridesFromVariants } from '../feedback/tuner.js'
 import { getQuote, getOptionChain, computeIvRank } from '../api/marketdata.js'
 import { fetchEarningsCalendar } from '../api/finnhub.js'
 import { impliedVolFromChain } from '../engine/liveStrategies.js'
@@ -32,6 +35,10 @@ type Body = {
   view?: 'bullish' | 'bearish' | 'neutral' | 'neutral-vol'
   volExpect?: 'low' | 'mid' | 'high'
   riskPref?: 'defined' | 'any'
+  /** Tuner variants the scanner froze onto the card, so the detail re-run
+   *  reproduces the SAME structure the card showed (e.g. { iron_condor: 'sd0.24' }). */
+  variants?: Partial<Record<StrategyType, string>>
+  exitPolicies?: Partial<Record<StrategyType, ExitPolicy>>
 }
 
 export async function strategiesLiveRoutes(app: FastifyInstance) {
@@ -98,6 +105,10 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
         view: b.view,
         volExpect: b.volExpect,
         riskPref: b.riskPref,
+        // Replay the scanner's frozen tuner variant + exit policy so the detail
+        // page's legs/POP/EV match the card instead of the static default spec.
+        specOverrides: b.variants ? specOverridesFromVariants(b.variants) : undefined,
+        exitPolicies: b.exitPolicies,
         earningsDate: earningsDate ?? undefined,
         calibrate: calibration
           ? (s, regime) => calibrationMultiplier(calibration, s, regime)

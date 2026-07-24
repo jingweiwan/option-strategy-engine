@@ -229,3 +229,25 @@ export function legsForShortDelta(strategy: StrategyType, shortDelta: number): L
   }
   return null
 }
+
+/**
+ * Rebuild the scanner's chosen leg-spec overrides from the frozen variant ids it
+ * attached to each opp (e.g. { iron_condor: 'sd0.24' }). The detail page (`/api/
+ * strategies/live`) re-runs the engine fresh; without replaying these it would
+ * use the STATIC default specs and surface a different structure than the card.
+ * Deterministic — no armStats / probing needed: variant id ↔ short delta ↔ legs.
+ */
+export function specOverridesFromVariants(
+  variants: Partial<Record<StrategyType, string>>
+): Partial<Record<StrategyType, LegSpec[]>> {
+  const out: Partial<Record<StrategyType, LegSpec[]>> = {}
+  for (const [key, variant] of Object.entries(variants)) {
+    const st = key as StrategyType
+    if (!variant) continue
+    const delta = armsFor(st).find((d) => variantId(d) === variant)
+    if (delta == null) continue
+    const legs = legsForShortDelta(st, delta)
+    if (legs) out[st] = legs
+  }
+  return out
+}

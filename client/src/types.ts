@@ -100,6 +100,10 @@ export type LiveEngineInput = {
   view?: View
   volExpect?: VolExpect
   riskPref?: RiskPref
+  /** Replay the scanner's frozen tuner variant so the detail re-run reproduces
+   *  the card's structure (e.g. { iron_condor: 'sd0.24' }). */
+  variants?: Partial<Record<StrategyType, string>>
+  exitPolicies?: Partial<Record<StrategyType, 'managed' | 'runner'>>
 }
 
 export type Regime = 'sell' | 'buy' | 'mid'
@@ -234,6 +238,10 @@ export type Opp = {
   shortLevels?: ShortLevel[]
   /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */
   strongTrend?: boolean
+  /** 扫描器选定的 tuner 变体(如 "sd0.24");详情页据此复现同一结构 */
+  variant?: string | null
+  /** 扫描该机会时的退出策略('managed' | 'runner')*/
+  exitPolicy?: 'managed' | 'runner' | null
 }
 
 export type ShortLevel = {

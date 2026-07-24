@@ -107,11 +107,21 @@ async function load() {
       resolvedExp.value = exp
     }
 
+    // Replay the scanner's frozen variant/exit-policy (from the card's link) so
+    // the re-run reproduces the same structure the card showed.
+    const variant = route.query.variant as string | undefined
+    const exitPolicy = route.query.exitPolicy as 'managed' | 'runner' | undefined
     const out = await fetchLiveStrategies({
       symbol: symbol.value,
       expiration: exp,
       simulations: 5000,
-      seed: 42
+      seed: 42,
+      ...(variant && strategyId.value
+        ? { variants: { [strategyId.value]: variant } }
+        : {}),
+      ...(exitPolicy && strategyId.value
+        ? { exitPolicies: { [strategyId.value]: exitPolicy } }
+        : {})
     })
     state.value = out.state
     allResults.value = out.results
