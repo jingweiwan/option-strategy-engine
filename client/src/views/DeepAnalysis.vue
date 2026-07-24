@@ -50,6 +50,18 @@ function goRecommend() {
   })
 }
 
+function dimLabel(d: { key: string; label?: string }): string {
+  const canonical: Record<string, string> = {
+    O: '寡头定价权',
+    C: '长周期催化',
+    I: '行业利润断层',
+    F: '财务三爆',
+    Q: '连续季报验证'
+  }
+  const fromApi = d.label?.trim()
+  return fromApi || canonical[d.key] || d.key
+}
+
 function dimensionColor(signal: OcifqDimension['signal']): string {
   switch (signal) {
     case 'bullish': return 'var(--gain)'
@@ -367,7 +379,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
             class="score-bar-row"
           >
             <span class="bar-key mono">{{ d.key }}</span>
-            <span class="bar-label">{{ d.label }}</span>
+            <span class="bar-label">{{ dimLabel(d) }}</span>
             <div class="bar-track">
               <div
                 class="bar-fill"
@@ -394,7 +406,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
           >
             <div class="dim-header">
               <span class="dim-key mono" :style="{ color: dimensionColor(dim.signal) }">{{ dim.key }}</span>
-              <span class="dim-title">{{ dim.label }}</span>
+              <span class="dim-title">{{ dimLabel(dim) }}</span>
               <span class="dim-score mono" :style="{ color: scoreColor(dim.score) }">{{ dim.score }}/{{ dim.maxScore }}</span>
               <span class="dim-signal-pill" :style="{ color: dimensionColor(dim.signal), borderColor: dimensionColor(dim.signal) }">
                 {{ dim.signal }}

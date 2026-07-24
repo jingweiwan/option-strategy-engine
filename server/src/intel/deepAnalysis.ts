@@ -52,8 +52,20 @@ export type OcifqScore = {
   total: number
 }
 
+export type OcifqDimKey = 'O' | 'C' | 'I' | 'F' | 'Q'
+
+/** Canonical Chinese labels — never trust the LLM for these (it sometimes
+ *  omits "C: 长周期催化", leaving a blank row in the UI). */
+export const OCIFQ_DIM_LABELS: Record<OcifqDimKey, string> = {
+  O: '寡头定价权',
+  C: '长周期催化',
+  I: '行业利润断层',
+  F: '财务三爆',
+  Q: '连续季报验证'
+}
+
 export type OcifqDimension = {
-  key: 'O' | 'C' | 'I' | 'F' | 'Q'
+  key: OcifqDimKey
   label: string
   score: number
   maxScore: number
@@ -62,6 +74,31 @@ export type OcifqDimension = {
   evidence: string[]
   /** 'bullish' | 'bearish' | 'neutral' */
   signal: 'bullish' | 'bearish' | 'neutral'
+}
+
+/** Force canonical labels + stable O→C→I→F→Q order. Exported for tests. */
+export function normalizeOcifqDimensions(
+  raw: Array<Partial<OcifqDimension> & { key?: string }> | undefined | null
+): OcifqDimension[] {
+  const byKey = new Map<string, Partial<OcifqDimension>>()
+  for (const d of raw ?? []) {
+    if (d?.key) byKey.set(d.key, d)
+  }
+  return (Object.keys(OCIFQ_DIM_LABELS) as OcifqDimKey[]).map((key) => {
+    const d = byKey.get(key) ?? {}
+    const score = typeof d.score === 'number' && Number.isFinite(d.score) ? d.score : 0
+    return {
+      key,
+      label: OCIFQ_DIM_LABELS[key],
+      score: Math.max(0, Math.min(10, score)),
+      maxScore: 10,
+      reasoning: typeof d.reasoning === 'string' ? d.reasoning : '',
+      evidence: Array.isArray(d.evidence) ? d.evidence.filter((e) => typeof e === 'string') : [],
+      signal: d.signal === 'bullish' || d.signal === 'bearish' || d.signal === 'neutral'
+        ? d.signal
+        : 'neutral'
+    }
+  })
 }
 
 export type ThesisItem = {
@@ -766,7 +803,7 @@ export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis
   } catch {
     /* non-fatal — fall back to day-only key segment */
   }
-  const cacheKey = `ocifq-v5-${fmpKey}-${day}-${sym}`
+  const cacheKey = `ocifq-v6-${fmpKey}-${day}-${sym}`
 
   return cached(cacheKey, 6 * HOUR, async () => {
     console.log(`[ocifq] generating deep analysis for ${sym} (fmp=${fmpKey})`)
@@ -803,9 +840,8 @@ export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis
     const scores = aiResult.scores ?? { O: 0, C: 0, I: 0, F: 0, Q: 0, total: 0 }
     scores.total = (scores.O + scores.C + scores.I + scores.F + scores.Q) * 2
 
-    const dimensions = Array.isArray(aiResult.dimensions)
-      ? aiResult.dimensions.slice(0, 5)
-      : []
+    // Labels come from OCIFQ_DIM_LABELS — LLM sometimes returns empty label for C.
+    const dimensions = normalizeOcifqDimensions(aiResult.dimensions)
 
     const defaultRefQuarter = quarterCtx.fmpLatest
       ? formatFiscalQuarter(quarterCtx.fmpLatest)
