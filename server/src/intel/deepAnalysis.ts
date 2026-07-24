@@ -25,13 +25,19 @@ import type {
   BasicFinancials,
   EarningsSurprise
 } from '../api/finnhubFinancials.js'
-import { fetchFmpFinancials } from '../api/fmpFinancials.js'
+import { fetchFmpFinancials, fetchQuarterlyIncome } from '../api/fmpFinancials.js'
 import type { FmpFinancialData, EarningsTranscript } from '../api/fmpFinancials.js'
 import { scrapeRecentTranscripts } from '../api/transcriptScraper.js'
 import { fetchCompanyNews, fetchRecommendations } from '../api/finnhubIntel.js'
 import type { FinnhubNewsItem, FinnhubRecommendation } from '../api/finnhubIntel.js'
 import { chatJson } from '../ai/client.js'
 import { cached, etCalendarDay, HOUR } from '../ai/cache.js'
+import {
+  buildQuarterContext,
+  fiscalFromIncomeRow,
+  formatFiscalQuarter,
+  type QuarterContext
+} from './quarterContext.js'
 
 // ---------- Output types ----------
 
@@ -66,6 +72,8 @@ export type ThesisItem = {
   date: string
   /** Concrete, measurable condition that would falsify this thesis. */
   invalidation: string
+  /** Fiscal quarter this delta primarily references (e.g. "2026Q2"). */
+  referenceQuarter?: string
 }
 
 export type ToneWord = {
@@ -103,6 +111,13 @@ export type DeepAnalysis = {
   dimensions: OcifqDimension[]
   /** AI-generated thesis tracker items */
   thesisItems: ThesisItem[]
+  /** FMP vs transcript fiscal-quarter alignment (prevents mixed Q labels). */
+  quarterContext: {
+    fmpLatest: string | null
+    transcriptLatest: string | null
+    lag: boolean
+    message: string | null
+  }
   /** CallTone: management tone analysis from earnings call */
   callTone: CallTone
   /** One-paragraph executive summary */
@@ -219,6 +234,12 @@ const SYSTEM_PROMPT = `你是一个 buy-side hedge fund 的高级分析师，专
 3. **前瞻指引（guidance）只能来自 transcript 原文。** 仅当电话会 transcript 中出现明确的指引数字时才可引用，并注明是哪一季电话会给的、指的是哪一季。**若源数据里没有指引数字，必须写"未获取到前瞻指引"，严禁编造任何"管理层指引 X%"。**
 4. **区分 GAAP 与 non-GAAP，区分实际值与指引值。** 不得把某季度实际毛利率说成"指引"，也不得把 GAAP 净亏损与毛利率扩张混为一谈（大额减值季可同时"毛利率上升 + GAAP 净利为负"）。
 5. evidence / delta / invalidation 里的每个数字都受本纪律约束。宁可少写一个数字，也不许编一个。
+6. **thesisItems 季度一致性（硬约束）**：
+   - 先读 Quarter Alignment 块：FMP 最新合并报表季 vs transcript 最新电话会季可能不一致（财报刚发布后 transcript 常滞后 1 季）。
+   - 合并口径（CapEx、FCF、总 revenue、EPS、margin）：只引用 FMP 最新季，delta 里写明该季（如 2026Q2）。
+   - 分部口径（Cloud、Search、backlog 等）：只来自 transcript；若 transcript 季落后于 FMP，必须写明「2026Q1 电话会」等，**禁止**把旧季分部数据标成 FMP 最新季。
+   - 所有 thesisItems 的 delta 里出现的财报季标签必须自洽；不允许 #1 写 Q1、#3 写 Q2  unless 明确区分 consolidated vs segment 且标注来源季。
+7. thesisItems.date = 分析日期 (YYYY-MM-DD)；财报季写在 delta / referenceQuarter，不要混用。
 
 你需要对给定标的做 OCIFQ 五维评分，每个维度 0-10 分：
 
@@ -346,8 +367,9 @@ evidence 必须包含具体季度数据（如"Q3 2024 毛利率 75.2% vs Q2 74.1
       "id": 1,
       "text": "核心论点",
       "status": "validated" | "challenged" | "no_change",
-      "delta": "最新变化说明",
-      "date": "信息日期",
+      "delta": "最新变化说明（须含财报季标签，如 2026Q2）",
+      "date": "分析日期 YYYY-MM-DD",
+      "referenceQuarter": "2026Q2",
       "invalidation": "证伪条件：什么可观测、可量化的数据出现会推翻这条论点"
     }
   ],
@@ -508,8 +530,8 @@ function extractKeyQuotes(transcript: EarningsTranscript): {
   return { confidenceQuotes, hedgeQuotes }
 }
 
-function buildUserPrompt(symbol: string, data: RawData): string {
-  const parts: string[] = [`=== ${symbol} Deep Analysis ===`]
+function buildUserPrompt(symbol: string, data: RawData, quarterCtx: QuarterContext): string {
+  const parts: string[] = [`=== ${symbol} Deep Analysis ===`, ...quarterCtx.promptLines]
 
   if (data.profile) {
     parts.push(`\n--- Company Profile ---`)
@@ -734,15 +756,30 @@ function buildUserPrompt(symbol: string, data: RawData): string {
 export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis> {
   const sym = symbol.toUpperCase()
   const day = etCalendarDay()
-  // v2: dropped 'visibility'/'temper' from hedge-word patterns (CallTone fix)
-  // v3: thesisItems now include an invalidation (falsification) trigger
-  // v4: peers list excludes the analyzed symbol itself + de-duplicated
-  const cacheKey = `ocifq-v4-${day}-${sym}`
+
+  // Light probe for cache key — avoid full collectData on cache hits.
+  let fmpKey = 'none'
+  try {
+    const income = await fetchQuarterlyIncome(sym)
+    const fq = income.length > 0 ? fiscalFromIncomeRow(income[0]) : null
+    if (fq) fmpKey = formatFiscalQuarter(fq)
+  } catch {
+    /* non-fatal — fall back to day-only key segment */
+  }
+  const cacheKey = `ocifq-v5-${fmpKey}-${day}-${sym}`
 
   return cached(cacheKey, 6 * HOUR, async () => {
-    console.log(`[ocifq] generating deep analysis for ${sym}`)
+    console.log(`[ocifq] generating deep analysis for ${sym} (fmp=${fmpKey})`)
 
     const data = await collectData(sym)
+    const quarterCtx = buildQuarterContext({
+      income: data.fmpFinancials.income,
+      transcripts: data.transcripts
+    })
+
+    if (quarterCtx.lag) {
+      console.warn(`[ocifq] ${sym} quarter lag: FMP ${formatFiscalQuarter(quarterCtx.fmpLatest!)} > transcript ${formatFiscalQuarter(quarterCtx.transcriptLatest!)}`)
+    }
 
     const hasTranscripts = data.transcripts.length > 0
     const { data: aiResult } = await chatJson<{
@@ -757,7 +794,7 @@ export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis
     }>(
       [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: buildUserPrompt(sym, data) }
+        { role: 'user', content: buildUserPrompt(sym, data, quarterCtx) }
       ],
       { temperature: 0.3, maxTokens: hasTranscripts ? 8000 : 4000 }
     )
@@ -770,11 +807,18 @@ export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis
       ? aiResult.dimensions.slice(0, 5)
       : []
 
+    const defaultRefQuarter = quarterCtx.fmpLatest
+      ? formatFiscalQuarter(quarterCtx.fmpLatest)
+      : quarterCtx.transcriptLatest
+        ? formatFiscalQuarter(quarterCtx.transcriptLatest)
+        : undefined
+
     const thesisItems = Array.isArray(aiResult.thesisItems)
       ? aiResult.thesisItems.slice(0, 5).map((item, i) => ({
           ...item,
           id: item.id ?? i + 1,
-          invalidation: item.invalidation ?? ''
+          invalidation: item.invalidation ?? '',
+          referenceQuarter: item.referenceQuarter ?? defaultRefQuarter
         }))
       : []
 
@@ -824,6 +868,14 @@ export async function generateDeepAnalysis(symbol: string): Promise<DeepAnalysis
       scores,
       dimensions,
       thesisItems,
+      quarterContext: {
+        fmpLatest: quarterCtx.fmpLatest ? formatFiscalQuarter(quarterCtx.fmpLatest) : null,
+        transcriptLatest: quarterCtx.transcriptLatest
+          ? formatFiscalQuarter(quarterCtx.transcriptLatest)
+          : null,
+        lag: quarterCtx.lag,
+        message: quarterCtx.lagMessage
+      },
       callTone,
       summary: aiResult.summary ?? '',
       optionImplication: aiResult.optionImplication ?? '',
