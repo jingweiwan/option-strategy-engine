@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { fetchDailyIntel } from '@/api/client'
 import { useWatchlist } from '@/composables/useWatchlist'
 import { usePositions } from '@/composables/usePositions'
+import HelpTip from '@/components/HelpTip.vue'
 import type { DailyIntelBrief, IntelItem, CrossLink } from '@/types'
 
 const { syms } = useWatchlist()
@@ -146,7 +147,7 @@ onMounted(load)
         <!-- Left: Intel items -->
         <div class="intel-main">
           <div class="section-head">
-            <div class="eyebrow">情报流</div>
+            <div class="eyebrow">情报流<HelpTip align="left" text="AI 扫描持仓相关的新闻与 SEC 文件，按对你「投资论点」的影响分级：左侧色条与标签表示利好/利空/中性。点标的代码可跳到 OCIFQ 深度分析。用来第一时间发现动摇论点的新信息。" /></div>
             <div class="tag-row">
               <button
                 v-for="opt in FILTER_OPTIONS"
@@ -207,7 +208,7 @@ onMounted(load)
 
         <!-- Right: Cross-company linkage -->
         <aside class="intel-aside">
-          <div class="eyebrow" style="margin-bottom: 14px">跨公司联动</div>
+          <div class="eyebrow" style="margin-bottom: 14px">跨公司联动<HelpTip align="left" text="AI 识别持仓公司之间的传导关系：一家的事件如何波及另一家（供应链、竞品、同赛道、客户/供应商）。from → to 表示影响方向，strength 为传导强度。帮你发现单看个股会漏掉的连锁风险。" /></div>
 
           <div v-if="data.crossLinks.length === 0" class="empty-state mono dim" style="padding: 24px 0">
             暂无联动信号
@@ -234,7 +235,7 @@ onMounted(load)
 
           <!-- Scan stats -->
           <div class="scan-stats">
-            <div class="eyebrow" style="margin-bottom: 10px; margin-top: 24px">扫描统计</div>
+            <div class="eyebrow" style="margin-bottom: 10px; margin-top: 24px">扫描统计<HelpTip align="right" text="本次情报的覆盖面与新鲜度：扫过多少新闻、多少份 SEC 文件，以及生成时间。数量偏低或生成时间过旧时，说明可能有信息尚未纳入，结论要打折看。" /></div>
             <div class="stat-row">
               <span class="stat-label">新闻扫描</span>
               <span class="stat-val mono tnum">{{ data.scannedDocs }}</span>

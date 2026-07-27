@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePositions, type Position } from '@/composables/usePositions'
 import RhBook from '@/components/RhBook.vue'
+import HelpTip from '@/components/HelpTip.vue'
 import { useThesisDrift } from '@/composables/useThesisDrift'
 import { fetchTicker } from '@/api/client'
 import type { StrategyType } from '@/types'
@@ -209,19 +210,19 @@ function clearAll() {
         <div class="sub">覆盖 {{ positions.length }} 个仓位</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Delta</div>
+        <div class="l">净 Delta<HelpTip align="left" text="整个组合的方向敞口，换算成等效股数。+100 ≈ 持有 100 股正股：标的涨 $1，组合约赚 $100；负值则做空方向。接近 0 = 方向中性，涨跌影响都不大。" /></div>
         <div class="v mono">{{ fmtSigned(aggregate.netDelta * 100, 0) }}</div>
         <div class="sub">等效股数</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Theta</div>
+        <div class="l">净 Theta<HelpTip align="left" text="时间价值每天的净流入/流出（$/天）。正值 = 只要标的不动，每天躺赚这么多，卖方（收权利金）组合通常为正；负值 = 每天被时间侵蚀，买方组合常见。" /></div>
         <div :class="['v', 'mono', aggregate.netTheta >= 0 ? 'up' : 'dn']">
           {{ fmtSigned(aggregate.netTheta * 100, 2) }}
         </div>
         <div class="sub">$ / 天</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Vega</div>
+        <div class="l">净 Vega<HelpTip align="left" text="隐含波动率每变动 1%，组合盈亏多少（$）。正 Vega 怕 IV 下跌（如财报后波动率崩塌），负 Vega 怕 IV 飙升。卖方组合通常为负 Vega，靠 IV 回落获利。" /></div>
         <div class="v mono">{{ fmtSigned(aggregate.netVega * 100, 2) }}</div>
         <div class="sub">$ / 1% IV</div>
       </div>
