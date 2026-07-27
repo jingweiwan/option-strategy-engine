@@ -147,7 +147,7 @@ onMounted(load)
         <!-- Left: Intel items -->
         <div class="intel-main">
           <div class="section-head">
-            <div class="eyebrow">情报流<HelpTip align="left" text="AI 扫描持仓相关的新闻与 SEC 文件，按对你「投资论点」的影响分级：左侧色条与标签表示利好/利空/中性。点标的代码可跳到 OCIFQ 深度分析。用来第一时间发现动摇论点的新信息。" /></div>
+            <div class="eyebrow">情报流<HelpTip align="left" text="AI 扫描你「自选列表(watchlist)」标的相关的新闻与 SEC 文件，按对论点的影响分级：左侧色条 = 利好/利空/中性。持仓标的仅用于置顶排序，不改变扫描范围。点标的代码可跳到 OCIFQ 深度分析。" /></div>
             <div class="tag-row">
               <button
                 v-for="opt in FILTER_OPTIONS"

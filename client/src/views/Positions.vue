@@ -210,12 +210,12 @@ function clearAll() {
         <div class="sub">覆盖 {{ positions.length }} 个仓位</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Delta<HelpTip align="left" text="整个组合的方向敞口，换算成等效股数。+100 ≈ 持有 100 股正股：标的涨 $1，组合约赚 $100；负值则做空方向。接近 0 = 方向中性，涨跌影响都不大。" /></div>
+        <div class="l">净 Delta<HelpTip align="left" text="组合方向敞口的等效股数。单一标的下 +100 ≈ 持 100 股；跨多个标的时是各自敞口的合计，不能当作「同一只涨 $1 就赚 $100」。接近 0 = 当前方向中性，但若组合为短 gamma，标的大幅波动仍可能明显盈亏。" /></div>
         <div class="v mono">{{ fmtSigned(aggregate.netDelta * 100, 0) }}</div>
         <div class="sub">等效股数</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Theta<HelpTip align="left" text="时间价值每天的净流入/流出（$/天）。正值 = 只要标的不动，每天躺赚这么多，卖方（收权利金）组合通常为正；负值 = 每天被时间侵蚀，买方组合常见。" /></div>
+        <div class="l">净 Theta<HelpTip align="left" text="其他条件不变时，时间价值每天的理论盈亏（$/天）。正 theta = 唯有标的与 IV 都不动才每天入账这么多；一旦标的波动，gamma/vega 的盈亏可能远超 theta，别当作确定的日收益。卖方组合通常为正 theta。" /></div>
         <div :class="['v', 'mono', aggregate.netTheta >= 0 ? 'up' : 'dn']">
           {{ fmtSigned(aggregate.netTheta * 100, 2) }}
         </div>

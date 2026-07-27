@@ -397,7 +397,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
         <!-- Left: dimensions detail -->
         <div class="deep-main">
           <div class="section-head">
-            <div class="eyebrow">五维详解<HelpTip align="left" text="OCIFQ 五维打分框架：O 寡头定价权（能不能提价而不流失客户）· C 长周期催化（多年维度的成长驱动）· I 行业利润断层（是否处在利润向头部集中的拐点）· F 财务三爆（营收/利润/现金流同时加速）· Q 连续季报验证（趋势是否被一季季数据坐实）。每维单独打分，合计为中间的 TOTAL；分越高，护城河 + 催化越强。" /></div>
+            <div class="eyebrow">五维详解<HelpTip align="left" text="OCIFQ 五维打分（各维满分 10，合计为中间的 TOTAL）：O 寡头定价权（能否提价而不流失客户）· C 长周期催化（2–5 年结构性增长驱动）· I 行业利润断层（行业内利润率差距是否在扩大、利润向头部集中）· F 财务三爆（营收、利润率、自由现金流三者同时扩张）· Q 连续季报验证（趋势是否被逐季数据坐实）。分越高，护城河 + 催化越强。" /></div>
           </div>
 
           <div
@@ -479,7 +479,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
 
           <!-- Thesis tracker -->
           <div class="section-head">
-            <div class="eyebrow">Thesis Tracker<HelpTip align="left" text="逐条追踪投资论点随新数据的验证/证伪状态。每条含 delta（本季相对变化）与「证伪条件」——预先写死的卖出信号，触发即离场，避免事后找理由死扛。若各条引用的财报季不一致，会标注季度标签（如 2026Q2），并在滞后时于上方显示提示条。" /></div>
+            <div class="eyebrow">Thesis Tracker<HelpTip align="left" text="逐条追踪投资论点随新数据的验证/证伪状态。每条含 delta（本季相对变化）与「证伪条件」——供你手动执行的纪律线：触发时应考虑离场（系统不会自动平仓，仅作展示提醒）。各条引用的财报季可能不同，会标注季度标签，滞后时于上方显示提示条。" /></div>
           </div>
           <div
             v-if="data.quarterContext?.lag && data.quarterContext.message"
@@ -525,7 +525,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
 
           <!-- Data stats -->
           <div class="stats-card">
-            <div class="eyebrow" style="margin-bottom: 8px">数据来源<HelpTip align="right" text="本次分析引用的原始数据覆盖面与季度对齐情况。⚠ 当「FMP 最新季」与「电话会最新季」不一致时，说明合并财报比电话会更新一季 —— 分部/口径数据可能滞后，跨季指标以标注的季度为准，别把两季数据当同一季混用。" /></div>
+            <div class="eyebrow" style="margin-bottom: 8px">数据来源<HelpTip align="right" text="本次分析引用的原始数据覆盖面与季度对齐情况。⚠ 当「FMP 最新季」与「电话会最新季」不一致时，说明两个数据源的最新季不同步——跨季指标以各自标注的季度为准，别把不同季的合并口径与分部口径当作同一季混用。" /></div>
             <div class="stat-row"><span>新闻扫描</span><span class="mono">{{ data.dataStats.newsCount }} 篇</span></div>
             <div class="stat-row"><span>季报数据</span><span class="mono">{{ data.dataStats.earningsQuarters }} 季度</span></div>
             <div class="stat-row"><span>财报明细</span><span class="mono">{{ data.dataStats.fmpIncomeQuarters ?? 0 }} 季度</span></div>
