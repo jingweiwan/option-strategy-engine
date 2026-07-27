@@ -4,6 +4,13 @@ dist
 # Volar / editor: generated next to Vue SFCs — must not be committed (also confuses tooling)
 **/*.vue.js
 
+# TS→JS compiled output emitted next to sources — Vite/esbuild does the real build,
+# so any .js under client/src is a stray artifact, never a source file.
+client/src/**/*.js
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 .env
 .env.local
 .env.*.local
