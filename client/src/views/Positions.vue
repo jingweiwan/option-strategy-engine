@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePositions, type Position } from '@/composables/usePositions'
 import RhBook from '@/components/RhBook.vue'
+import HelpTip from '@/components/HelpTip.vue'
 import { useThesisDrift } from '@/composables/useThesisDrift'
 import { fetchTicker } from '@/api/client'
 import type { StrategyType } from '@/types'
@@ -209,19 +210,19 @@ function clearAll() {
         <div class="sub">覆盖 {{ positions.length }} 个仓位</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Delta</div>
+        <div class="l">净 Delta<HelpTip align="left" text="组合方向敞口的等效股数。单一标的下 +100 ≈ 持 100 股；跨多个标的时是各自敞口的合计，不能当作「同一只涨 $1 就赚 $100」。接近 0 = 当前方向中性，但若组合为短 gamma，标的大幅波动仍可能明显盈亏。" /></div>
         <div class="v mono">{{ fmtSigned(aggregate.netDelta * 100, 0) }}</div>
         <div class="sub">等效股数</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Theta</div>
+        <div class="l">净 Theta<HelpTip align="left" text="其他条件不变时，时间价值每天的理论盈亏（$/天）。正 theta = 唯有标的与 IV 都不动才每天入账这么多；一旦标的波动，gamma/vega 的盈亏可能远超 theta，别当作确定的日收益。卖方组合通常为正 theta。" /></div>
         <div :class="['v', 'mono', aggregate.netTheta >= 0 ? 'up' : 'dn']">
           {{ fmtSigned(aggregate.netTheta * 100, 2) }}
         </div>
         <div class="sub">$ / 天</div>
       </div>
       <div class="agg-cell">
-        <div class="l">净 Vega</div>
+        <div class="l">净 Vega<HelpTip align="left" text="隐含波动率每变动 1%，组合盈亏多少（$）。正 Vega 怕 IV 下跌（如财报后波动率崩塌），负 Vega 怕 IV 飙升。卖方组合通常为负 Vega，靠 IV 回落获利。" /></div>
         <div class="v mono">{{ fmtSigned(aggregate.netVega * 100, 2) }}</div>
         <div class="sub">$ / 1% IV</div>
       </div>

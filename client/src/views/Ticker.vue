@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchTicker } from '@/api/client'
 import SkewChart from '@/components/SkewChart.vue'
+import HelpTip from '@/components/HelpTip.vue'
 import type { TickerResponse, OptionContract } from '@/types'
 
 const route = useRoute()
@@ -148,7 +149,7 @@ const dteFor = (exp: string) => {
         <div class="block-head">
           <div>
             <div class="eyebrow">波动率倾斜 · {{ data.expiration }}</div>
-            <div class="serif block-title">每个 strike 的 IV</div>
+            <div class="serif block-title">每个 strike 的 IV<HelpTip align="left" text="不同行权价的隐含波动率不一样，连起来就是「波动率倾斜」。看跌 IV 高于看涨（负偏）= 市场为下跌买保险，股票里很常见；曲线越陡，尾部风险定价越高。仅描述定价结构，不代表某一侧「更该卖」。" /></div>
           </div>
           <div class="legend mono">
             <span><span class="dot" style="background: var(--gain)"></span>Calls IV</span>
@@ -163,7 +164,7 @@ const dteFor = (exp: string) => {
         <div class="block-head">
           <div>
             <div class="eyebrow">期权链 · {{ data.expiration }}</div>
-            <div class="serif block-title">{{ pivotedRows.length }} 个 strike · ±15% 区间</div>
+            <div class="serif block-title">{{ pivotedRows.length }} 个 strike · ±15% 区间<HelpTip align="left" text="列含义：Δ Delta = 标的涨 $1 期权价约变动多少；也常被当作「到期价内概率」的粗略近似（严格说二者并不相等）。IV = 隐含波动率；OI = 未平仓合约数，通常越大流动性越好；买价/卖价 = 双边报价。高亮行为最接近现价的 ATM。" /></div>
           </div>
         </div>
 
