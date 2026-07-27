@@ -147,7 +147,7 @@ onMounted(load)
         <!-- Left: Intel items -->
         <div class="intel-main">
           <div class="section-head">
-            <div class="eyebrow">情报流<HelpTip align="left" text="AI 扫描你「自选列表(watchlist)」标的相关的新闻与 SEC 文件，按对论点的影响分级：左侧色条 = 利好/利空/中性。持仓标的仅用于置顶排序，不改变扫描范围。点标的代码可跳到 OCIFQ 深度分析。" /></div>
+            <div class="eyebrow">情报流<HelpTip align="left" text="AI 扫描你「自选列表(watchlist)」标的相关的新闻与 SEC 文件，按对论点的影响分级：左侧色条 = 利好 / 利空 / 中性 / 需监控(Monitor) 四类。持仓标的仅用于置顶排序，不改变扫描范围。点标的代码可跳到 OCIFQ 深度分析。" /></div>
             <div class="tag-row">
               <button
                 v-for="opt in FILTER_OPTIONS"
@@ -208,7 +208,7 @@ onMounted(load)
 
         <!-- Right: Cross-company linkage -->
         <aside class="intel-aside">
-          <div class="eyebrow" style="margin-bottom: 14px">跨公司联动<HelpTip align="left" text="AI 识别持仓公司之间的传导关系：一家的事件如何波及另一家（供应链、竞品、同赛道、客户/供应商）。from → to 表示影响方向，strength 为传导强度。帮你发现单看个股会漏掉的连锁风险。" /></div>
+          <div class="eyebrow" style="margin-bottom: 14px">跨公司联动<HelpTip align="left" text="AI 识别自选标的之间的传导关系：一家的事件如何波及另一家（供应链、竞品、同赛道、客户/供应商）。from → to 表示影响方向，strength 为传导强度。帮你发现单看个股会漏掉的连锁风险。" /></div>
 
           <div v-if="data.crossLinks.length === 0" class="empty-state mono dim" style="padding: 24px 0">
             暂无联动信号

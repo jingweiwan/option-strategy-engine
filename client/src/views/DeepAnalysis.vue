@@ -397,7 +397,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
         <!-- Left: dimensions detail -->
         <div class="deep-main">
           <div class="section-head">
-            <div class="eyebrow">五维详解<HelpTip align="left" text="OCIFQ 五维打分（各维满分 10，合计为中间的 TOTAL）：O 寡头定价权（能否提价而不流失客户）· C 长周期催化（2–5 年结构性增长驱动）· I 行业利润断层（行业内利润率差距是否在扩大、利润向头部集中）· F 财务三爆（营收、利润率、自由现金流三者同时扩张）· Q 连续季报验证（趋势是否被逐季数据坐实）。分越高，护城河 + 催化越强。" /></div>
+            <div class="eyebrow">五维详解<HelpTip align="left" text="OCIFQ 打分：O 寡头定价权 · C 长周期催化（2–5 年结构性驱动）· I 行业利润断层（行业内利润率差距是否扩大）· F 财务三爆（营收、利润率、FCF 同时扩张）· Q 连续季报验证。各维 0–10，TOTAL =（O+C+I+F+Q）×2（满分 100）。分越高，五维综合质量越强。" /></div>
           </div>
 
           <div
@@ -479,7 +479,7 @@ watch(routeSymbol, (s) => { if (s) store.load(s) })
 
           <!-- Thesis tracker -->
           <div class="section-head">
-            <div class="eyebrow">Thesis Tracker<HelpTip align="left" text="逐条追踪投资论点随新数据的验证/证伪状态。每条含 delta（本季相对变化）与「证伪条件」——供你手动执行的纪律线：触发时应考虑离场（系统不会自动平仓，仅作展示提醒）。各条引用的财报季可能不同，会标注季度标签，滞后时于上方显示提示条。" /></div>
+            <div class="eyebrow">Thesis Tracker<HelpTip align="left" text="逐条追踪投资论点随新数据的验证/证伪状态。每条含 delta（本季相对变化）与「证伪条件」——供你手动执行的纪律线：触发时应考虑离场（系统不会自动平仓，仅作展示提醒）。各条引用的财报季可能不同，会标注季度标签；当 FMP 领先电话会时于上方显示滞后提示条（反向滞后暂无横幅）。" /></div>
           </div>
           <div
             v-if="data.quarterContext?.lag && data.quarterContext.message"

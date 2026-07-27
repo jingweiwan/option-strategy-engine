@@ -61,15 +61,15 @@
 
 | 位置 | 概念 | 提示要点 |
 |------|------|----------|
-| 情报流 | AI 新闻/文件扫描 | 扫描范围是**自选 watchlist**（后端 `parseWatchlistSymbolsQuery`），**持仓仅影响置顶排序**；色条 = 利好/利空/中性；可跳 OCIFQ |
-| 跨公司联动 | 传导关系 | from→to 方向 + strength 强度；发现单看个股会漏的连锁风险 |
+| 情报流 | AI 新闻/文件扫描 | 扫描范围是**自选 watchlist**（后端 `parseWatchlistSymbolsQuery`），**持仓仅影响置顶排序**；色条 = 利好/利空/中性/**需监控(Monitor) 四类**（`thesisImpact` 枚举）；可跳 OCIFQ |
+| 跨公司联动 | 传导关系 | 与情报流**同源 watchlist**（原误作「持仓公司」）；from→to 方向 + strength 强度 |
 | 扫描统计 | 覆盖面/新鲜度 | 数量偏低或生成时间过旧时结论要打折 |
 
 ### 3.4 `client/src/views/DeepAnalysis.vue`（4 处）
 
 | 位置 | 概念 | 提示要点 |
 |------|------|----------|
-| **五维详解** | **OCIFQ 全称** | 按源码定义校准：**F = 营收 + 利润率 + FCF**（原误作「利润」）· **I = 行业内利润率差距扩大** · O/C/Q 同 `deepAnalysis.ts`；各维满分 10，合计 TOTAL |
+| **五维详解** | **OCIFQ 全称** | 按源码校准：**F = 营收 + 利润率 + FCF** · **I = 行业内利润率差距扩大** · **TOTAL =（O+C+I+F+Q）×2，满分 100**（`deepAnalysis.ts:427`，原误作「合计满分 10」）|
 | Thesis Tracker | 论点追踪/证伪 | delta = 本季变化；证伪条件 = **供手动执行的纪律线，触发应考虑离场，系统不自动平仓**（`invalidation` 仅展示字段）|
 | 数据来源 | 季度对齐 | ⚠ 两源最新季不一致时**不断言方向**（呼应 `docs/ocifq-quarter-alignment.md` §6 反向滞后未处理），跨季指标以各自标注季为准 |
 | 管理层信心 | Call tone 信心分 | transcript 语气分析 0–100；仅反映语气，需与财务数据交叉验证 |
@@ -108,8 +108,6 @@ cd client && npm run build     # vue-tsc -b && vite build
 
 - **只补了核心术语**，非穷举。每页仍有次要缩写（如 Positions 的「资金占用」、Intel 的 category pill）未加提示——判断为自解释或低价值，刻意留白避免 ⓘ 泛滥。
 - **未做首次运行引导（onboarding）**：评审提到但属独立改动，另议。
-- **只补了核心术语**，非穷举。次要缩写刻意留白避免 ⓘ 泛滥。
-- **未做首次运行引导（onboarding）**：评审提到但属独立改动，另议。
 - **旁路发现已单独解决**：`constants.js` 等被 git 跟踪的编译产物，已由 `chore/untrack-compiled-js` 分支处理（tsconfig 加 `noEmit` + untrack + gitignore）。
 
 ---
@@ -138,3 +136,4 @@ cd client && npm run build     # vue-tsc -b && vite build
 |------|------|
 | 2026-07-27 | 初版：四页补 12 处 HelpTip，覆盖 Greeks / IV skew / OCIFQ / 季度对齐 |
 | 2026-07-27 | 第 1 轮审核修订：8 条文案（4 High + 4 Med + 1 Low）投资诚实度/能力边界修正；#6/#7 回源码核实 |
+| 2026-07-27 | 第 2 轮审核修订：TOTAL 公式 =（O+C+I+F+Q）×2、impact 补 Monitor 四类、crossLinks 改自选、Thesis 横幅仅 FMP 领先时；OCIFQ tip 精简、doc §6 去重复 bullet |
