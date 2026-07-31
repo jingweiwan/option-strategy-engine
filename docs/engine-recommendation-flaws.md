@@ -43,6 +43,10 @@
 
 ## 缺陷 2 — `long_straddle` 事件触发未校验波动率是否便宜 🔴 P1
 
+> **状态(2026-07-30):板级止血已实现** —— 分支 `fix/straddle-hardgate`(`31852fc`)。
+> - 新增 `buyVolTier`(IV<RV 权威闸)+ `boardTierFor`(单一 dispatch);`long_straddle` 在 **IV≥RV / 无 IV·RV 且 IVR≥30** 时**不再 `qualified`**。WMT 复刻(0.287/0.243/71)断言 → `null`,接线级也验证。`npm run check` 118 测试全绿,golden 未受影响。
+> - **未做**:① `neutral-vol` **触发端**(`directionalView`)仍靠事件单边触发,现在只是被**板级闸**拦下,根因触发未改;② **IV<RV 的便宜 straddle 仍上板**(引擎自证便宜也亏)——硬杀该残档见缺陷 4 follow-up;③ 建议修复 #2(EV 计入 crush)、#3(复核 regimeBonus/校准链路)未做。
+
 ### 现象
 **WMT long_straddle**(9/18,财报 8/20,POP 38.1%,EV +0.06,净付 $10.14)。同一张卡上:
 
@@ -91,6 +95,10 @@
 ---
 
 ## 缺陷 4 — 净多头偏向导致回测负收益 + 校准降权过弱 🔴 P0/P1
+
+> **状态(2026-07-30):仅 straddle 的「买贵波动」一小片被止血**(`fix/straddle-hardgate`,见缺陷 2 状态)。
+> - **未做(本缺陷主体)**:① IV<RV 的**便宜 straddle 硬杀**(结构性残档,引擎自证便宜也亏)② `DISABLE_PNL` 门槛下调 / 灾难桶更快硬关 ③ `bull_call`(debit)+ 低 IVR 买方降级 ④ `bull_put` 的 delta-gate(保留 sell-vol、限净多贡献,见原则 ①)⑤ 净多偏向接组合视角(缺陷 1)。
+> - **定量部分仍待分层验证**:bull_put 那桶要 regime×策略分层后再动权重(见下方根因的因果拆分)。
 
 ### 现象(Performance 回测页,706 单已回测)
 累计 **−$5,153**、平均 **−$7.41/单**、胜率 56.5% 但**均值为负**。按方向重排,规律一目了然:
@@ -169,7 +177,7 @@
 
 | 阶段 | 做什么 | 缺陷/原则 |
 |---|---|---|
-| **P0 止血** | 自动板**硬关(或极严闸)`long_straddle`**;事件触发**必须 `IV<RV` 或 `IVR<阈值`**;下调 `DISABLE` / 对灾难桶更快硬关 | 缺陷 2、4 |
+| **P0 止血** | ✅ straddle 板级 vol 便宜度硬闸(`fix/straddle-hardgate` `31852fc`,IV<RV 权威 + `boardTierFor` 单入口 + 测试);⬜ IV<RV 便宜 straddle 硬杀、下调 `DISABLE`/灾难桶更快硬关、低 IVR 买方降级 | 缺陷 2、4 |
 | **P1 可见性** | 推荐卡展示 **net delta($ 与占账户 %)**;铁鹰改**等 delta + 校验 `|netDelta|≤ε`** | 缺陷 1、原则 ② |
 | **P1 产品决策** | **是否执行原则 ①**(短天期去方向化)——先定规则再改打分 | 原则 ① |
 | **P1 事件状态** | 财报后窗口(降权/ex-earnings IVR/失真标记)+ view 区分 gap vs 趋势 | 缺陷 3 |
@@ -186,4 +194,5 @@
 | 2026-07-30 | 扩充:缺陷 3(财报后 IV-crush + 滞后动量)、缺陷 4(净多偏向 + 校准过弱,含回测证据);新增 Part B 设计原则 ①(漂移随尺度衰减)②(铁鹰按 delta 构造)|
 | 2026-07-30 | 复审收紧:缺陷 4 因果分层护栏、原则 ① 标为产品决策;新增「评审收紧」6 条落地约束 + 复审微调版落地顺序(P0 硬闸 → P1 可见性/产品决策/事件状态)|
 | 2026-07-30 | 批判性复核复审(非照单全收):point 2 读代码坐实(`sellVolTier:174` 非 sell-vol 恒 qualified + EV 地板过低,非"绕过");point 1 拆桶(straddle/bull_call 结构性高置信 vs 仅 bull_put 样本混淆);point 3 收窄到单边 vertical(铁鹰改造非删除);point 5 反驳"credit 必然更薄"|
+| 2026-07-30 | 回填实现状态:缺陷 2 板级止血已实现(`fix/straddle-hardgate` 31852fc,buyVolTier IV<RV 权威闸 + boardTierFor 单入口 + 测试,118 全绿);缺陷 4 仅 straddle 买贵波动一小片止血,主体(便宜 straddle 硬杀/DISABLE 调参/bull_call·低IVR买方/bull_put delta-gate/组合视角)待做 |
 | 2026-07-30 | 二轮收敛:point 1 采纳「定性/定量」分层(定性止血不依赖对照期,定量防样本放大);point 3 收回对复审的过度解读 + 补 bull_put 混合体解法(保留 sell-vol、净多 delta 走 delta-gate,不与 debit 一起退板);point 5 双方收敛(撤回"更薄",确定变的是风险形状 + POP/EV)|
