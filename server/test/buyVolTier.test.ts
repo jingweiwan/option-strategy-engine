@@ -1,65 +1,74 @@
 /**
- * Buy-vol auto-board qualification (oppScanner.buyVolTier) + board dispatch
- * (oppScanner.boardTierFor).
+ * Buy-vol auto-board qualification (oppScanner.buyVolTier), board dispatch
+ * (oppScanner.boardTierFor), and the sell-vol footgun guard (sellVolTier).
  *
- * buyVolTier semantics — IV<RV is the AUTHORITATIVE cheapness gate; a low IVR
- * must NOT override an IV>=RV reading (calibration shows straddle bleeds even in
- * the low-IVR / buy regime). IVR is only a fallback proxy when RV is missing.
- *   - qualified: IV < RV; or (no IV/RV pair) IVR < BUY_VOL_IVR_CEIL
- *   - null:      IV >= RV; or (no IV/RV pair) IVR >= ceil
- *   - reference: no IV/RV pair AND no IVR (cannot judge)
+ * buyVolTier delegates the "is vol cheap enough to buy" judgment to deriveRegime
+ * (the single source of truth) so it stays consistent by construction:
+ *   - dead-zone: 'buy' needs IV below RV by max(RV·15%, 2pp), not noise-level iv<rv
+ *   - high-IVR guard: RV>IV but IVR>70 → deriveRegime → 'mid' → not qualified
+ *   - no real RV → only the unreliable IVR-fallback rank → 'reference', never a rec
+ *   Tiers: 'qualified' (real RV + regime 'buy') / null (regime ≠ buy) / 'reference' (no RV)
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buyVolTier, boardTierFor, BUY_VOL_IVR_CEIL } from '../src/engine/oppScanner.js'
+import { buyVolTier, boardTierFor, sellVolTier } from '../src/engine/oppScanner.js'
 
-// ---- buyVolTier: IV/RV pair present → IV<RV decides outright ----
+// ---- buyVolTier: real RV present → delegate to deriveRegime ----
 
-test('WMT-style rich vol (IV>RV) → dropped, regardless of high IVR', () => {
-  // Core stop-bleed: was auto-qualified via sellVolTier bypass + EV>0.
+test('WMT-style rich vol (IV>RV, high IVR) → dropped', () => {
+  // Core stop-bleed. gap=+0.044 > threshold 0.0365 → sell-edge → not 'buy'.
   assert.equal(buyVolTier(0.287, 0.243, 71), null)
 })
 
-test('IV cheaper than RV → qualified even at mid/high IVR', () => {
+test('IV cheaper than RV by a meaningful margin → qualified', () => {
+  // gap=-0.05 < -threshold(0.0375), IVR 55 ≤ 70 → deriveRegime 'buy'.
   assert.equal(buyVolTier(0.20, 0.25, 55), 'qualified')
 })
 
-test('low IVR does NOT override IV>=RV when the IV/RV pair is present', () => {
-  // The key hardening: IV<RV is authoritative; a low IVR cannot rescue it.
-  assert.equal(buyVolTier(0.30, 0.30, 15), null) // IV == RV → not cheaper → null
-  assert.equal(buyVolTier(0.31, 0.30, 5), null)  // IV > RV, very low IVR → still null
+test('noise-level cheap (inside deriveRegime dead-zone) → dropped', () => {
+  // gap=-0.001, |gap| < max(RV·15%,2pp)=0.0375 → 'mid', not 'buy'. (review pt 3)
+  assert.equal(buyVolTier(0.249, 0.25, 55), null)
 })
 
-test('IV == RV is not "cheaper" (strict <) → dropped', () => {
+test('cheap by margin but IVR historically high (>70) → dropped', () => {
+  // gap=-0.05 buy-edge, but IVR 80 > 70 → deriveRegime downgrades to 'mid'. (review pt 2)
+  assert.equal(buyVolTier(0.20, 0.25, 80), null)
+})
+
+test('IV >= RV → dropped regardless of IVR', () => {
   assert.equal(buyVolTier(0.30, 0.30, 40), null)
+  assert.equal(buyVolTier(0.30, 0.30, 15), null) // low IVR must not rescue it
 })
 
-// ---- buyVolTier: RV missing → IVR fallback proxy ----
+// ---- buyVolTier: no real RV → reference, never qualify on the IVR fallback (review pt 1) ----
 
-test('RV missing → falls back to IVR percentile', () => {
-  assert.equal(buyVolTier(0.30, null, 15), 'qualified')                 // low IVR proxy
-  assert.equal(buyVolTier(0.30, null, BUY_VOL_IVR_CEIL - 1), 'qualified')
-  assert.equal(buyVolTier(0.30, null, BUY_VOL_IVR_CEIL), null)          // at ceil → not cheap
-  assert.equal(buyVolTier(0.30, null, 71), null)                       // high IVR proxy
+test('RV missing → reference, even at low IVR (no authoritative cheapness signal)', () => {
+  assert.equal(buyVolTier(0.30, null, 15), 'reference')
+  assert.equal(buyVolTier(0.30, null, 5), 'reference')
 })
 
-test('no IV/RV pair AND no IVR → reference (cannot judge; not auto-rec)', () => {
+test('IV missing / no signal at all → reference', () => {
+  assert.equal(buyVolTier(null, 0.25, 55), 'reference')
   assert.equal(buyVolTier(null, null, NaN), 'reference')
-  assert.equal(buyVolTier(0.30, null, NaN), 'reference') // IV present but no RV, no IVR
+})
+
+// ---- sellVolTier footgun guard: a stray buy-vol call must NOT get 'qualified' (review pt 4) ----
+
+test('sellVolTier(long_straddle) returns null, not qualified', () => {
+  assert.equal(sellVolTier('long_straddle', 71, false), null)
+  assert.equal(sellVolTier('long_straddle', 5, false), null)
 })
 
 // ---- boardTierFor: dispatch wiring (the line that runs in scanSymbol) ----
 
 test('boardTierFor routes long_straddle to buyVolTier', () => {
-  // WMT inputs through the real dispatch → dropped (not qualified).
   assert.equal(
     boardTierFor('long_straddle', { ivr: 71, iv: 0.287, rv: 0.243, spansEarnings: false }),
-    null
+    null // WMT through the real dispatch → dropped
   )
-  // Genuinely cheap straddle still boards.
   assert.equal(
     boardTierFor('long_straddle', { ivr: 55, iv: 0.20, rv: 0.25, spansEarnings: false }),
-    'qualified'
+    'qualified' // genuinely cheap straddle still boards
   )
 })
 

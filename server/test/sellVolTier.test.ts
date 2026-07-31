@@ -3,7 +3,8 @@
  *   - qualified: IVR ≥ floor, no earnings
  *   - reference: IVR in [ref, floor), no earnings
  *   - dropped (null): IVR < ref, OR earnings-spanning (at any IVR)
- *   - non-sell-vol structures bypass the vol floor (always qualified)
+ *   - directional debit spreads bypass the vol floor (always qualified)
+ *   - buy-vol (long_straddle) is guarded to null — must route via buyVolTier
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -35,10 +36,15 @@ test('credit spreads follow the same floor as condors', () => {
   assert.equal(sellVolTier('bear_call_spread', 10, false), null)
 })
 
-test('non-sell-vol structures bypass THIS helper (always qualified)', () => {
-  // sellVolTier is a pure sell-vol gate. Board dispatch routes long_straddle to
-  // buyVolTier; directional debit spreads are gated by autoScanEligible.
+test('directional debit spreads bypass THIS helper (qualified; gated by autoScanEligible)', () => {
   assert.equal(sellVolTier('bull_call_spread', 5, false), 'qualified')
-  assert.equal(sellVolTier('long_straddle', 0, false), 'qualified')
+  assert.equal(sellVolTier('bear_put_spread', 5, false), 'qualified')
+})
+
+test('buy-vol (long_straddle) is guarded to null — never qualifies via the sell-vol helper', () => {
+  // Footgun guard: a stray direct call can't hand a straddle a qualified ticket;
+  // buy-vol must route through boardTierFor → buyVolTier.
+  assert.equal(sellVolTier('long_straddle', 0, false), null)
+  assert.equal(sellVolTier('long_straddle', 90, false), null)
 })
 

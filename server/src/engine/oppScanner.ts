@@ -158,9 +158,6 @@ export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
 const SELL_VOL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'bull_put_spread', 'bear_call_spread'])
 const BUY_VOL_STRATEGIES: Set<StrategyType> = new Set(['long_straddle'])
 
-/** IVR below this counts as "cheap enough" for auto-recommending buy-vol. */
-export const BUY_VOL_IVR_CEIL = Number(process.env.BUY_VOL_IVR_CEIL) || 30
-
 /**
  * Auto-board tier for sell-vol opportunities. The engine's only proven edge is
  * harvesting a rich, event-free variance risk premium, so a sell-vol structure
@@ -168,9 +165,11 @@ export const BUY_VOL_IVR_CEIL = Number(process.env.BUY_VOL_IVR_CEIL) || 30
  *   - 'qualified'  IVR ≥ floor, no earnings before expiry → a real rec
  *   - 'reference'  IVR in [ref, floor), no earnings        → labeled near-miss
  *   - null         IVR < ref, OR earnings-spanning         → dropped entirely
- * Non-sell-vol strategies return 'qualified' here so this helper stays a pure
- * sell-vol gate; the board dispatch routes buy-vol (long_straddle) to buyVolTier
- * and leaves directional debit spreads to autoScanEligible.
+ * Directional debit spreads (bull_call/bear_put) return 'qualified' here — they
+ * carry no vol floor and are gated upstream by autoScanEligible. Buy-vol
+ * (long_straddle) is explicitly NOT eligible via this helper: it returns null so
+ * a stray direct call can't hand a straddle a qualified ticket — buy-vol must
+ * route through boardTierFor → buyVolTier.
  *
  * The IVR floor is only a coarse screen; the real edge test is the downstream
  * score>0 (EV) filter. An rv-fallback IVR is an unreliable *rank* but the EV
@@ -180,6 +179,7 @@ export const BUY_VOL_IVR_CEIL = Number(process.env.BUY_VOL_IVR_CEIL) || 30
  * (narrative/notes must not headline a fake rank as "seller's paradise").
  */
 export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: boolean): OppTier | null {
+  if (BUY_VOL_STRATEGIES.has(strategy)) return null // footgun guard: buy-vol never qualifies via the sell-vol helper
   if (!SELL_VOL_STRATEGIES.has(strategy)) return 'qualified'
   if (spansEarnings) return null // never auto-sell premium through earnings — not even as reference
   if (ivr >= IVR_QUALIFY_FLOOR) return 'qualified'
@@ -188,26 +188,28 @@ export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: 
 }
 
 /**
- * Auto-board tier for buy-vol (long_straddle). Buying vol only makes sense when
- * options are CHEAP, and `IV < RV` (options priced below realized vol → positive
- * carry) is the AUTHORITATIVE gate: when the IV/RV pair is present it decides
- * outright, and a low IVR must NOT override an `IV >= RV` reading — calibration
- * shows long_straddle bleeds even in the low-IVR / buy regime (see the
- * REGIME_CONVICTION note), so low IVR alone is not a green light. IVR is only a
- * fallback proxy when RV is unavailable (and rv-fallback IVR is itself an
- * unreliable rank).
- *   - 'qualified'  IV < RV; or (no IV/RV pair) IVR < BUY_VOL_IVR_CEIL
- *   - null         IV >= RV; or (no IV/RV pair) IVR >= ceil → buying rich vol
- *   - 'reference'  no IV/RV pair AND no IVR → cannot judge; near-miss only
+ * Auto-board tier for buy-vol (long_straddle). Buying vol is off-thesis (the
+ * engine's edge is the SELL side) and a documented bleeder, so we require the
+ * AUTHORITATIVE cheapness signal and delegate the judgment to `deriveRegime` —
+ * the single source of truth the rest of the engine uses. That reuse keeps three
+ * things consistent by construction (rather than re-deriving them here):
+ *   - dead-zone: 'buy' needs IV below RV by max(RV·15%, 2pp), not a noise-level `iv<rv`;
+ *   - high-IVR guard: RV>IV but IVR>70 → deriveRegime downgrades to 'mid' (already
+ *     historically expensive → buying is risky), so it will NOT qualify here;
+ *   - so a low IVR alone never rescues an expensive/rich reading.
+ *   - 'qualified'  real RV present AND deriveRegime → 'buy'
+ *   - null         real RV present AND regime ≠ 'buy' (rich/neutral/high-IVR)
+ *   - 'reference'  no real RV → only the unreliable IVR-fallback rank exists;
+ *                  never auto-recommend a bleeder on that → labeled near-miss.
  *
- * NOTE: this only stops buying EXPENSIVE vol. It does NOT fully kill straddle:
- * a genuinely cheap (IV<RV) straddle still boards, yet calibration shows straddle
- * loses even there — hard-killing that residual is a separate follow-up (缺陷 4).
+ * NOTE: this stops buying EXPENSIVE / not-cheap-enough vol. It does NOT fully
+ * kill straddle: a genuinely cheap 'buy'-regime straddle still boards, yet
+ * calibration shows straddle loses even there — hard-killing that residual is a
+ * separate follow-up (缺陷 4).
  */
 export function buyVolTier(iv: number | null, rv: number | null, ivr: number): OppTier | null {
-  if (iv != null && rv != null) return iv < rv ? 'qualified' : null
-  if (Number.isFinite(ivr)) return ivr < BUY_VOL_IVR_CEIL ? 'qualified' : null
-  return 'reference'
+  if (iv == null || rv == null) return 'reference'
+  return deriveRegime(ivr, iv, rv) === 'buy' ? 'qualified' : null
 }
 
 /**
@@ -641,9 +643,10 @@ async function runScan(
     )
   }
 
-  // Drop opps that fail the sell-vol auto-board gate (IVR too low, or earnings-
-  // spanning). Filter BEFORE dedup so a rejected high-score expiration can't
-  // crowd a qualified one of the same symbol out of the max-2 budget.
+  // Drop opps that fail the auto-board gate (boardTierFor): sell-vol needs a rich
+  // IVR + no earnings (sellVolTier); buy-vol needs cheap vol (buyVolTier). Filter
+  // BEFORE dedup so a rejected high-score expiration can't crowd a qualified one
+  // of the same symbol out of the max-2 budget.
   const eligible = allOpps.filter((o) => o.boardTier != null)
   eligible.sort((a, b) => b.score - a.score)
 

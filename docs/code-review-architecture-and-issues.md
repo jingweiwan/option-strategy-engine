@@ -62,7 +62,7 @@ flowchart LR
 ### 1.4 设计意图（代码中体现较清晰的部分）
 
 - **引擎选结构**，LLM 主要负责叙述与解释（`server/src/ai/opportunities.ts`）。
-- **卖波动门禁**：`sellVolTier` + IVR 下限 + 财报 spanning 过滤（`server/src/engine/oppScanner.ts`）。
+- **上板门禁**：`boardTierFor` 按结构分派 —— 卖波动 `sellVolTier`(IVR 下限 + 财报 spanning)/ 买波动 `buyVolTier`(vol 便宜度,delegate `deriveRegime`)（`server/src/engine/oppScanner.ts`）。
 - **反馈闭环**：快照 → outcome → `calibration` / `tuner` / `viewSkill` 权重。
 - **自选单一默认源**：`server/src/watchlistDefaults.ts` + `GET /api/watchlist/default`。
 - **卡片→详情结构 + 数值复现**：tuner variant + condor exitPolicy + `replay=1` → 服务端 `SCAN_SIMULATIONS`（commit `12eca8a`、`84081bb` 及 follow-up）。
@@ -73,7 +73,7 @@ flowchart LR
 
 1. **`deriveRegime` 的 IV−RV + IVR 降级**（`server/src/engine/index.ts`）比「只看 IVR」更接近实务思路。
 2. **`managedExit` + 反馈用同一套 POP/EV**，学习信号与展示口径方向一致（`server/src/engine/scorer.ts`）。
-3. **`sellVolTier`、财报 spanning 过滤、相关性感知的 `selectDiverse`** — 产品层有明确门禁。
+3. **`boardTierFor`(`sellVolTier` 卖波动 / `buyVolTier` 买波动)、财报 spanning 过滤、相关性感知的 `selectDiverse`** — 产品层有明确门禁。
 4. **`viewSkill` 把未证实的 directional AI 权重归零**（`server/src/feedback/viewSkill.ts`）— 避免 AI 在缺乏 track record 时硬指挥选结构。
 5. **`specOverridesFromVariants` + 单测** — variant → legs 重建路径有单元测试锁住（`server/test/tuner.test.ts`）。
 6. **`server/test/`** — 102/102 通过；覆盖 regime、tuner、managed exit、diversify、exitPolicy、卡片 replay 等。
