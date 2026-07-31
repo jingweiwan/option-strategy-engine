@@ -273,7 +273,10 @@ export async function buildOppsFromScan(
   if (scannedOpps.length === 0) return []
 
   const symKey = [...new Set(scannedOpps.map((o) => o.sym))].sort().join(',')
-  const key = `opps-copy-v7-${etCalendarDay()}-${symKey}`
+  // Independent 12h cache that copies boardTier through (see `boardTier: o.boardTier`
+  // below). Bump alongside opp-scan whenever boardTier semantics change, else a
+  // pre-fix opps-copy hit re-serves a stale 'qualified' straddle. v8: buyVolTier gate.
+  const key = `opps-copy-v8-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

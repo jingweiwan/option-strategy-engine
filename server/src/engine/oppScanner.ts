@@ -1006,7 +1006,10 @@ export async function getScannedOpps(
   earningsIso: Record<string, string> = {}
 ): Promise<ScannedOpp[]> {
   const wlSlug = watchlistCacheSlug(watchlist)
-  const key = `opp-scan-v10-${etCalendarDay()}-${wlSlug}`
+  // Bump the version whenever the cached ScannedOpp shape/semantics change, else
+  // the 12h day-cache serves stale entries. v11: buyVolTier board-gate changed
+  // long_straddle's boardTier (expensive-vol straddle no longer 'qualified').
+  const key = `opp-scan-v11-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit
