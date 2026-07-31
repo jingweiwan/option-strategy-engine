@@ -35,8 +35,9 @@ test('credit spreads follow the same floor as condors', () => {
   assert.equal(sellVolTier('bear_call_spread', 10, false), null)
 })
 
-test('non-sell-vol structures bypass the vol floor (always qualified)', () => {
-  // Directional debit spreads are gated by autoScanEligible, not the vol floor.
+test('non-sell-vol structures bypass THIS helper (always qualified)', () => {
+  // sellVolTier is a pure sell-vol gate. Board dispatch routes long_straddle to
+  // buyVolTier; directional debit spreads are gated by autoScanEligible.
   assert.equal(sellVolTier('bull_call_spread', 5, false), 'qualified')
   assert.equal(sellVolTier('long_straddle', 0, false), 'qualified')
 })

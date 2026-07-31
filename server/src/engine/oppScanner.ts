@@ -149,20 +149,28 @@ export const IVR_QUALIFY_FLOOR = Number(process.env.IVR_QUALIFY_FLOOR) || 30
 /** IVR in [reference, qualify) surfaces as a labeled near-miss, not a rec. */
 export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
 
+// Board vol gates are symmetric:
+//   - sell-vol  → needs vol RICH  (IVR floor + no earnings) via sellVolTier
+//   - buy-vol   → needs vol CHEAP (IV < RV authoritative)   via buyVolTier
+//   - directional debit spreads → autoScanEligible (view), not a vol floor
 // Credit/condor structures that live or die by selling a RICH, event-free
-// variance premium. short_strangle is disabled elsewhere; directional debit
-// spreads are gated by autoScanEligible and aren't subject to a vol floor.
+// variance premium. short_strangle is disabled elsewhere.
 const SELL_VOL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'bull_put_spread', 'bear_call_spread'])
+const BUY_VOL_STRATEGIES: Set<StrategyType> = new Set(['long_straddle'])
+
+/** IVR below this counts as "cheap enough" for auto-recommending buy-vol. */
+export const BUY_VOL_IVR_CEIL = Number(process.env.BUY_VOL_IVR_CEIL) || 30
 
 /**
- * Auto-board tier for one opportunity. The engine's only proven edge is
+ * Auto-board tier for sell-vol opportunities. The engine's only proven edge is
  * harvesting a rich, event-free variance risk premium, so a sell-vol structure
  * must clear an IVR floor AND not span earnings before it's recommended:
  *   - 'qualified'  IVR ≥ floor, no earnings before expiry → a real rec
  *   - 'reference'  IVR in [ref, floor), no earnings        → labeled near-miss
  *   - null         IVR < ref, OR earnings-spanning         → dropped entirely
- * Non-sell-vol structures are always 'qualified' (this gate is about vol
- * richness, not direction — direction is gated by autoScanEligible).
+ * Non-sell-vol strategies return 'qualified' here so this helper stays a pure
+ * sell-vol gate; the board dispatch routes buy-vol (long_straddle) to buyVolTier
+ * and leaves directional debit spreads to autoScanEligible.
  *
  * The IVR floor is only a coarse screen; the real edge test is the downstream
  * score>0 (EV) filter. An rv-fallback IVR is an unreliable *rank* but the EV
@@ -177,6 +185,45 @@ export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: 
   if (ivr >= IVR_QUALIFY_FLOOR) return 'qualified'
   if (ivr >= IVR_REFERENCE_FLOOR) return 'reference'
   return null
+}
+
+/**
+ * Auto-board tier for buy-vol (long_straddle). Buying vol only makes sense when
+ * options are CHEAP, and `IV < RV` (options priced below realized vol → positive
+ * carry) is the AUTHORITATIVE gate: when the IV/RV pair is present it decides
+ * outright, and a low IVR must NOT override an `IV >= RV` reading — calibration
+ * shows long_straddle bleeds even in the low-IVR / buy regime (see the
+ * REGIME_CONVICTION note), so low IVR alone is not a green light. IVR is only a
+ * fallback proxy when RV is unavailable (and rv-fallback IVR is itself an
+ * unreliable rank).
+ *   - 'qualified'  IV < RV; or (no IV/RV pair) IVR < BUY_VOL_IVR_CEIL
+ *   - null         IV >= RV; or (no IV/RV pair) IVR >= ceil → buying rich vol
+ *   - 'reference'  no IV/RV pair AND no IVR → cannot judge; near-miss only
+ *
+ * NOTE: this only stops buying EXPENSIVE vol. It does NOT fully kill straddle:
+ * a genuinely cheap (IV<RV) straddle still boards, yet calibration shows straddle
+ * loses even there — hard-killing that residual is a separate follow-up (缺陷 4).
+ */
+export function buyVolTier(iv: number | null, rv: number | null, ivr: number): OppTier | null {
+  if (iv != null && rv != null) return iv < rv ? 'qualified' : null
+  if (Number.isFinite(ivr)) return ivr < BUY_VOL_IVR_CEIL ? 'qualified' : null
+  return 'reference'
+}
+
+/**
+ * Single entry for a candidate's auto-board tier — the ONE place that routes by
+ * structure so no caller can forget the dispatch:
+ *   - buy-vol (long_straddle)          → buyVolTier   (needs vol cheap)
+ *   - sell-vol (condor/credit spreads) → sellVolTier  (needs vol rich, no earnings)
+ *   - directional debit spreads        → sellVolTier returns 'qualified'; direction
+ *                                        is gated upstream by autoScanEligible.
+ */
+export function boardTierFor(
+  strategy: StrategyType,
+  ctx: { ivr: number; iv: number | null; rv: number | null; spansEarnings: boolean }
+): OppTier | null {
+  if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolTier(ctx.iv, ctx.rv, ctx.ivr)
+  return sellVolTier(strategy, ctx.ivr, ctx.spansEarnings)
 }
 
 /** Whether an expiration (YYYY-MM-DD) falls on/after the next earnings date. */
@@ -824,7 +871,12 @@ async function scanSymbol(
           variant: variantBy[r.strategy] ?? null,
           exitPolicy: exitPolicyBy[r.strategy] ?? null,
           spansEarnings,
-          boardTier: sellVolTier(r.strategy, result.state.ivRank, spansEarnings) ?? undefined,
+          boardTier: boardTierFor(r.strategy, {
+            ivr: result.state.ivRank,
+            iv: result.state.iv,
+            rv: ivRankInfo?.currentRv ?? null,
+            spansEarnings
+          }) ?? undefined,
           shortLevels: shortLegLevels(legs, keyLevels),
           strongTrend
         }
