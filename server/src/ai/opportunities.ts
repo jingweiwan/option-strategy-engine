@@ -64,7 +64,8 @@ export type Opp = {
    *  card can carry a low-conviction badge. */
   lowConviction?: boolean
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss
-   *  (IVR below the floor) shown as "参考位 · 不建议开仓". */
+   *  shown as "参考位 · 不建议开仓" — for sell-vol that's IVR below the floor;
+   *  for buy-vol (straddle) that's vol-cheapness unverifiable (no real RV). */
   boardTier?: 'qualified' | 'reference'
   /** Nearest support/resistance to each short strike (strike-placement context). */
   shortLevels?: ShortLevel[]
