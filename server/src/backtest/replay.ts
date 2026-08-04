@@ -23,7 +23,7 @@ import { theoreticalExtremes } from '../engine/payoff.js'
 import { deriveRegime, type Regime } from '../engine/index.js'
 import type { StrategyType, OptionLeg } from '../engine/types.js'
 import { computeOutcomeForSnapshot } from '../feedback/outcome.js'
-import { outcomePnl, normalizedReward } from '../feedback/calibration.js'
+import { outcomePnl } from '../feedback/calibration.js'
 import {
   TUNED_STRATEGIES,
   armsFor,
@@ -53,9 +53,19 @@ export type ArmResult = {
   n: number
   wins: number
   winRate: number
+  /** Mean raw per-share P&L — the metric the online tuner ranks arms by. */
   avgPnl: number
   totalPnl: number
-  avgReward: number
+}
+
+/**
+ * Parse the short-delta out of a variant id, tolerating a structure epoch
+ * suffix (e.g. `sd0.16@w2` → 0.16). Without stripping `@…` the old
+ * `Number(variant.replace('sd',''))` returned NaN for condor arms.
+ */
+export function shortDeltaFromVariant(variant: string): number {
+  const m = /^sd([0-9.]+)/.exec(variant)
+  return m ? Number(m[1]) : NaN
 }
 
 export type ReplayReport = {
@@ -120,7 +130,7 @@ export async function runReplay(cfg: ReplayConfig = {}): Promise<ReplayReport> {
   const r = cfg.riskFreeRate ?? 0.045
   const days = cfg.days ?? listArchiveDays()
 
-  type Acc = { rewards: number[]; pnls: number[] }
+  type Acc = { pnls: number[] }
   const buckets = new Map<string, Acc>()
   let trades = 0
   let skipped = 0
@@ -180,10 +190,8 @@ export async function runReplay(cfg: ReplayConfig = {}): Promise<ReplayReport> {
           } catch { /* skip on outcome failure */ }
           if (pnl == null) { skipped++; continue }
 
-          const reward = normalizedReward(pnl, maxLoss)
           const k = armKey(strategy, regime, variantId(shortDelta, strategy))
-          const acc = buckets.get(k) ?? { rewards: [], pnls: [] }
-          acc.rewards.push(reward)
+          const acc = buckets.get(k) ?? { pnls: [] }
           acc.pnls.push(pnl)
           buckets.set(k, acc)
           trades++
@@ -199,12 +207,11 @@ export async function runReplay(cfg: ReplayConfig = {}): Promise<ReplayReport> {
     const totalPnl = acc.pnls.reduce((a, b) => a + b, 0)
     return {
       strategy, regime, variant,
-      shortDelta: Number(variant.replace('sd', '')),
+      shortDelta: shortDeltaFromVariant(variant),
       n, wins,
       winRate: n ? wins / n : 0,
       avgPnl: n ? totalPnl / n : 0,
-      totalPnl,
-      avgReward: n ? acc.rewards.reduce((a, b) => a + b, 0) / n : 0
+      totalPnl
     }
   }).sort((a, b) =>
     a.strategy.localeCompare(b.strategy) ||

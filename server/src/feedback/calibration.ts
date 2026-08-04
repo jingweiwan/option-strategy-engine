@@ -28,8 +28,12 @@ export function outcomePnl(o: RecommendationOutcome): number | null {
 /**
  * Realized P&L → return on capital-at-risk on [0,1]. 0.5 = breakeven,
  * 0 = lost the max, 1 = made as much as could be lost. Self-normalizing across
- * $20 and $500 underlyings. Shared by the online tuner. Falls back to binary
- * win/loss only when maxLoss is unavailable (undefined-risk structures).
+ * $20 and $500 underlyings. Falls back to binary win/loss only when maxLoss is
+ * unavailable (undefined-risk structures).
+ *
+ * NOTE: the online tuner NO LONGER uses this — it ranks arms by raw $/trade (a
+ * ÷maxLoss ratio systematically favors the bigger-credit arm, the reward↔$
+ * inversion). This remains a helper for offline replay reporting only.
  */
 export function normalizedReward(pnl: number, maxLoss: number | null): number {
   if (maxLoss != null && maxLoss < 0) {

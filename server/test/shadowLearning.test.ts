@@ -8,7 +8,13 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildArmStats } from '../src/feedback/tuner.js'
+import { buildArmStats, variantId } from '../src/feedback/tuner.js'
+
+// Condor arms carry the structure epoch in production (e.g. sd0.20@w2). Use the
+// real variant ids so the test locks the bucket pickShortDelta actually reads.
+const V16 = variantId(0.16, 'iron_condor')
+const V20 = variantId(0.2, 'iron_condor')
+const V24 = variantId(0.24, 'iron_condor')
 import { buildCalibrationTable, normalizedReward } from '../src/feedback/calibration.js'
 import type { RecommendationSnapshot } from '../src/feedback/types.js'
 
@@ -19,7 +25,7 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
     spot: 100, iv: 0.3, ivr: 50, rvAtScan: null, ivRvGap: null,
     regime: 'sell', score: 1, pop: 0.7, ev: 0.1, netPremium: 1,
     maxProfit: 1, maxLoss: -4, dte: 30, breakevens: [], legs: [],
-    variant: 'sd0.16',
+    variant: V16,
     outcome: {
       computedAt: '', horizonDays: 5, tradingDaysUsed: 5,
       realizedVolAnnualized: null, spotMin: null, spotMax: null,
@@ -34,10 +40,10 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
 test('shadow rows feed arm posteriors — losing arms accumulate evidence', () => {
   // The 0.20 arm was never surfaced (score ≤ 0) but its shadow rows settled.
   const stats = buildArmStats([
-    snap({ source: 'shadow', variant: 'sd0.20' }, false),
-    snap({ source: 'shadow', variant: 'sd0.20', etDay: '2026-06-02' }, false)
+    snap({ source: 'shadow', variant: V20 }, false),
+    snap({ source: 'shadow', variant: V20, etDay: '2026-06-02' }, false)
   ])
-  const s = stats.get('iron_condor|sell|sd0.20')
+  const s = stats.get(`iron_condor|sell|${V20}`)
   assert.ok(s, 'shadow-only arm has a posterior')
   assert.equal(s!.n, 2)
   assert.ok(s!.sum < 0, 'losses registered as negative mean return')
@@ -47,10 +53,10 @@ test('shadow row duplicating a surfaced row is counted once (surfaced wins)', ()
   const stats = buildArmStats([
     snap({}, true), // surfaced sd0.16
     snap({ source: 'shadow' }, true), // same day/sym/strategy/variant → skipped
-    snap({ source: 'shadow', variant: 'sd0.24' }, false) // different arm → kept
+    snap({ source: 'shadow', variant: V24 }, false) // different arm → kept
   ])
-  assert.equal(stats.get('iron_condor|sell|sd0.16')!.n, 1, 'no double count')
-  assert.equal(stats.get('iron_condor|sell|sd0.24')!.n, 1)
+  assert.equal(stats.get(`iron_condor|sell|${V16}`)!.n, 1, 'no double count')
+  assert.equal(stats.get(`iron_condor|sell|${V24}`)!.n, 1)
 })
 
 test('calibration skips shadow rows entirely', () => {
@@ -58,7 +64,7 @@ test('calibration skips shadow rows entirely', () => {
   // drag the multiplier down.
   const rows: RecommendationSnapshot[] = []
   for (let i = 0; i < 6; i++) rows.push(snap({ etDay: `2026-06-0${i + 1}` }, true))
-  for (let i = 0; i < 12; i++) rows.push(snap({ source: 'shadow', variant: 'sd0.24', etDay: `2026-06-${10 + i}` }, false))
+  for (let i = 0; i < 12; i++) rows.push(snap({ source: 'shadow', variant: V24, etDay: `2026-06-${10 + i}` }, false))
   const withShadow = buildCalibrationTable(rows)
   const withoutShadow = buildCalibrationTable(rows.filter((r) => r.source !== 'shadow'))
   assert.deepEqual([...withShadow.entries()], [...withoutShadow.entries()], 'shadow rows changed calibration')

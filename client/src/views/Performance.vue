@@ -79,20 +79,40 @@ const verdict = computed(() => {
 })
 
 // ---- Parameter experiment (tuner) — plain-language presentation ----
-// The engine A/B-tests how far out-of-the-money credit spreads are sold.
-const ALL_VARIANTS = ['sd0.25', 'sd0.30', 'sd0.35'] as const
-const VARIANT_HUMAN: Record<string, { name: string; hint: string }> = {
+// The engine A/B-tests how far out-of-the-money it sells. Arm sets differ by
+// strategy (condor arms carry a structure epoch, e.g. sd0.20@w2). score is the
+// arm's MEAN per-trade P&L in $/share (the tuner ranks by absolute $/trade).
+const SPREAD_VARIANTS = ['sd0.25', 'sd0.30', 'sd0.35'] as const
+const CONDOR_VARIANTS = ['sd0.16@w2', 'sd0.20@w2', 'sd0.24@w2'] as const
+function variantsForStrategy(strategy: string): readonly string[] {
+  return strategy === 'iron_condor' ? CONDOR_VARIANTS : SPREAD_VARIANTS
+}
+// Human labels keyed by the delta part (epoch suffix stripped) so condor and
+// spread arms share the conservative/standard/aggressive framing.
+const VARIANT_HUMAN_BASE: Record<string, { name: string; hint: string }> = {
   'sd0.25': { name: '保守卖法', hint: '卖得离现价更远:更安全,但收的权利金少' },
   'sd0.30': { name: '标准卖法', hint: '原先的默认参数' },
-  'sd0.35': { name: '激进卖法', hint: '卖得离现价更近:权利金多,但更容易被打穿' }
+  'sd0.35': { name: '激进卖法', hint: '卖得离现价更近:权利金多,但更容易被打穿' },
+  'sd0.16': { name: '保守卖法', hint: '铁鹰卖得更远:更安全,权利金少' },
+  'sd0.20': { name: '标准卖法', hint: '铁鹰默认参数' },
+  'sd0.24': { name: '激进卖法', hint: '铁鹰卖得更近:权利金多,更易被打穿' }
 }
+function variantHuman(variant: string): { name: string; hint: string } {
+  const base = variant.replace(/@.*$/, '')
+  return VARIANT_HUMAN_BASE[base] ?? { name: variant, hint: '' }
+}
+// A per-contract $ edge (best − runner-up) this large, with both arms sampled,
+// is treated as a credible verdict. 0.15 $/share = $15 per contract.
+const CREDIBLE_EDGE_PER_SHARE = 0.15
 function regimeHuman(r: string): string {
   if (r === 'sell') return '高波动环境'
   if (r === 'buy') return '低波动环境'
   return '中性环境'
 }
 
-type BucketArm = { variant: string; n: number; score: number; hasData: boolean }
+// score = mean $/share; perContract = $/contract for display; barPct scales the
+// bar relative to the best positive arm in the bucket (0 for non-positive).
+type BucketArm = { variant: string; n: number; score: number; perContract: number; barPct: number; hasData: boolean }
 const tunerBuckets = computed(() => {
   const arms = data.value?.tunerArms ?? []
   const byBucket = new Map<string, typeof arms>()
@@ -102,27 +122,35 @@ const tunerBuckets = computed(() => {
   }
   return [...byBucket.entries()].map(([k, list]) => {
     const [strategy, regime] = k.split('|')
-    // Show all three options, including ones still waiting for results.
-    const full: BucketArm[] = ALL_VARIANTS.map((v) => {
+    // Show this strategy's arm set, including ones still waiting for results.
+    const raw = variantsForStrategy(strategy).map((v) => {
       const hit = list.find((a) => a.variant === v)
       return { variant: v, n: hit?.n ?? 0, score: hit?.score ?? 0, hasData: (hit?.n ?? 0) > 0 }
     })
+    const maxPositive = Math.max(0, ...raw.map((a) => a.score))
+    const full: BucketArm[] = raw.map((a) => ({
+      ...a,
+      perContract: a.score * 100,
+      barPct: maxPositive > 0 ? Math.max(0, (a.score / maxPositive) * 100) : 0
+    }))
     const tested = full.filter((a) => a.hasData)
-    const best = [...tested].sort((a, b) => b.score - a.score)[0]
-    const runnerUp = [...tested].sort((a, b) => b.score - a.score)[1]
+    const ranked = [...tested].sort((a, b) => b.score - a.score)
+    const best = ranked[0]
+    const runnerUp = ranked[1]
 
-    // Plain-language verdict for this bucket
+    // Plain-language verdict for this bucket. Credible = every arm sampled AND
+    // the best is profitable AND leads the runner-up by a real per-contract edge.
     let status: string
     if (tested.length <= 1) {
-      status = '🧪 试验刚开始 — 另外两种卖法在等首批结果(回测约需 5 天)'
+      status = '🧪 试验刚开始 — 其它卖法在等首批结果(回测约需 5 天)'
     } else if (
       tested.length === full.length &&
       tested.every((a) => a.n >= 15) &&
-      best && runnerUp && best.score - runnerUp.score > 0.05
+      best && runnerUp && best.score > 0 && best.score - runnerUp.score > CREDIBLE_EDGE_PER_SHARE
     ) {
-      status = `✅ 结论已可信:「${VARIANT_HUMAN[best.variant].name}」在这种环境下最赚钱`
+      status = `✅ 结论已可信:「${variantHuman(best.variant).name}」在这种环境下每张合约最赚钱`
     } else {
-      status = `⏳「${VARIANT_HUMAN[best!.variant].name}」暂时领先 — 数据还不够下结论,引擎仍在对比`
+      status = `⏳「${variantHuman(best!.variant).name}」暂时领先 — 数据还不够下结论,引擎仍在对比`
     }
     return { strategy, regime, arms: full, bestVariant: best?.variant, status }
   })
@@ -359,12 +387,12 @@ const curveZeroY = computed(() => {
               :key="a.variant"
               class="tb-arm"
               :class="{ lead: a.hasData && a.variant === b.bestVariant, nodata: !a.hasData }"
-              :title="VARIANT_HUMAN[a.variant].hint"
+              :title="variantHuman(a.variant).hint"
             >
-              <span class="tb-variant">{{ VARIANT_HUMAN[a.variant].name }}</span>
+              <span class="tb-variant">{{ variantHuman(a.variant).name }}</span>
               <template v-if="a.hasData">
-                <span class="tb-bar"><span :style="{ width: (a.score * 100).toFixed(0) + '%' }" /></span>
-                <span class="mono tb-score">{{ (a.score * 100).toFixed(0) }}分</span>
+                <span class="tb-bar"><span :style="{ width: a.barPct.toFixed(0) + '%' }" /></span>
+                <span class="mono tb-score">{{ a.perContract >= 0 ? '+' : '' }}${{ a.perContract.toFixed(0) }}/张</span>
                 <span class="mono tb-n">已验证{{ a.n }}笔</span>
               </template>
               <template v-else>
@@ -374,8 +402,8 @@ const curveZeroY = computed(() => {
           </div>
         </div>
         <p class="tuner-note">
-          怎么看:引擎每次推荐信用价差时,会在三种卖法里做小规模实验——大部分机会给当前得分最高的,留一小部分试另外两种,防止误判。
-          得分(0~100)综合了「赚多少」和「亏多少」,不是单纯胜率;<b>笔数没攒够之前,领先只是暂时的,看到 ✅ 才算结论。</b>
+          怎么看:引擎每次推荐时,会在几种卖法里做小规模实验——大部分机会给当前最赚的,留一小部分试其它,防止误判。
+          数字是<b>每张合约的平均盈亏($)</b>(按固定合约数,越大越好,可能为负),不是胜率;<b>笔数没攒够之前,领先只是暂时的,看到 ✅ 才算结论。</b>
           鼠标悬停每行可看该卖法的具体含义。
         </p>
       </section>

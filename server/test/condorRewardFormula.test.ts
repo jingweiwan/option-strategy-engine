@@ -18,7 +18,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildArmStats, pickShortDelta, variantId } from '../src/feedback/tuner.js'
+import { shortDeltaFromVariant } from '../src/backtest/replay.js'
 import type { RecommendationSnapshot } from '../src/feedback/types.js'
+
+test('shortDeltaFromVariant strips the structure epoch (condor @w2 → number, not NaN)', () => {
+  assert.equal(shortDeltaFromVariant(variantId(0.16, 'iron_condor')), 0.16) // 'sd0.16@w2'
+  assert.equal(shortDeltaFromVariant('sd0.16@w2'), 0.16)
+  assert.equal(shortDeltaFromVariant('sd0.30'), 0.3)
+})
 
 function mulberry32(seed: number): () => number {
   let a = seed
