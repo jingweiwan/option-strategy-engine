@@ -11,10 +11,9 @@
  * Fix: short legs keep their delta/skew; both long wings are placed an EQUAL
  * dollar width (k × same-side short strike) from their short — this makes
  * maxLoss bounded and comparable across arms, and closes the lopsided board
- * card. It does NOT fix the reward↔$ inversion: with maxLoss comparable the
- * reward is still inverted vs realized $ (out of scope here — that needs the
- * reward-formula change on fix/condor-reward-formula). This file only asserts
- * the wing geometry and the variant epoch.
+ * card. It does NOT fix the reward↔$ inversion (out of scope here — that needs
+ * the reward-formula change on fix/condor-reward-formula). This file only
+ * asserts the wing geometry and the variant epoch.
  *
  * The re-parameterization epochs the condor tuner variant ids (`@w2`) so legacy
  * sd0.20 snapshots (old structure) no longer match a live arm and cannot

@@ -169,10 +169,10 @@ export async function feedbackRoutes(app: FastifyInstance) {
         exitDay: s.outcome?.managedExitDay ?? null
       }))
 
-    // Tuner arm posteriors — mean per-trade $-return (pnl/spot) per
-    // (strategy × regime × variant). score = mean return; the tuner ranks arms
-    // by this (variance drives exploration). Meaningful for RANKING arms within
-    // the same strategy×regime bucket.
+    // Tuner arm posteriors — mean per-trade raw P&L ($/share) per
+    // (strategy × regime × variant). score = mean P&L; the tuner ranks arms by
+    // this (variance drives exploration). Meaningful for RANKING arms within the
+    // same strategy×regime bucket.
     const tunerArms = [...buildArmStats(all).entries()]
       .map(([k, v]) => {
         const [strategy, regime, variant] = k.split('|')

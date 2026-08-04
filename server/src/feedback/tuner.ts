@@ -4,28 +4,26 @@
  * Phase 2 of the self-optimization plan. Knob: the SHORT-LEG DELTA — for credit
  * spreads (bull_put / bear_call) arms {0.25, 0.30, 0.35}; for the iron condor
  * the PUT short arms {0.16, 0.20, 0.24} (the call short drifts off it; both long
- * wings are placed an EQUAL dollar width via CONDOR_WING_PCT). Each
- * dashboard recommendation picks an arm by sampling the Beta
- * posterior of its realized win rate (per strategy × regime bucket); the
- * chosen variant id is recorded on the snapshot, so every backtested outcome
- * sharpens the posterior — recommendations drift toward what actually pays.
+ * wings are equal-$ via CONDOR_WING_PCT). Each dashboard recommendation picks an
+ * arm by Thompson-sampling a Normal posterior over its mean per-trade P&L (per
+ * strategy × regime bucket); the chosen variant id is recorded on the snapshot,
+ * so every backtested outcome sharpens the posterior — recommendations drift
+ * toward the arm that makes the most $/trade.
  *
  * Why Thompson sampling: with only a handful of resolved trades per day,
- * epsilon-greedy wastes exploration and grid search overfits. Beta-posterior
- * sampling explores exactly in proportion to remaining uncertainty.
+ * epsilon-greedy wastes exploration and grid search overfits. A Normal posterior
+ * over each arm's mean reward explores exactly in proportion to remaining
+ * uncertainty (variance/n + a prior spread).
  *
- * REWARD = return on capital-at-risk, not win/loss and not %-of-max-profit.
- * A binary win/loss reward is biased for option selling (lower-delta arms win
- * more by construction while earning less). An earlier "%-of-range" attempt
- * (pnl−maxLoss)/(maxProfit−maxLoss) was also wrong: the range differs per arm,
- * so it favored the low-premium arm even when the high-delta arm made far more
- * money (caught by the replay backtester). The fix is plain return on risk:
- *   r = clamp01(0.5 + 0.5 · pnl / |maxLoss|)
- *     pnl = −|maxLoss| (full loss) → 0 ;  pnl = +|maxLoss| → 1 ;  pnl = 0 → 0.5
- * This is comparable across $20 and $500 underlyings AND across arms, credits
- * bigger premium relative to capital risked, and debits losses the same way.
- * Beta posterior updates with fractional mass (α += r, β += 1−r); its mean
- * ranks arms by risk-adjusted profitability — the thing we want to maximize.
+ * REWARD = raw per-share P&L (= $/contract ÷ 100), NOT win/loss and NOT a ratio.
+ * The account trades a FIXED number of contracts, so the objective is absolute
+ * $/trade. Two ratio attempts both mis-ranked, each caught by the replay:
+ *   - ÷maxLoss (return-on-risk) favors the bigger-credit/tighter arm regardless
+ *     of realized $ (the condor reward↔$ inversion);
+ *   - ÷spot (return-on-notional) over-credits wins on cheap underlyings, so a
+ *     lower-$ arm that lands more on low-priced names scores higher.
+ * Plain mean P&L ranks arms by the money they actually make. The Normal
+ * posterior updates from {n, Σpnl, Σpnl²}; its mean is what we maximize.
  *
  * Honest expectations: convergence is weeks-to-months at this trade volume.
  * Keep arms few. Legacy credit-spread snapshots (before variants existed) seed
@@ -101,12 +99,12 @@ export function variantId(shortDelta: number, strategy: StrategyType): string {
 }
 
 /**
- * key `${strategy}|${regime}|${variant}` → mean-variance sufficient stats over a
- * scale-free per-trade RETURN (pnl / spot). The account trades a FIXED number of
- * contracts, so the objective is $/trade — arms are ranked by mean return, with
- * variance driving exploration (see pickShortDelta). Using return-on-risk
- * (÷maxLoss) instead systematically favored the bigger-credit arm regardless of
- * realized $ — the reward↔$ inversion the offline replay caught.
+ * key `${strategy}|${regime}|${variant}` → mean-variance sufficient stats over
+ * per-trade RAW per-share P&L (= $/contract ÷ 100 — NOT pnl/spot). The account
+ * trades a FIXED number of contracts, so the objective is absolute $/trade; arms
+ * are ranked by mean P&L, with variance driving exploration (see pickShortDelta).
+ * Return-on-risk (÷maxLoss) OR return-on-notional (÷spot) both favor the wrong
+ * arm regardless of realized $ — the reward↔$ inversion the offline replay caught.
  */
 export type ArmStats = Map<string, { n: number; sum: number; sumSq: number }>
 
@@ -174,10 +172,10 @@ const ARM_PRIOR_SE = 0.6
 
 /**
  * Thompson-sample a short delta for `strategy` in `regime`. Each arm's posterior
- * over its MEAN per-trade return is Normal(mean, se): se combines the sampling
+ * over its MEAN per-trade P&L is Normal(mean, se): se combines the sampling
  * error (variance/n) with a prior spread so few-trade arms keep exploring.
  * Unexplored arms sample Normal(ARM_PRIOR_MEAN, ARM_PRIOR_SE). Ranking by mean
- * return maximizes $/trade (fixed-contract account); variance only explores.
+ * P&L maximizes absolute $/trade (fixed-contract account); variance only explores.
  * Returns null for strategies outside the tuned set.
  */
 export function pickShortDelta(

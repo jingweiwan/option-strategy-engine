@@ -9,9 +9,11 @@
  * account trades a FIXED number of contracts, so $/trade — not return per dollar
  * risked — is the objective.
  *
- * Fix (direction 2): score arms by a mean-variance posterior over a scale-free
- * per-trade RETURN (pnl / spot). The arm with the higher mean $-return must be
- * picked more often; variance only governs exploration.
+ * Fix (direction 2): score arms by a mean-variance posterior over per-trade RAW
+ * $/share P&L (NOT pnl/spot — dividing by spot re-inverts it, over-crediting
+ * wins on cheap underlyings; the OOS replay confirmed that). The arm with the
+ * higher mean $/trade must be picked more often; variance only governs
+ * exploration.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
