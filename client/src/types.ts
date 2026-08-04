@@ -705,7 +705,8 @@ export type TunerArm = {
   regime: string
   variant: string
   n: number
-  /** Posterior mean of risk-normalized reward — for ranking arms within a bucket. */
+  /** Arm's mean per-trade P&L in $/share (×100 = $/contract) — the tuner ranks
+   *  arms within a bucket by this. Can be negative. */
   score: number
 }
 

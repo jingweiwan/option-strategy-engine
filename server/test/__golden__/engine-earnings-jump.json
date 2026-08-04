@@ -120,15 +120,15 @@
     {
       "strategy": "iron_condor",
       "tier": "primary",
-      "netPremium": 1.24,
-      "pop": 0.827,
-      "ev": 0.04,
-      "cvar95": -2.9,
-      "maxProfit": 1.24,
-      "maxLoss": -3.77,
+      "netPremium": 0.73,
+      "pop": 0.797,
+      "ev": -0.02,
+      "cvar95": -1.56,
+      "maxProfit": 0.73,
+      "maxLoss": -1.78,
       "breakevens": [
-        91.3,
-        113.7
+        91.8,
+        113.2
       ],
       "legs": [
         {
@@ -140,8 +140,8 @@
         {
           "type": "put",
           "action": "buy",
-          "strike": 87.5,
-          "premium": 0.47
+          "strike": 90,
+          "premium": 0.8
         },
         {
           "type": "call",
@@ -152,8 +152,8 @@
         {
           "type": "call",
           "action": "buy",
-          "strike": 117.5,
-          "premium": 0.34
+          "strike": 115,
+          "premium": 0.52
         }
       ]
     },
