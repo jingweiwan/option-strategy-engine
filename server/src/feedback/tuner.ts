@@ -56,10 +56,16 @@ const WING_DELTA = 0.1
 export const CONDOR_ARMS = [0.16, 0.2, 0.24] as const
 export const DEFAULT_CONDOR_PUT_DELTA = 0.2
 const CONDOR_CALL_DRIFT = 0.07 // call short sits this many Δ further OTM than the put short
-const CONDOR_PUT_WING = 0.1 // put long this many Δ inside the put short
-const CONDOR_CALL_WING = 0.06 // call long this many Δ inside the call short
-const CONDOR_MIN_WING = 0.05 // floor a derived wing here so it stays liquid
 const CONDOR_MIN_CALL_SHORT = 0.08 // don't let the tightest arm collapse the call short
+// Both long wings are placed this fraction of their same-side SHORT STRIKE away
+// (equal-$ wings), instead of a Δ offset — a Δ offset produced wildly unequal
+// dollar widths under skew (25-wide put / 5-wide call), decoupling maxLoss (and
+// therefore normalizedReward) from realized $. See test/condorWings.test.ts.
+const CONDOR_WING_PCT = 0.02
+// Structure epoch: bump when the condor leg geometry changes so legacy snapshots
+// (recorded under the old structure) map to a DIFFERENT variant id and cannot
+// pollute the new arms' posteriors. 'w2' = the equal-$ wing structure.
+export const CONDOR_STRUCT_EPOCH = 'w2'
 
 export const TUNED_STRATEGIES: ReadonlyArray<StrategyType> = [
   'bull_put_spread',
@@ -87,8 +93,11 @@ const LEGACY_DEFAULT: Partial<Record<StrategyType, number>> = {
   bear_call_spread: DEFAULT_SHORT_DELTA
 }
 
-export function variantId(shortDelta: number): string {
-  return `sd${shortDelta.toFixed(2)}`
+export function variantId(shortDelta: number, strategy?: StrategyType): string {
+  const base = `sd${shortDelta.toFixed(2)}`
+  // Condor variant ids carry a structure epoch so legacy (old-geometry)
+  // snapshots don't match a live arm — see CONDOR_STRUCT_EPOCH.
+  return strategy === 'iron_condor' ? `${base}@${CONDOR_STRUCT_EPOCH}` : base
 }
 
 /**
@@ -121,7 +130,7 @@ export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
     // legacy default. The condor has no legacy default (structure changed) → its
     // variant-less snapshots are skipped so the new arms start uncontaminated.
     const legacy = LEGACY_DEFAULT[s.strategyId]
-    const v = s.variant ?? (legacy != null ? variantId(legacy) : null)
+    const v = s.variant ?? (legacy != null ? variantId(legacy, s.strategyId) : null)
     if (v == null) continue
     const k = armKey(s.strategyId, s.regime, v)
     const cur = stats.get(k) ?? { rewardMass: 0, failMass: 0, n: 0 }
@@ -187,14 +196,14 @@ export function pickShortDelta(
   let bestDelta = defaultDeltaFor(strategy)
   let bestSample = -1
   for (const d of armsFor(strategy)) {
-    const s = stats.get(armKey(strategy, regime, variantId(d)))
+    const s = stats.get(armKey(strategy, regime, variantId(d, strategy)))
     const sample = sampleBeta(1 + (s?.rewardMass ?? 0), 1 + (s?.failMass ?? 0), rng)
     if (sample > bestSample) {
       bestSample = sample
       bestDelta = d
     }
   }
-  return { shortDelta: bestDelta, variant: variantId(bestDelta) }
+  return { shortDelta: bestDelta, variant: variantId(bestDelta, strategy) }
 }
 
 /**
@@ -222,9 +231,9 @@ export function legsForShortDelta(strategy: StrategyType, shortDelta: number): L
     const callShort = Math.max(putShort - CONDOR_CALL_DRIFT, CONDOR_MIN_CALL_SHORT)
     return [
       { type: 'put', action: 'sell', targetDelta: putShort },
-      { type: 'put', action: 'buy', targetDelta: Math.max(putShort - CONDOR_PUT_WING, CONDOR_MIN_WING) },
+      { type: 'put', action: 'buy', widthPctFromShort: CONDOR_WING_PCT },
       { type: 'call', action: 'sell', targetDelta: callShort },
-      { type: 'call', action: 'buy', targetDelta: Math.max(callShort - CONDOR_CALL_WING, CONDOR_MIN_WING) }
+      { type: 'call', action: 'buy', widthPctFromShort: CONDOR_WING_PCT }
     ]
   }
   return null
@@ -244,7 +253,7 @@ export function specOverridesFromVariants(
   for (const [key, variant] of Object.entries(variants)) {
     const st = key as StrategyType
     if (!variant) continue
-    const delta = armsFor(st).find((d) => variantId(d) === variant)
+    const delta = armsFor(st).find((d) => variantId(d, st) === variant)
     if (delta == null) continue
     const legs = legsForShortDelta(st, delta)
     if (legs) out[st] = legs

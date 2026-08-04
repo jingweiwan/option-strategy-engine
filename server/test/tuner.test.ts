@@ -100,17 +100,22 @@ test('tuner: untuned strategies return null; non-arm strategies have no legs', (
   assert.equal(legsForShortDelta('long_straddle', 0.25), null)
 })
 
-test('condor: arm 0.20 reproduces the shipped asymmetric spec exactly', () => {
+test('condor (w2): skew shorts by delta, equal-$ wings by width', () => {
+  // Contract change from the old shipped spec: the long wings are no longer a
+  // Δ offset (0.10/0.06) — they are placed an EQUAL dollar width from their
+  // same-side short (widthPctFromShort), so put/call wings stay ~equal-$ under
+  // skew. The old "arm 0.20 = 0.10/0.06 Δ wings" contract is void (see PR).
   const legs = legsForShortDelta('iron_condor', 0.2)!
-  const d = (type: 'put' | 'call', action: 'sell' | 'buy') =>
-    legs.find((l) => l.type === type && l.action === action)!.targetDelta
-  assert.equal(d('put', 'sell'), 0.2)
-  assert.equal(d('put', 'buy'), 0.1)
-  assert.ok(Math.abs(d('call', 'sell') - 0.13) < 1e-9, `call sell ${d('call', 'sell')}`)
-  assert.ok(Math.abs(d('call', 'buy') - 0.07) < 1e-9, `call buy ${d('call', 'buy')}`)
-  // Structure sanity: put strikes further OTM than their wing is wrong-way — the
-  // short is closer to spot (higher delta) than the long wing.
-  assert.ok(d('put', 'sell') > d('put', 'buy') && d('call', 'sell') > d('call', 'buy'))
+  const spec = (type: 'put' | 'call', action: 'sell' | 'buy') =>
+    legs.find((l) => l.type === type && l.action === action)!
+  // Shorts keep the delta-based put-skew.
+  assert.equal(spec('put', 'sell').targetDelta, 0.2)
+  assert.ok(Math.abs(spec('call', 'sell').targetDelta! - 0.13) < 1e-9)
+  // Wings are width-based (no targetDelta) and EQUAL on both sides.
+  assert.equal(spec('put', 'buy').targetDelta, undefined)
+  assert.equal(spec('call', 'buy').targetDelta, undefined)
+  assert.ok((spec('put', 'buy').widthPctFromShort ?? 0) > 0)
+  assert.equal(spec('put', 'buy').widthPctFromShort, spec('call', 'buy').widthPctFromShort)
 })
 
 test('condor: tuner picks only condor arms and learns from its own outcomes', () => {
@@ -118,10 +123,12 @@ test('condor: tuner picks only condor arms and learns from its own outcomes', ()
   const w = (variant: string, pnl: number) =>
     snap({ strategyId: 'iron_condor', variant, maxProfit: 1, maxLoss: -1,
       outcome: { ...snap({}, true).outcome!, managedPnl: pnl } }, pnl > 0)
+  const V24 = variantId(0.24, 'iron_condor')
+  const V16 = variantId(0.16, 'iron_condor')
   const snaps: RecommendationSnapshot[] = []
-  for (let i = 0; i < 14; i++) snaps.push(w('sd0.24', +0.8))
-  for (let i = 0; i < 4; i++) snaps.push(w('sd0.24', -0.6))
-  for (let i = 0; i < 6; i++) snaps.push(w('sd0.16', -0.7))
+  for (let i = 0; i < 14; i++) snaps.push(w(V24, +0.8))
+  for (let i = 0; i < 4; i++) snaps.push(w(V24, -0.6))
+  for (let i = 0; i < 6; i++) snaps.push(w(V16, -0.7))
 
   const stats = buildArmStats(snaps)
   const rng = mulberry32(3)
@@ -130,11 +137,11 @@ test('condor: tuner picks only condor arms and learns from its own outcomes', ()
     const v = pickShortDelta('iron_condor', 'sell', stats, rng)!.variant
     picks[v] = (picks[v] ?? 0) + 1
   }
-  const condorVariants = CONDOR_ARMS.map(variantId)
+  const condorVariants = CONDOR_ARMS.map((d) => variantId(d, 'iron_condor'))
   assert.ok(Object.keys(picks).every((v) => condorVariants.includes(v)),
     `picked a non-condor arm: ${Object.keys(picks)}`)
-  assert.ok((picks['sd0.24'] ?? 0) > (picks['sd0.16'] ?? 0),
-    `winner ${picks['sd0.24']} vs loser ${picks['sd0.16']}`)
+  assert.ok((picks[V24] ?? 0) > (picks[V16] ?? 0),
+    `winner ${picks[V24]} vs loser ${picks[V16]}`)
 })
 
 test('condor: legacy snapshots (no variant, old structure) are skipped, not mis-attributed', () => {
@@ -174,9 +181,9 @@ test('specOverridesFromVariants rebuilds the exact legs the scanner chose', asyn
   const { specOverridesFromVariants, armsFor } = await import('../src/feedback/tuner.js')
   for (const st of ['iron_condor', 'bull_put_spread', 'bear_call_spread'] as const) {
     for (const d of armsFor(st)) {
-      const rebuilt = specOverridesFromVariants({ [st]: variantId(d) })[st]
+      const rebuilt = specOverridesFromVariants({ [st]: variantId(d, st) })[st]
       assert.deepEqual(rebuilt, legsForShortDelta(st, d),
-        `${st} @ ${variantId(d)} must rebuild the scanner's leg spec`)
+        `${st} @ ${variantId(d, st)} must rebuild the scanner's leg spec`)
     }
   }
 })
@@ -208,7 +215,7 @@ test('scan path and detail-replay path produce identical POP/EV (deterministic)'
   // Detail page: rebuilds the same legs from only the frozen variant id.
   const detail = runEngineLive({
     ...base,
-    specOverrides: specOverridesFromVariants({ iron_condor: variantId(d) })
+    specOverrides: specOverridesFromVariants({ iron_condor: variantId(d, 'iron_condor') })
   })
 
   const sc = scan.results.find((r) => r.strategy === 'iron_condor')!

@@ -164,12 +164,12 @@ export async function runReplay(cfg: ReplayConfig = {}): Promise<ReplayReport> {
           const maxLoss = ext.unboundedLoss ? null : ext.theoMaxLoss
 
           const snap: RecommendationSnapshot = {
-            id: `replay-${day}-${sym}-${strategy}-${variantId(shortDelta)}`,
+            id: `replay-${day}-${sym}-${strategy}-${variantId(shortDelta, strategy)}`,
             etDay: day, capturedAt: day, source: 'dashboard', sym,
             strategyId: strategy, expiration: exp, spot, iv: atmIv, ivr: 50,
             rvAtScan: rv, ivRvGap: rv != null ? atmIv - rv : null, regime,
             score: 0, pop: 0, ev: 0, netPremium: np, maxProfit, maxLoss, dte,
-            breakevens: [], legs: toStoredLegs(legs), variant: variantId(shortDelta),
+            breakevens: [], legs: toStoredLegs(legs), variant: variantId(shortDelta, strategy),
             outcome: null
           }
 
@@ -181,7 +181,7 @@ export async function runReplay(cfg: ReplayConfig = {}): Promise<ReplayReport> {
           if (pnl == null) { skipped++; continue }
 
           const reward = normalizedReward(pnl, maxLoss)
-          const k = armKey(strategy, regime, variantId(shortDelta))
+          const k = armKey(strategy, regime, variantId(shortDelta, strategy))
           const acc = buckets.get(k) ?? { rewards: [], pnls: [] }
           acc.rewards.push(reward)
           acc.pnls.push(pnl)

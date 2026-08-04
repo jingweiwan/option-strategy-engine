@@ -272,7 +272,7 @@ export async function buildOppsFromScan(
   if (scannedOpps.length === 0) return []
 
   const symKey = [...new Set(scannedOpps.map((o) => o.sym))].sort().join(',')
-  const key = `opps-copy-v7-${etCalendarDay()}-${symKey}`
+  const key = `opps-copy-v8-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

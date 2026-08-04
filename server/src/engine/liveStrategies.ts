@@ -51,7 +51,15 @@ function executionPremium(c: OptionContract, action: 'buy' | 'sell'): number {
 export type LegSpec = {
   type: 'call' | 'put'
   action: 'buy' | 'sell'
-  targetDelta: number // absolute, e.g. 0.16 means 16-delta
+  /** Pick by delta (short legs, and delta-based wings). Absolute, e.g. 0.16 = 16-delta. */
+  targetDelta?: number
+  /**
+   * Long-wing placement by EQUAL DOLLAR width instead of delta: the wing lands
+   * |k × same-side short strike| from its short (put wing below, call wing
+   * above). Keeps put/call wings ~equal-$ despite skew, so maxLoss is
+   * arm-comparable. Exactly one of targetDelta / widthPctFromShort is set.
+   */
+  widthPctFromShort?: number
 }
 
 export type StrategySpec = {
@@ -185,6 +193,23 @@ export function liquidContracts(chain: OptionContract[]): OptionContract[] {
   })
 }
 
+/** Nearest liquid contract of `type` to a target STRIKE (for equal-$ wings). */
+function pickByStrike(
+  contracts: OptionContract[],
+  type: 'call' | 'put',
+  targetStrike: number,
+  excludeStrikes?: Set<number>
+): OptionContract | null {
+  let filtered = contracts.filter((c) => c.optionType === type)
+  if (excludeStrikes && excludeStrikes.size > 0) {
+    filtered = filtered.filter((c) => !excludeStrikes.has(c.strike))
+  }
+  if (filtered.length === 0) return null
+  return filtered.reduce((a, b) =>
+    Math.abs(b.strike - targetStrike) < Math.abs(a.strike - targetStrike) ? b : a
+  )
+}
+
 function pickByDelta(
   contracts: OptionContract[],
   type: 'call' | 'put',
@@ -223,13 +248,30 @@ export function legsFromSpec(
   // to share a strike number if needed.
   const usedPutStrikes = new Set<number>()
   const usedCallStrikes = new Set<number>()
+  // Same-side short strike a width-based wing anchors to (set when a leg sells).
+  const shortStrikeByType: { put?: number; call?: number } = {}
   const legs: OptionLeg[] = []
 
   for (const s of specs) {
     const exclude = s.type === 'put' ? usedPutStrikes : usedCallStrikes
-    const c = pickByDelta(liquid, s.type, s.targetDelta, exclude)
+    let c: OptionContract | null
+    if (s.widthPctFromShort != null) {
+      // Equal-$ wing: place |k × short strike| from the same-side short. Puts
+      // wing DOWN (further OTM = lower), calls wing UP. The short is already in
+      // `exclude`, so nearest-strike naturally lands ≥ 1 step away.
+      const anchor = shortStrikeByType[s.type]
+      if (anchor == null) return null // a wing must be specced after its short
+      const width = anchor * s.widthPctFromShort
+      const target = s.type === 'put' ? anchor - width : anchor + width
+      c = pickByStrike(liquid, s.type, target, exclude)
+    } else if (s.targetDelta != null) {
+      c = pickByDelta(liquid, s.type, s.targetDelta, exclude)
+    } else {
+      return null
+    }
     if (!c) return null
     exclude.add(c.strike)
+    if (s.action === 'sell') shortStrikeByType[s.type] = c.strike
     legs.push({
       type: s.type,
       action: s.action,

@@ -719,7 +719,7 @@ async function scanSymbol(
             const legs = d != null ? legsForShortDelta(st, d) : null
             if (d != null && legs) {
               pinned[st] = legs
-              pinnedVariant[st] = variantId(d)
+              pinnedVariant[st] = variantId(d, st)
             }
           }
           const probe = runEngineLive({
@@ -873,7 +873,7 @@ async function scanSymbol(
             const legSpecs = d != null ? legsForShortDelta(st, d) : null
             if (d != null && legSpecs) {
               pinned[st] = legSpecs
-              pinnedVariant[st] = variantId(d)
+              pinnedVariant[st] = variantId(d, st)
             }
           }
           try {
@@ -951,7 +951,7 @@ export async function getScannedOpps(
   earningsIso: Record<string, string> = {}
 ): Promise<ScannedOpp[]> {
   const wlSlug = watchlistCacheSlug(watchlist)
-  const key = `opp-scan-v10-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v11-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit
