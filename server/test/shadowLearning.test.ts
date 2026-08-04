@@ -40,7 +40,7 @@ test('shadow rows feed arm posteriors — losing arms accumulate evidence', () =
   const s = stats.get('iron_condor|sell|sd0.20')
   assert.ok(s, 'shadow-only arm has a posterior')
   assert.equal(s!.n, 2)
-  assert.ok(s!.failMass > s!.rewardMass, 'losses actually registered')
+  assert.ok(s!.sum < 0, 'losses registered as negative mean return')
 })
 
 test('shadow row duplicating a surfaced row is counted once (surfaced wins)', () => {

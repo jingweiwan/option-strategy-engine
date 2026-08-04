@@ -38,7 +38,7 @@ import type { StrategyType } from '../engine/types.js'
 import type { Regime } from '../engine/index.js'
 import type { LegSpec } from '../engine/liveStrategies.js'
 import type { RecommendationSnapshot } from './types.js'
-import { outcomePnl, normalizedReward } from './calibration.js'
+import { outcomePnl } from './calibration.js'
 
 export const TUNER_ENABLED = process.env.STRATEGY_TUNER !== '0'
 
@@ -101,10 +101,14 @@ export function variantId(shortDelta: number, strategy: StrategyType): string {
 }
 
 /**
- * key `${strategy}|${regime}|${variant}` → fractional Beta evidence.
- * rewardMass = Σ r (normalized reward), failMass = Σ (1−r), n = trade count.
+ * key `${strategy}|${regime}|${variant}` → mean-variance sufficient stats over a
+ * scale-free per-trade RETURN (pnl / spot). The account trades a FIXED number of
+ * contracts, so the objective is $/trade — arms are ranked by mean return, with
+ * variance driving exploration (see pickShortDelta). Using return-on-risk
+ * (÷maxLoss) instead systematically favored the bigger-credit arm regardless of
+ * realized $ — the reward↔$ inversion the offline replay caught.
  */
-export type ArmStats = Map<string, { rewardMass: number; failMass: number; n: number }>
+export type ArmStats = Map<string, { n: number; sum: number; sumSq: number }>
 
 export function armKey(strategy: StrategyType, regime: Regime, variant: string): string {
   return `${strategy}|${regime}|${variant}`
@@ -133,17 +137,22 @@ export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
     const v = s.variant ?? (legacy != null ? variantId(legacy, s.strategyId) : null)
     if (v == null) continue
     const k = armKey(s.strategyId, s.regime, v)
-    const cur = stats.get(k) ?? { rewardMass: 0, failMass: 0, n: 0 }
-    const r = normalizedReward(pnl, s.maxLoss)
-    cur.rewardMass += r
-    cur.failMass += 1 - r
+    const cur = stats.get(k) ?? { n: 0, sum: 0, sumSq: 0 }
+    // Reward = raw per-share P&L (= $/contract ÷ 100). The account trades a
+    // FIXED number of contracts, so the objective is absolute $/trade — NOT
+    // return-on-notional. Dividing by spot (return) re-inverts the ranking: it
+    // over-credits wins on cheap underlyings, so a lower-$ arm that lands more
+    // on low-priced names scores higher (the OOS replay confirmed this).
+    const r = pnl
     cur.n++
+    cur.sum += r
+    cur.sumSq += r * r
     stats.set(k, cur)
   }
   return stats
 }
 
-// ---------- Beta sampling (Marsaglia–Tsang gamma method) ----------
+// ---------- Gaussian sampling (Box–Muller) ----------
 
 function sampleNormal(rng: () => number): number {
   let u = 0
@@ -153,38 +162,23 @@ function sampleNormal(rng: () => number): number {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v)
 }
 
-function sampleGamma(shape: number, rng: () => number): number {
-  if (shape < 1) {
-    // Boost then correct (Marsaglia–Tsang trick for shape < 1)
-    return sampleGamma(shape + 1, rng) * Math.pow(rng() || 1e-12, 1 / shape)
-  }
-  const d = shape - 1 / 3
-  const c = 1 / Math.sqrt(9 * d)
-  for (;;) {
-    const x = sampleNormal(rng)
-    const v = Math.pow(1 + c * x, 3)
-    if (v <= 0) continue
-    const u = rng()
-    if (u < 1 - 0.0331 * x ** 4) return d * v
-    if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v
-  }
-}
-
-export function sampleBeta(alpha: number, beta: number, rng: () => number = Math.random): number {
-  const a = sampleGamma(alpha, rng)
-  const b = sampleGamma(beta, rng)
-  return a / (a + b)
-}
-
 // ---------- Arm selection ----------
 
 export type VariantPick = { shortDelta: number; variant: string }
 
+// Prior over an arm's mean per-trade P&L ($/share, ~O(1)). Neutral mean; a wide
+// spread so an unexplored arm samples broadly and gets explored, while a
+// well-sampled arm converges to its realized mean.
+const ARM_PRIOR_MEAN = 0
+const ARM_PRIOR_SE = 0.6
+
 /**
- * Thompson-sample a short delta for `strategy` in `regime`. Each arm's
- * posterior is Beta(1+rewardMass, 1+failMass); unexplored arms sample
- * Beta(1,1) = uniform, which is what drives exploration. Returns null for
- * strategies outside the tuned set.
+ * Thompson-sample a short delta for `strategy` in `regime`. Each arm's posterior
+ * over its MEAN per-trade return is Normal(mean, se): se combines the sampling
+ * error (variance/n) with a prior spread so few-trade arms keep exploring.
+ * Unexplored arms sample Normal(ARM_PRIOR_MEAN, ARM_PRIOR_SE). Ranking by mean
+ * return maximizes $/trade (fixed-contract account); variance only explores.
+ * Returns null for strategies outside the tuned set.
  */
 export function pickShortDelta(
   strategy: StrategyType,
@@ -194,10 +188,20 @@ export function pickShortDelta(
 ): VariantPick | null {
   if (!TUNED_STRATEGIES.includes(strategy)) return null
   let bestDelta = defaultDeltaFor(strategy)
-  let bestSample = -1
+  let bestSample = -Infinity
   for (const d of armsFor(strategy)) {
     const s = stats.get(armKey(strategy, regime, variantId(d, strategy)))
-    const sample = sampleBeta(1 + (s?.rewardMass ?? 0), 1 + (s?.failMass ?? 0), rng)
+    let mean: number
+    let se: number
+    if (!s || s.n === 0) {
+      mean = ARM_PRIOR_MEAN
+      se = ARM_PRIOR_SE
+    } else {
+      mean = s.sum / s.n
+      const variance = Math.max(s.sumSq / s.n - mean * mean, 0)
+      se = Math.sqrt(variance / s.n + (ARM_PRIOR_SE * ARM_PRIOR_SE) / (s.n + 1))
+    }
+    const sample = mean + sampleNormal(rng) * se
     if (sample > bestSample) {
       bestSample = sample
       bestDelta = d

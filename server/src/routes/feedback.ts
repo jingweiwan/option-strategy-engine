@@ -169,9 +169,10 @@ export async function feedbackRoutes(app: FastifyInstance) {
         exitDay: s.outcome?.managedExitDay ?? null
       }))
 
-    // Tuner arm posteriors — risk-normalized reward score per
-    // (strategy × regime × variant). score = posterior mean of Beta(1+α, 1+β);
-    // only meaningful for RANKING arms within the same strategy×regime bucket.
+    // Tuner arm posteriors — mean per-trade $-return (pnl/spot) per
+    // (strategy × regime × variant). score = mean return; the tuner ranks arms
+    // by this (variance drives exploration). Meaningful for RANKING arms within
+    // the same strategy×regime bucket.
     const tunerArms = [...buildArmStats(all).entries()]
       .map(([k, v]) => {
         const [strategy, regime, variant] = k.split('|')
@@ -180,7 +181,7 @@ export async function feedbackRoutes(app: FastifyInstance) {
           regime,
           variant,
           n: v.n,
-          score: (1 + v.rewardMass) / (2 + v.rewardMass + v.failMass)
+          score: v.n ? v.sum / v.n : 0
         }
       })
       .sort((a, b) =>

@@ -49,14 +49,14 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
   }
 }
 
-test('tuner: legacy snapshots (no variant) seed the default arm with fractional mass', () => {
-  // snap(): maxLoss=-4. win pnl +0.5 → r=0.5+0.5·0.5/4=0.5625; loss −1 → r=0.5−0.5·1/4=0.375
+test('tuner: legacy snapshots (no variant) seed the default arm with mean-variance stats', () => {
+  // reward = raw per-share pnl. snap(): win pnl +0.5 → r=0.5; loss pnl −1 → r=−1.
   const stats = buildArmStats([snap({}, true), snap({}, true), snap({}, false)])
   const k = `bull_put_spread|sell|${variantId(DEFAULT_SHORT_DELTA)}`
   const s = stats.get(k)!
   assert.equal(s.n, 3)
-  assert.ok(Math.abs(s.rewardMass - (0.5625 + 0.5625 + 0.375)) < 1e-9, `rewardMass=${s.rewardMass}`)
-  assert.ok(Math.abs(s.failMass - (0.4375 + 0.4375 + 0.625)) < 1e-9, `failMass=${s.failMass}`)
+  assert.ok(Math.abs(s.sum - (0.5 + 0.5 - 1)) < 1e-9, `sum=${s.sum}`) // 0
+  assert.ok(Math.abs(s.sumSq - (0.25 + 0.25 + 1)) < 1e-9, `sumSq=${s.sumSq}`) // 1.5
 })
 
 test('tuner: normalizedReward = return on capital-at-risk', () => {
