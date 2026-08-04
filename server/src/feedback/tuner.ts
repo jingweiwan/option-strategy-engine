@@ -3,8 +3,8 @@
  *
  * Phase 2 of the self-optimization plan. Knob: the SHORT-LEG DELTA — for credit
  * spreads (bull_put / bear_call) arms {0.25, 0.30, 0.35}; for the iron condor
- * the PUT short arms {0.16, 0.20, 0.24}, with the call short + both wings
- * derived from it (one number → the whole asymmetric 4-leg structure). Each
+ * the PUT short arms {0.16, 0.20, 0.24} (the call short drifts off it; both long
+ * wings are placed an EQUAL dollar width via CONDOR_WING_PCT). Each
  * dashboard recommendation picks an arm by sampling the Beta
  * posterior of its realized win rate (per strategy × regime bucket); the
  * chosen variant id is recorded on the snapshot, so every backtested outcome
@@ -48,11 +48,10 @@ export const DEFAULT_SHORT_DELTA = 0.3
 /** Long wing stays at the spec's 10-delta; only the short leg is tuned. */
 const WING_DELTA = 0.1
 
-// The iron condor arm tunes the PUT short delta; the call short and both wings
-// are DERIVED from it by a fixed asymmetric rule (put-skew + upward-drift), so
-// one number parameterizes the whole 4-leg structure. Arm 0.20 reproduces the
-// shipped spec exactly. Condors sell further OTM than one-sided credit spreads,
-// hence their own, lower arm set.
+// The iron condor arm tunes the PUT short delta; the call short drifts off it
+// (CONDOR_CALL_DRIFT, keeping the put-skew) and both long wings are placed an
+// EQUAL dollar width from their short (CONDOR_WING_PCT). Condors sell further
+// OTM than one-sided credit spreads, hence their own, lower arm set.
 export const CONDOR_ARMS = [0.16, 0.2, 0.24] as const
 export const DEFAULT_CONDOR_PUT_DELTA = 0.2
 const CONDOR_CALL_DRIFT = 0.07 // call short sits this many Δ further OTM than the put short
@@ -93,10 +92,11 @@ const LEGACY_DEFAULT: Partial<Record<StrategyType, number>> = {
   bear_call_spread: DEFAULT_SHORT_DELTA
 }
 
-export function variantId(shortDelta: number, strategy?: StrategyType): string {
+export function variantId(shortDelta: number, strategy: StrategyType): string {
   const base = `sd${shortDelta.toFixed(2)}`
-  // Condor variant ids carry a structure epoch so legacy (old-geometry)
-  // snapshots don't match a live arm — see CONDOR_STRUCT_EPOCH.
+  // strategy is REQUIRED so a condor call can't silently drop its structure
+  // epoch: the epoch keeps legacy (old-geometry) snapshots from matching a live
+  // arm — see CONDOR_STRUCT_EPOCH.
   return strategy === 'iron_condor' ? `${base}@${CONDOR_STRUCT_EPOCH}` : base
 }
 
@@ -209,9 +209,9 @@ export function pickShortDelta(
 /**
  * Leg specs for a tuned strategy at the chosen short delta.
  *   credit spreads: shortDelta = the single short leg; wing fixed at 10Δ.
- *   iron_condor:    shortDelta = the PUT short; the call short and both wings
- *                   are derived asymmetrically (see the CONDOR_* constants).
- *                   Arm 0.20 reproduces the shipped iron_condor spec exactly.
+ *   iron_condor:    shortDelta = the PUT short; the call short drifts off it and
+ *                   both long wings are equal-$ (widthPctFromShort). See the
+ *                   CONDOR_* constants.
  */
 export function legsForShortDelta(strategy: StrategyType, shortDelta: number): LegSpec[] | null {
   if (strategy === 'bull_put_spread') {
@@ -254,7 +254,13 @@ export function specOverridesFromVariants(
     const st = key as StrategyType
     if (!variant) continue
     const delta = armsFor(st).find((d) => variantId(d, st) === variant)
-    if (delta == null) continue
+    if (delta == null) {
+      // Unknown/stale variant (e.g. a pre-@w2 condor bookmark or an old deep
+      // link). Don't silently fall back to the default arm — warn so a wrong
+      // structure is visible; the caller then renders the default arm.
+      console.warn(`[tuner] stale/unknown variant ${st}=${variant}; falling back to default arm`)
+      continue
+    }
     const legs = legsForShortDelta(st, delta)
     if (legs) out[st] = legs
   }

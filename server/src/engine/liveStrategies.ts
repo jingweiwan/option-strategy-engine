@@ -100,17 +100,18 @@ const ALL_STRATEGY_SPECS: StrategySpec[] = [
   },
   // --- Multi-leg / vol strategies ---
   {
-    // Asymmetric on purpose: equities drift up and carry put skew, so the CALL
-    // short sits further OTM (13Δ) to give the upside room the drift keeps
-    // eating, while the PUT short (20Δ) harvests the richer, skewed put premium.
-    // Wings at ~10Δ / 7Δ (not the old 5Δ): tighter, more liquid, far better
-    // risk/reward than the wide 5Δ wings that risked a lot to collect little.
+    // Short legs carry the skew: the CALL short sits further OTM (13Δ) for the
+    // upside room equity drift keeps eating, while the PUT short (20Δ) harvests
+    // the richer, skewed put premium. Both long wings are placed an EQUAL dollar
+    // width (2% of the same-side short strike) — a Δ offset made the put/call
+    // wings wildly unequal under skew. Kept in lockstep with the tuner default
+    // arm (put 20Δ, CONDOR_WING_PCT) so there is no static/tuned condor fork.
     type: 'iron_condor',
     legs: [
       { type: 'put', action: 'sell', targetDelta: 0.2 },
-      { type: 'put', action: 'buy', targetDelta: 0.1 },
+      { type: 'put', action: 'buy', widthPctFromShort: 0.02 },
       { type: 'call', action: 'sell', targetDelta: 0.13 },
-      { type: 'call', action: 'buy', targetDelta: 0.07 }
+      { type: 'call', action: 'buy', widthPctFromShort: 0.02 }
     ]
   },
   {
@@ -193,17 +194,25 @@ export function liquidContracts(chain: OptionContract[]): OptionContract[] {
   })
 }
 
-/** Nearest liquid contract of `type` to a target STRIKE (for equal-$ wings). */
+/**
+ * Nearest liquid contract of `type` to a target STRIKE (for equal-$ wings),
+ * constrained to one side of an anchor so a wing can only land OTM of its short.
+ * `bound.below`/`bound.above` keep only strictly-lower / strictly-higher strikes
+ * — without this, a sparse chain's nearest strike can fall INSIDE the short.
+ */
 function pickByStrike(
   contracts: OptionContract[],
   type: 'call' | 'put',
   targetStrike: number,
-  excludeStrikes?: Set<number>
+  excludeStrikes?: Set<number>,
+  bound?: { below?: number; above?: number }
 ): OptionContract | null {
   let filtered = contracts.filter((c) => c.optionType === type)
   if (excludeStrikes && excludeStrikes.size > 0) {
     filtered = filtered.filter((c) => !excludeStrikes.has(c.strike))
   }
+  if (bound?.below != null) filtered = filtered.filter((c) => c.strike < bound.below!)
+  if (bound?.above != null) filtered = filtered.filter((c) => c.strike > bound.above!)
   if (filtered.length === 0) return null
   return filtered.reduce((a, b) =>
     Math.abs(b.strike - targetStrike) < Math.abs(a.strike - targetStrike) ? b : a
@@ -256,14 +265,15 @@ export function legsFromSpec(
     const exclude = s.type === 'put' ? usedPutStrikes : usedCallStrikes
     let c: OptionContract | null
     if (s.widthPctFromShort != null) {
-      // Equal-$ wing: place |k × short strike| from the same-side short. Puts
-      // wing DOWN (further OTM = lower), calls wing UP. The short is already in
-      // `exclude`, so nearest-strike naturally lands ≥ 1 step away.
+      // Equal-$ wing: place |k × short strike| from the same-side short, and
+      // CONSTRAIN it strictly OTM of the short (puts below, calls above) so a
+      // sparse chain can't snap the wing inside the short and invert the spread.
       const anchor = shortStrikeByType[s.type]
       if (anchor == null) return null // a wing must be specced after its short
       const width = anchor * s.widthPctFromShort
       const target = s.type === 'put' ? anchor - width : anchor + width
-      c = pickByStrike(liquid, s.type, target, exclude)
+      const otm = s.type === 'put' ? { below: anchor } : { above: anchor }
+      c = pickByStrike(liquid, s.type, target, exclude, otm)
     } else if (s.targetDelta != null) {
       c = pickByDelta(liquid, s.type, s.targetDelta, exclude)
     } else {
