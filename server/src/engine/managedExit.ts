@@ -16,7 +16,14 @@
  * through real theta decay / favorable moves.
  *
  * Rules (typical retail playbook):
- *   Credit (netPremium > 0): take profit at 50% of credit, stop at 2× credit
+ *   Defined-risk credit (vertical spreads + iron condor — a net credit WITH a
+ *     protective long wing): take profit at 75% of credit, NO stop. The long
+ *     wing already caps max loss, so a 2× stop only converts a recoverable
+ *     drawdown into a locked-in loss; on real bars that stop was the single
+ *     biggest drag on realized edge. The 21-DTE calendar close (below) still
+ *     bounds late-cycle gamma.
+ *   Undefined-risk credit (short_strangle — no long wing): take profit at 50%,
+ *     stop at 2× credit. An unbounded loss MUST be stopped.
  *   Debit  (netPremium < 0): take profit at 1:1 (debit paid), stop at 50% debit
  *
  * LIMITATION: a single ATM `sigma` marks every leg — it ignores per-strike skew
@@ -35,10 +42,18 @@ import type { OptionLeg, StrategyType } from './types.js'
 // on rich-IV names. Real overnight/earnings gaps still bite via the marked value.
 const STOP_GAP_SLIP = Number(process.env.STOP_GAP_SLIP ?? '0.35')
 
+// Fraction of the credit captured before a defined-risk spread / iron condor is
+// closed (no stop — the long wing caps the loss). 0.75 = buy back at 25% of the
+// credit. Env-tunable so the 50-vs-75 TP question is a runtime dial, not a code
+// change (an A/B on 7.1k real trades showed the no-stop rule is P&L-neutral but
+// does NOT widen the tail, since max loss is already capped).
+const CREDIT_TP_FRAC = Number(process.env.CREDIT_TP_FRAC ?? '0.75')
+
 /**
  * Exit policy A/B (currently offered for iron_condor only, picked at scan time
  * and stamped on the snapshot so realized outcomes adjudicate):
- *   'managed' — the default playbook: TP at 50% credit, stop 2×, close at 21 DTE
+ *   'managed' — the default playbook: defined-risk credit TP 75% / no stop;
+ *               undefined-risk credit TP 50% / stop 2×; close at 21 DTE
  *   'runner'  — stop 2× only, NO take-profit, hold to expiration. A 3-way exit
  *               comparison on real bars showed ~8× higher avg P&L for condors
  *               (+1.97 vs +0.26/trade) but on a weak sample (n=51, one calm
@@ -94,13 +109,23 @@ export type MarkContext = {
 
 export function managedThresholds(
   netPremium: number,
-  policy: ExitPolicy = 'managed'
+  policy: ExitPolicy = 'managed',
+  legs?: OptionLeg[]
 ): { takeProfit: number; stop: number } {
   const credit = netPremium > 0
   if (credit && policy === 'runner') {
     // Runner: keep the 2× disaster stop, never take profit early — the position
     // rides to expiry to collect the full credit.
     return { takeProfit: Infinity, stop: netPremium * 2 }
+  }
+  // Defined-risk credit (a net credit WITH a protective long wing → vertical
+  // spread or iron condor): capture 75% of the credit, and DO NOT stop out. The
+  // long wing already caps the loss, so a stop only locks in a drawdown that the
+  // position could still recover from. Detected from the legs (a short-only
+  // strangle has no 'buy' leg) so no strategy string needs threading here.
+  // Without legs, fall back to the conservative 50%/2× rule.
+  if (credit && legs?.some((l) => l.action === 'buy')) {
+    return { takeProfit: netPremium * CREDIT_TP_FRAC, stop: Infinity }
   }
   return credit
     ? { takeProfit: netPremium * 0.5, stop: netPremium * 2 }
@@ -142,7 +167,7 @@ export function runManagedExit(
   ctx: MarkContext,
   policy: ExitPolicy = 'managed'
 ): ManagedExit {
-  const { takeProfit, stop } = managedThresholds(netPremium, policy)
+  const { takeProfit, stop } = managedThresholds(netPremium, policy, legs)
   const end = ctx.maxSteps != null ? Math.min(ctx.maxSteps, pricePath.length) : pricePath.length
   const sigmaOf = (i: number) => (ctx.sigmaAt ? ctx.sigmaAt(i) : ctx.sigma)
 
