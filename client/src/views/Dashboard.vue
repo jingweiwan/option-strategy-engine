@@ -56,6 +56,7 @@ const referenceBannerHint = computed(() => {
   const parts: string[] = []
   if (has('earnings_recency')) parts.push('刚报财报·IV 未稳定')
   if (has('ivr_below_floor')) parts.push(`IVR 未及 ${IVR_FLOOR}`)
+  if (has('vol_not_rich')) parts.push('溢价不足·IV/RV 偏低')
   if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
   if (parts.length === 0) return '离达标线最近的几个'
   return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
