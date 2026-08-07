@@ -74,8 +74,9 @@ test('sellVolTier: recentlyReported demotes rich-IVR seller to reference', () =>
 })
 
 test('sellVolTier: recentlyReported=false leaves rich-IVR seller qualified', () => {
-  assert.equal(sellVolTier('iron_condor', 90, false, false), 'qualified')
-  assert.equal(sellVolTier('iron_condor', 90, false), 'qualified')
+  // Pass rich iv/rv so 'qualified' is a genuine pass, not the RV-absent skip.
+  assert.equal(sellVolTier('iron_condor', 90, false, false, 0.4, 0.3), 'qualified')
+  assert.equal(sellVolTier('iron_condor', 90, false, false, 0.4, 0.3), 'qualified')
 })
 
 test('sellVolTier: recentlyReported does not upgrade or change reference/null', () => {
@@ -111,7 +112,7 @@ test('sellVolDecision / boardTierDecision: tier+reason from one source (no re-de
     { tier: 'reference', reason: 'ivr_below_floor' }
   )
   assert.deepEqual(
-    sellVolDecision('iron_condor', 90, false, false),
+    sellVolDecision('iron_condor', 90, false, false, 0.4, 0.3),
     { tier: 'qualified' }
   )
   // recentlyReported + already-below-floor → ivr reason (not recency); still reference
@@ -221,5 +222,6 @@ test('COUPLED: N=0 (recency off) → AMC yesterday not recent, no span → quali
   const recent = recentlyReportedBySymbol.META === true
   assert.equal(recent, false)
   assert.equal(spans, false)
-  assert.deepEqual(sellVolDecision('bull_put_spread', 90, spans, recent), { tier: 'qualified' })
+  // rich iv/rv so the qualification is genuine, not the RV-absent skip.
+  assert.deepEqual(sellVolDecision('bull_put_spread', 90, spans, recent, 0.4, 0.3), { tier: 'qualified' })
 })

@@ -176,7 +176,7 @@ export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
 export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
 
 // Board vol gates are symmetric:
-//   - sell-vol  → needs vol RICH  (IVR floor + no earnings) via sellVolTier
+//   - sell-vol  → needs vol RICH  (IVR floor + IV/RV ≥ floor + no earnings) via sellVolTier
 //   - buy-vol   → needs vol CHEAP (IV < RV authoritative)   via buyVolTier
 //   - directional debit spreads → autoScanEligible (view), not a vol floor
 // Credit/condor structures that live or die by selling a RICH, event-free
@@ -747,7 +747,8 @@ async function runScan(
   }
 
   // Drop opps that fail the auto-board gate (boardTierFor): sell-vol needs a rich
-  // IVR + no earnings (sellVolTier); buy-vol needs cheap vol (buyVolTier). Filter
+  // IVR + IV/RV ≥ floor + no earnings (sellVolTier); buy-vol needs cheap vol
+  // (buyVolTier). Filter
   // BEFORE dedup so a rejected high-score expiration can't crowd a qualified one
   // of the same symbol out of the max-2 budget.
   const eligible = allOpps.filter((o) => o.boardTier != null)

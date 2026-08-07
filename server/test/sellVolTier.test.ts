@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sellVolTier, sellVolDecision, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR } from '../src/engine/oppScanner.js'
+import { sellVolTier, sellVolDecision, boardTierDecision, boardTierFor, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR } from '../src/engine/oppScanner.js'
 
 test('iron_condor: IVR at/above floor, rich IV/RV, no earnings → qualified', () => {
   assert.equal(sellVolTier('iron_condor', IVR_QUALIFY_FLOOR, false, false, 0.4, 0.3), 'qualified')
@@ -53,8 +53,9 @@ test('IV/RV gate: IVR passes AND IV/RV ≥ floor → still qualified', () => {
   assert.equal(sellVolTier('bull_put_spread', 43, false, false, 0.30, 0.25), 'qualified')
 })
 
-test('IV/RV gate: skipped when RV is absent (rv-fallback) — falls back to IVR only', () => {
-  // No real RV → cannot judge richness → do not demote (downstream EV filter guards).
+test('IV/RV gate: skipped when RV is genuinely absent (rv=null) — falls back to IVR only', () => {
+  // rv=null (no RV at all — NOT an rv-fallback IVR rank, which still has RV) →
+  // cannot judge richness → do not demote (downstream EV filter guards).
   assert.equal(sellVolTier('iron_condor', 55, false, false, 0.13, null), 'qualified')
   assert.equal(sellVolTier('iron_condor', 55, false, false, null, null), 'qualified')
 })
@@ -70,6 +71,21 @@ test('IV/RV gate does not rescue a below-IVR-floor name (still ivr_below_floor)'
   const d = sellVolDecision('iron_condor', IVR_REFERENCE_FLOOR, false, false, 0.5, 0.2)
   assert.equal(d.tier, 'reference')
   assert.equal(d.reason, 'ivr_below_floor')
+})
+
+test('boardTierDecision wiring: thin IV/RV through the real dispatch → reference vol_not_rich', () => {
+  // The production path (boardTierDecision(strategy, {ivr, iv, rv, ...})), not just
+  // the helper — proves ctx.iv/ctx.rv reach the gate. DIA-style: IVR 51, IV/RV 0.93.
+  const d = boardTierDecision('iron_condor', {
+    ivr: 51, iv: 0.13, rv: 0.14, spansEarnings: false, recentlyReported: false
+  })
+  assert.equal(d.tier, 'reference')
+  assert.equal(d.reason, 'vol_not_rich')
+  // And a genuinely rich one boards through the same dispatch.
+  assert.equal(
+    boardTierFor('iron_condor', { ivr: 51, iv: 0.40, rv: 0.30, spansEarnings: false }),
+    'qualified'
+  )
 })
 
 test('directional debit spreads bypass THIS helper (qualified; gated by autoScanEligible)', () => {

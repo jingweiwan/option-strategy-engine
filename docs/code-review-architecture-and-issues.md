@@ -62,7 +62,7 @@ flowchart LR
 ### 1.4 设计意图（代码中体现较清晰的部分）
 
 - **引擎选结构**，LLM 主要负责叙述与解释（`server/src/ai/opportunities.ts`）。
-- **上板门禁**：`boardTierFor` 按结构分派 —— 卖波动 `sellVolTier`(IVR 下限 + 财报 spanning)/ 买波动 `buyVolTier`(vol 便宜度,delegate `deriveRegime`)（`server/src/engine/oppScanner.ts`）。
+- **上板门禁**：`boardTierFor` 按结构分派 —— 卖波动 `sellVolTier`(IVR 下限 + IV/RV≥门槛富度闸 + 财报 spanning)/ 买波动 `buyVolTier`(vol 便宜度,delegate `deriveRegime`)（`server/src/engine/oppScanner.ts`）。
 - **反馈闭环**：快照 → outcome → `calibration` / `tuner` / `viewSkill` 权重。
 - **自选单一默认源**：`server/src/watchlistDefaults.ts` + `GET /api/watchlist/default`。
 - **卡片→详情结构 + 数值复现**：tuner variant + condor exitPolicy + `replay=1` → 服务端 `SCAN_SIMULATIONS`（commit `12eca8a`、`84081bb` 及 follow-up）。

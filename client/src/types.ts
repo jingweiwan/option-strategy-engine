@@ -236,7 +236,7 @@ export type Opp = {
   aiViewReason?: string | null
   /** 自动板分级:'qualified' 达标推荐,'reference' 未达标参考位(不建议开仓) */
   boardTier?: 'qualified' | 'reference'
-  /** 参考位原因:IVR 未及门槛 / 刚报财报 IV 未稳定 / 买波动缺 RV */
+  /** 参考位原因:IVR 未及门槛 / 溢价不足 IV/RV<1.2 / 刚报财报 IV 未稳定 / 买波动缺 RV */
   boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_not_rich' | 'vol_signal_missing'
   /** 每条短腿离最近关键位的距离(定行权位用) */
   shortLevels?: ShortLevel[]
