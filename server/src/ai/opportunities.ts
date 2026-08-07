@@ -69,7 +69,7 @@ export type Opp = {
    *  vol-cheapness unverifiable (no real RV). */
   boardTier?: 'qualified' | 'reference'
   /** Why reference is sub-threshold — Dashboard copy switch. */
-  boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_signal_missing'
+  boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_not_rich' | 'vol_signal_missing'
   /** Nearest support/resistance to each short strike (strike-placement context). */
   shortLevels?: ShortLevel[]
   /** Underlying in a strong aligned trend — condor easily run over (warning). */
@@ -280,7 +280,7 @@ export async function buildOppsFromScan(
   // below). Bump alongside opp-scan whenever boardTier semantics change, else a
   // pre-fix opps-copy hit re-serves a stale tier. v8: buyVolTier; v9: recency;
   // v10: print-day → reference (today out of nextEarnIso).
-  const key = `opps-copy-v10-${etCalendarDay()}-${symKey}`
+  const key = `opps-copy-v11-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

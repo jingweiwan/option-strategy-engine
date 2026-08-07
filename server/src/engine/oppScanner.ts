@@ -145,6 +145,7 @@ export type OppTier = 'qualified' | 'reference'
 export type BoardTierReason =
   | 'ivr_below_floor'      // sell-vol: IVR in [ref, qualify)
   | 'earnings_recency'     // sell-vol: just reported; IV spike may be evaporating
+  | 'vol_not_rich'         // sell-vol: IVR ok but IV/RV < floor → thin/negative VRP
   | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
 
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
@@ -156,6 +157,16 @@ export const SCAN_SIMULATIONS = 2000
 export const IVR_QUALIFY_FLOOR = Number(process.env.IVR_QUALIFY_FLOOR) || 30
 /** IVR in [reference, qualify) surfaces as a labeled near-miss, not a rec. */
 export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
+/**
+ * Minimum IV/RV a sell-vol structure must clear to auto-recommend. IVR is a
+ * RANK — it says vol is high for THIS name's own history, not that the premium
+ * is actually rich vs how the name is moving. A high-IVR name can still have
+ * IV ≤ RV (thin or NEGATIVE variance premium — selling insurance below the fair
+ * price). This floor is the magnitude check IVR can't provide. Only applied when
+ * a real RV exists (rv-fallback names skip it, mirroring the IVR rv-fallback
+ * caveat — the downstream EV filter still guards those). Env-tunable.
+ */
+export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
 
 // Board vol gates are symmetric:
 //   - sell-vol  → needs vol RICH  (IVR floor + no earnings) via sellVolTier
@@ -199,7 +210,9 @@ export function sellVolDecision(
   strategy: StrategyType,
   ivr: number,
   spansEarnings: boolean,
-  recentlyReported = false
+  recentlyReported = false,
+  iv: number | null = null,
+  rv: number | null = null
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return { tier: null } // footgun guard
   if (!SELL_VOL_STRATEGIES.has(strategy)) return { tier: 'qualified' }
@@ -207,6 +220,13 @@ export function sellVolDecision(
   if (ivr >= IVR_QUALIFY_FLOOR) {
     // Post-print: cap qualified → reference (reason set here — sole source).
     if (recentlyReported) return { tier: 'reference', reason: 'earnings_recency' }
+    // Rank passed, but is the premium actually rich? IVR can't see IV vs RV, so a
+    // high-rank name with IV ≤ RV (thin/negative VRP) would slip through. Demote
+    // when a real RV shows the premium isn't rich enough. Skip when RV is absent
+    // (rv-fallback) — the downstream EV filter still guards those.
+    if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
+      return { tier: 'reference', reason: 'vol_not_rich' }
+    }
     return { tier: 'qualified' }
   }
   if (ivr >= IVR_REFERENCE_FLOOR) return { tier: 'reference', reason: 'ivr_below_floor' }
@@ -218,9 +238,11 @@ export function sellVolTier(
   strategy: StrategyType,
   ivr: number,
   spansEarnings: boolean,
-  recentlyReported = false
+  recentlyReported = false,
+  iv: number | null = null,
+  rv: number | null = null
 ): OppTier | null {
-  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported).tier
+  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv).tier
 }
 
 /**
@@ -277,7 +299,7 @@ export function boardTierDecision(
   }
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true)
+  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true, ctx.iv, ctx.rv)
 }
 
 /** Thin wrapper — prefer boardTierDecision when reason is needed. */
@@ -1090,7 +1112,7 @@ export async function getScannedOpps(
   // v11: buyVolTier board-gate (expensive-vol straddle no longer 'qualified').
   // v12: earnings-recency demote path.
   // v13: today excluded from nextEarnIso — print-day is reference not spans-null.
-  const key = `opp-scan-v13-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v14-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

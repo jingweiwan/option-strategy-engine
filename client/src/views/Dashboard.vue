@@ -62,6 +62,7 @@ const referenceBannerHint = computed(() => {
 
 const refReasonLabel = (reason?: string): string => {
   if (reason === 'earnings_recency') return '刚报财报·IV 未稳定'
+  if (reason === 'vol_not_rich') return '溢价不足·IV/RV 偏低'
   if (reason === 'vol_signal_missing') return '缺 RV,无法验便宜度'
   return `IVR 未及 ${IVR_FLOOR}`
 }
