@@ -47,17 +47,18 @@ const referenceOpps = computed(() =>
   !data.value ? [] : data.value.opps.filter((o) => o.boardTier === 'reference')
 )
 
-/** Banner under 参考位 — distinguish IVR near-miss vs just-reported demotion. */
+/** Banner under 参考位 — summarize the actual demotion reasons present, without
+ *  miscategorizing (e.g. a missing-RV buy-vol near-miss is NOT "IVR 未及"). */
 const referenceBannerHint = computed(() => {
   const refs = referenceOpps.value
   if (!refs.length) return ''
-  const nRecency = refs.filter((o) => o.boardTierReason === 'earnings_recency').length
-  const nIvr = refs.filter((o) => o.boardTierReason !== 'earnings_recency').length
-  if (nRecency > 0 && nIvr === 0) return '刚报财报·IV 未稳定,暂不自动荐'
-  if (nRecency > 0 && nIvr > 0) {
-    return `含刚报财报·IV 未稳定,及其他 IVR 未及 ${IVR_FLOOR} 的近似项`
-  }
-  return `离达标线最近的几个,IVR 未及 ${IVR_FLOOR}`
+  const has = (r: string) => refs.some((o) => o.boardTierReason === r)
+  const parts: string[] = []
+  if (has('earnings_recency')) parts.push('刚报财报·IV 未稳定')
+  if (has('ivr_below_floor')) parts.push(`IVR 未及 ${IVR_FLOOR}`)
+  if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
+  if (parts.length === 0) return '离达标线最近的几个'
+  return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
 })
 
 const refReasonLabel = (reason?: string): string => {
