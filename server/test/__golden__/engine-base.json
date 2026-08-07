@@ -11,7 +11,7 @@
   "results": [
     {
       "strategy": "bear_call_spread",
-      "tier": "reference",
+      "tier": "primary",
       "netPremium": 1.25,
       "pop": 0.66,
       "ev": -0.11,
@@ -119,16 +119,16 @@
     },
     {
       "strategy": "iron_condor",
-      "tier": "primary",
-      "netPremium": 0.76,
-      "pop": 0.624,
+      "tier": "reference",
+      "netPremium": 0.59,
+      "pop": 0.595,
       "ev": -0.05,
-      "cvar95": -1.53,
-      "maxProfit": 0.76,
-      "maxLoss": -4.24,
+      "cvar95": -1.11,
+      "maxProfit": 0.59,
+      "maxLoss": -1.91,
       "breakevens": [
-        91.7,
-        110.8
+        91.9,
+        110.6
       ],
       "legs": [
         {
@@ -152,8 +152,8 @@
         {
           "type": "call",
           "action": "buy",
-          "strike": 115,
-          "premium": 0.23
+          "strike": 112.5,
+          "premium": 0.4
         }
       ]
     },
