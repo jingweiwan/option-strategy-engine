@@ -65,8 +65,9 @@ export type Opp = {
   lowConviction?: boolean
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss
    *  shown as "参考位 · 不建议开仓" — for sell-vol that's IVR below the floor
-   *  or just-reported (earnings_recency); for buy-vol (straddle) that's
-   *  vol-cheapness unverifiable (no real RV). */
+   *  (ivr_below_floor), IV/RV below the floor (vol_not_rich), or just-reported
+   *  (earnings_recency); for buy-vol (straddle) that's vol-cheapness unverifiable
+   *  (no real RV, vol_signal_missing). */
   boardTier?: 'qualified' | 'reference'
   /** Why reference is sub-threshold — Dashboard copy switch. */
   boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_not_rich' | 'vol_signal_missing'

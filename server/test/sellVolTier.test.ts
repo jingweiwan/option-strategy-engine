@@ -1,19 +1,23 @@
 /**
  * Sell-vol auto-board qualification (oppScanner.sellVolTier):
- *   - qualified: IVR ≥ floor, no forward earnings, not just-reported
- *   - reference: IVR in [ref, floor), OR just-reported demotion from qualified
+ *   - qualified: IVR ≥ floor, IV/RV ≥ SELL_IVRV_FLOOR (when RV known), no forward
+ *                earnings, not just-reported
+ *   - reference: IVR in [ref, floor) (ivr_below_floor); IVR ok but IV/RV < floor
+ *                (vol_not_rich); OR just-reported (earnings_recency)
  *   - dropped (null): IVR < ref, OR earnings-spanning (at any IVR)
  *   - directional debit spreads bypass the vol floor (always qualified)
  *   - buy-vol (long_straddle) is guarded to null — must route via buyVolTier
+ * Cases that assert `qualified` pass a rich iv/rv so the pass is a GENUINE
+ * qualification, not the RV-absent skip (that skip has its own labeled test).
  * Post-print demotion cases live in earningsRecency.test.ts.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { sellVolTier, sellVolDecision, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR } from '../src/engine/oppScanner.js'
 
-test('iron_condor: IVR at/above floor, no earnings → qualified', () => {
-  assert.equal(sellVolTier('iron_condor', IVR_QUALIFY_FLOOR, false), 'qualified')
-  assert.equal(sellVolTier('iron_condor', 55, false), 'qualified')
+test('iron_condor: IVR at/above floor, rich IV/RV, no earnings → qualified', () => {
+  assert.equal(sellVolTier('iron_condor', IVR_QUALIFY_FLOOR, false, false, 0.4, 0.3), 'qualified')
+  assert.equal(sellVolTier('iron_condor', 55, false, false, 0.4, 0.3), 'qualified')
 })
 
 test('iron_condor: IVR in [ref, floor), no earnings → reference', () => {
@@ -32,8 +36,8 @@ test('earnings-spanning is dropped even with rich IVR (no reference tier)', () =
 })
 
 test('credit spreads follow the same floor as condors', () => {
-  assert.equal(sellVolTier('bull_put_spread', 40, false), 'qualified')
-  assert.equal(sellVolTier('bear_call_spread', 22, false), 'reference')
+  assert.equal(sellVolTier('bull_put_spread', 40, false, false, 0.4, 0.3), 'qualified')
+  assert.equal(sellVolTier('bear_call_spread', 22, false), 'reference') // below IVR floor → ref regardless of iv/rv
   assert.equal(sellVolTier('bear_call_spread', 10, false), null)
 })
 
