@@ -1,9 +1,10 @@
 /**
  * Post-print earnings recency gate (缺陷 3 · 杠杆①):
- *   - default N=0: only today's ET calendar date (AMC yesterday → today OK)
- *   - today must NOT enter nextEarnIso (else spansEarnings kills recency — dead code)
- *   - N>0 lookback optional; N<0 disables
- *   - sellVolDecision: recentlyReported caps qualified → reference
+ *   - today IS in nextEarnIso → the print day is hard-nulled via spansEarnings
+ *     (never boards, not even reference); the display also shows today's event.
+ *   - recency owns the days AFTER the print: default N=1 → yesterday → reference
+ *     (止血次日). N<0 disables; non-numeric N falls back (never NaN → throw).
+ *   - sellVolDecision: spans null wins over recency; recency caps qualified → reference
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -32,7 +33,7 @@ function entry(symbol: string, date: string): EarningsEntry {
   return { symbol, date }
 }
 
-test('buildRecentlyReportedMap: default N=0 → today only (AMC yesterday not flagged)', () => {
+test('buildRecentlyReportedMap: N=0 → today only (AMC yesterday not flagged)', () => {
   const entries = [
     entry('MSFT', '2026-07-30'), // today
     entry('META', '2026-07-29'), // yesterday — must NOT block today's open
@@ -125,41 +126,73 @@ test('sellVolDecision / boardTierDecision: tier+reason from one source (no re-de
   assert.equal(d.reason, 'earnings_recency')
 })
 
-test('partition: today print excluded from nextEarnIso (recency path stays reachable)', () => {
+test('partition: today print INCLUDED in nextEarnIso (drives display + spans hard-null)', () => {
   const entries = [
     entry('MSFT', TODAY),           // print today
     entry('MSFT', '2026-10-22'),    // next quarter
     entry('AAPL', '2026-08-01')     // future only
   ]
   const next = buildNextEarnIsoMap(entries, ['MSFT', 'AAPL'], TODAY)
-  assert.equal(next.MSFT, '2026-10-22') // NOT today
+  assert.equal(next.MSFT, TODAY) // today, NOT next quarter (Finding 1a: event stays visible)
   assert.equal(next.AAPL, '2026-08-01')
-  const recent = buildRecentlyReportedMap(entries, ['MSFT', 'AAPL'], TODAY, 0)
-  assert.equal(recent.MSFT, true)
-  assert.equal(recent.AAPL, undefined)
 })
 
-test('COUPLED production path: print today → spans=false + recent=true → reference/earnings_recency', () => {
-  // This is the reachable combo after excluding today from nextEarnIso.
-  // Feeding (spans=false, recent=true) is NOT synthetic when maps are partitioned correctly.
+test('COUPLED (Finding 1): print today → in nextEarnIso → spans=true → hard null (never reference)', () => {
   const entries = [
     entry('MSFT', TODAY),
     entry('MSFT', '2026-10-22')
   ]
   const { nextEarnIsoBySymbol, recentlyReportedBySymbol } = partitionEarningsForScan(
-    entries, ['MSFT'], TODAY, 0
+    entries, ['MSFT'], TODAY, 1
   )
   const expiration = '2026-09-18' // after today, before next quarter print
   const next = nextEarnIsoBySymbol.MSFT
   const spans = spansEarningsDate(next, expiration)
   const recent = recentlyReportedBySymbol.MSFT === true
 
-  assert.equal(next, '2026-10-22')
-  assert.equal(spans, false) // Oct > Sept expiration → does not span
-  assert.equal(recent, true)
+  assert.equal(next, TODAY)
+  assert.equal(spans, true) // today ≤ Sept expiration → spans → hard null
+  assert.equal(recent, true) // flagged, but spans wins first
+  // Hard null, NOT reference: never auto-board across a print (Finding 1b).
+  assert.deepEqual(sellVolDecision('iron_condor', 90, spans, recent), { tier: null })
+})
 
-  const d = sellVolDecision('iron_condor', 90, spans, recent)
-  assert.deepEqual(d, { tier: 'reference', reason: 'earnings_recency' })
+test('COUPLED (Finding 1b): AMC-today, only-today print → hard null, not reference', () => {
+  // A name whose sole near earnings is today's (pending AMC) must be hard-blocked,
+  // not surfaced as a reference near-miss.
+  const entries = [entry('AMD', TODAY)]
+  const { nextEarnIsoBySymbol, recentlyReportedBySymbol } = partitionEarningsForScan(
+    entries, ['AMD'], TODAY, 1
+  )
+  const spans = spansEarningsDate(nextEarnIsoBySymbol.AMD, '2026-09-18')
+  const recent = recentlyReportedBySymbol.AMD === true
+  assert.equal(spans, true)
+  assert.deepEqual(sellVolDecision('iron_condor', 90, spans, recent), { tier: null })
+})
+
+test('COUPLED (Finding 2): default N=1 demotes yesterday-AMC → reference (止血次日)', () => {
+  const entries = [
+    entry('META', '2026-07-29'), // printed yesterday (AMC)
+    entry('META', '2026-10-22')  // next quarter
+  ]
+  const { nextEarnIsoBySymbol, recentlyReportedBySymbol } = partitionEarningsForScan(
+    entries, ['META'], TODAY, 1 // the new default
+  )
+  const spans = spansEarningsDate(nextEarnIsoBySymbol.META, '2026-09-18')
+  const recent = recentlyReportedBySymbol.META === true
+  assert.equal(spans, false) // next earnings is Oct, after the Sept expiry → no span
+  assert.equal(recent, true)  // yesterday within N=1 → demote
+  assert.deepEqual(
+    sellVolDecision('iron_condor', 90, spans, recent),
+    { tier: 'reference', reason: 'earnings_recency' }
+  )
+})
+
+test('buildRecentlyReportedMap: non-numeric N (NaN) → empty, does not throw', () => {
+  assert.doesNotThrow(() =>
+    buildRecentlyReportedMap([entry('MSFT', TODAY)], ['MSFT'], TODAY, NaN)
+  )
+  assert.deepEqual(buildRecentlyReportedMap([entry('MSFT', TODAY)], ['MSFT'], TODAY, NaN), {})
 })
 
 test('COUPLED: future earnings still hard-dropped via spansEarnings (null)', () => {
@@ -175,7 +208,7 @@ test('COUPLED: future earnings still hard-dropped via spansEarnings (null)', () 
   assert.deepEqual(sellVolDecision('iron_condor', 90, spans, recent), { tier: null })
 })
 
-test('COUPLED: AMC yesterday → not recent, no span on clean exp → qualified', () => {
+test('COUPLED: N=0 (recency off) → AMC yesterday not recent, no span → qualified', () => {
   const entries = [
     entry('META', '2026-07-29'), // yesterday
     entry('META', '2026-10-22')

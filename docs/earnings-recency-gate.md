@@ -6,6 +6,22 @@
 
 ---
 
+## ⚠️ 修订 2026-08-07（方案 A 反转 —— 评审 Finding 1/2）
+
+原「方案 A：把 today 踢出 `nextEarnIso`」是**错的**，两个 High 缺陷:
+- **Finding 1a**：同一张 `nextEarnIso` 同时喂显示（ticker `earn`/日历/AI）。踢掉 today → 财报当天显示跳到下季，把事件从视野里抹掉（正是缺陷3的冒烟枪）。
+- **Finding 1b**：当天 AMC 未发的名字不进 `spansEarnings` → 由 `recentlyReported` 放宽成 `reference`，违背「跨财报不得上板，含 reference」。
+
+**正确设计（现已落地）：`buildNextEarnIsoMap` 保留 `date >= today`（含 today）。**
+- 财报当天（无论 BMO 已发 / AMC 待发）→ `spansEarnings` 硬 `null`，永不上板。无 BMO/AMC 时点信号,把整天当「未发」是安全上界（漏卖一天 BMO crush ≪ 裸空 gamma 撞 AMC）。
+- 显示层拿到 today → 正确显示「今天财报」。
+- **recency 只管印后**：默认 `EARNINGS_RECENCY_DAYS=1` → 昨天发的 → `reference`（止血次日，Finding 2）。today 的 recency 标记被 spans 先行 `null` 覆盖，无害。
+- 缓存 bump：`earnings-calendar-v4`。
+
+下面 §3/§4.1 的「`> today` / 排除 today」段落是**已废弃的原方案 A**,保留作历史；以本节为准。
+
+---
+
 ## 1. 目标与范围
 
 **止血**「财报刚发完、次日仍用尖峰 IVR 自动荐卖方」：

@@ -244,19 +244,26 @@ export async function getUpcomingEarningsMap(
 }
 
 /**
- * Extra ET **calendar** days BEFORE today to treat as "just reported".
- * Default **0** = only the print's own ET calendar date.
- *   - AMC yesterday → today NOT flagged → today's open may auto-rec again
- *   - BMO/AMC today → flagged for today's scans (same-day spike / crush-in-progress)
- * Set to 1 to also demote "printed yesterday", 3 for a multi-day cushion.
- * Set negative to disable the recency gate entirely.
+ * Extra ET **calendar** days BEFORE today to treat as "just reported" → demote
+ * a rich-IVR seller to `reference` (labeled near-miss, not auto-recommended).
  *
- * IMPORTANT — must stay wired with `buildNextEarnIsoMap`: **today's print must
- * NOT enter nextEarnIso**, or `spansEarningsDate(today, futureExp)` hard-drops
- * the name and the recency demote branch is dead code. Today is owned by
- * `recentlyReported` (→ reference), future prints by nextEarn (→ null if span).
+ * Default **1** = stop-bleed the day AFTER the print. The print day itself is
+ * already hard-nulled by `buildNextEarnIsoMap` (today ∈ nextEarnIso → spans),
+ * so recency owns the *post*-print window:
+ *   - N=1 (default): printed yesterday → reference. This is 缺陷3 §1「止血次日」.
+ *   - N=0: nothing after the print day → yesterday's AMC re-qualifies today
+ *     (the gap Finding 2 flagged); the residual next-day IV spike is then only
+ *     caught by 杠杆② IV/RV. Set 0 only if you deliberately want that.
+ *   - N=3: multi-day cushion. Negative disables the recency gate entirely.
+ *
+ * A non-numeric env value falls back to the default (never NaN → the map
+ * builders would throw on `new Date(NaN).toISOString()`).
  */
-export const EARNINGS_RECENCY_DAYS = Number(process.env.EARNINGS_RECENCY_DAYS ?? 0)
+const RECENCY_DAYS_DEFAULT = 1
+const rawRecencyDays = Number(process.env.EARNINGS_RECENCY_DAYS ?? RECENCY_DAYS_DEFAULT)
+export const EARNINGS_RECENCY_DAYS = Number.isFinite(rawRecencyDays)
+  ? rawRecencyDays
+  : RECENCY_DAYS_DEFAULT
 
 /**
  * Pure helper: symbols with an earnings date in [today−N, today] (ET calendar
@@ -268,7 +275,7 @@ export function buildRecentlyReportedMap(
   today: string,
   recencyDays = EARNINGS_RECENCY_DAYS
 ): Record<string, boolean> {
-  if (recencyDays < 0) return {}
+  if (!Number.isFinite(recencyDays) || recencyDays < 0) return {}
   const todayMs = Date.parse(today)
   if (!Number.isFinite(todayMs)) return {}
   const from = new Date(todayMs - recencyDays * 86400000).toISOString().slice(0, 10)
@@ -283,9 +290,23 @@ export function buildRecentlyReportedMap(
 }
 
 /**
- * Earliest **strictly future** earnings date per symbol (`date > today`).
- * Today and past are excluded so same-day prints are handled by recency demotion
- * (reference), not by spansEarnings hard-drop (null).
+ * Earliest earnings date per symbol that is **today or later** (`date >= today`).
+ *
+ * Today IS included, deliberately. This map drives BOTH the forward display
+ * (ticker `earn`, calendar, AI) AND the scanner's `spansEarnings` hard-drop, so:
+ *   - Display: on the print day the UI shows "earnings today", not next quarter
+ *     (excluding today was the 缺陷3 smoking gun — the event vanished from view).
+ *   - Scan: a name reporting today (BMO already out, OR AMC still pending) →
+ *     spansEarnings(today, futureExp)=true → hard null. Never auto-sell premium
+ *     across an earnings print, not even as `reference`. Without a BMO/AMC
+ *     time-of-day signal we cannot tell an already-reported BMO from a pending
+ *     AMC, so we treat the whole print day as "upcoming" — the safe superset
+ *     (missing one day of a BMO crush-sell ≪ shorting gamma into a pending AMC).
+ *
+ * PAST dates (`date < today`) stay excluded — a past print ≤ every future expiry
+ * would `spansEarnings`-ban the name forever (the FORWARD-ONLY footgun). Names
+ * that already printed on a PAST day are handled by `buildRecentlyReportedMap`
+ * (→ reference), not here.
  */
 export function buildNextEarnIsoMap(
   entries: EarningsEntry[],
@@ -295,7 +316,7 @@ export function buildNextEarnIsoMap(
   const want = new Set(symbols.map((s) => s.toUpperCase()))
   const map: Record<string, string> = {}
   for (const e of entries) {
-    if (e.date <= today) continue
+    if (e.date < today) continue
     const sym = e.symbol.toUpperCase()
     if (!want.has(sym)) continue
     if (!(sym in map) || e.date < map[sym]) map[sym] = e.date

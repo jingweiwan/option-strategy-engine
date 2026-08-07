@@ -164,9 +164,9 @@ async function fetchEarningsData(symbols: string[]): Promise<{
   // of small-caps). Chunk the horizon into ≤15-day slices, each well under the
   // cap, and merge. Cached daily, so the extra calls cost nothing.
   //
-  // When N>0, also pull [today−N, today] for the recency map — WITHOUT writing
-  // past dates into nextEarnIso (spansEarnings footgun). N=0 (default) needs no
-  // past fetch: "today only" is already in the forward window.
+  // When N>0, also pull [today−N, today] for the recency map (post-print demote).
+  // buildNextEarnIsoMap keeps only date >= today, so these past rows never leak
+  // into nextEarnIso (the spansEarnings footgun). Default N=1 → one past day.
   // See docs/earnings-recency-gate.md.
   const CHUNK_DAYS = 15
   const HORIZON_DAYS = 90
@@ -189,10 +189,11 @@ async function fetchEarningsData(symbols: string[]): Promise<{
     if (entry.date === today) todayCount++
   }
 
-  // Split: strictly-future → nextEarnIso (spansEarnings hard-drop);
-  // [today−N, today] → recentlyReported (print-day demote to reference).
-  // Today must NOT enter nextEarnIso, or spansEarnings steals the recency path
-  // (dead code). See docs/earnings-recency-gate.md §可达性.
+  // Split: today-or-future → nextEarnIso (spansEarnings hard-drop, incl. today's
+  // print); [today−N, today−1) past prints → recentlyReported (demote to
+  // reference the day(s) AFTER). Today is hard-nulled, not referenced — we can't
+  // tell a done-BMO from a pending-AMC, so treat the print day as upcoming.
+  // See docs/earnings-recency-gate.md.
   const { nextEarnIsoBySymbol, recentlyReportedBySymbol } = partitionEarningsForScan(
     calendar, symbols, today, recency
   )
@@ -449,8 +450,9 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
         return null
       }),
       fetchWatchlistQuotes(symbols),
-      // v3: today excluded from nextEarnIso so print-day recency demote is reachable.
-      cached(`earnings-calendar-v3-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
+      // v4: today INCLUDED in nextEarnIso → print day is hard-nulled (spans) and
+      // shown in display; recency owns the post-print days (default N=1).
+      cached(`earnings-calendar-v4-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
         (err): Awaited<ReturnType<typeof fetchEarningsData>> => {
           console.warn('[dashboard] earnings calendar unavailable:', (err as Error).message)
           return {
