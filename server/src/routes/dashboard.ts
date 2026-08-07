@@ -452,7 +452,11 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
       fetchWatchlistQuotes(symbols),
       // v4: today INCLUDED in nextEarnIso → print day is hard-nulled (spans) and
       // shown in display; recency owns the post-print days (default N=1).
-      cached(`earnings-calendar-v4-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
+      // MUST be ET-calendar-day-scoped: `today` (and nextEarnIso/recency) is frozen
+      // at fetch time, so a key without the day would, within the 24h TTL, serve
+      // yesterday's snapshot past midnight — freezing a now-past print in
+      // nextEarnIso and wrongly spansEarnings-banning it. Match opp-scan/opps-copy.
+      cached(`earnings-calendar-v4-${etCalendarDay()}-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
         (err): Awaited<ReturnType<typeof fetchEarningsData>> => {
           console.warn('[dashboard] earnings calendar unavailable:', (err as Error).message)
           return {

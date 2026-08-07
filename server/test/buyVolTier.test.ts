@@ -73,12 +73,14 @@ test('boardTierFor routes long_straddle to buyVolTier', () => {
 })
 
 test('boardTierFor routes sell-vol to sellVolTier (floor + earnings gate intact)', () => {
+  // iv/rv rich (1.33 ≥ SELL_IVRV_FLOOR) so the IV/RV gate passes and this stays a
+  // pure routing/floor/earnings test — IV/RV demotion is covered in sellVolTier.test.
   assert.equal(
-    boardTierFor('iron_condor', { ivr: 50, iv: 0.30, rv: 0.30, spansEarnings: false }),
+    boardTierFor('iron_condor', { ivr: 50, iv: 0.40, rv: 0.30, spansEarnings: false }),
     'qualified'
   )
   assert.equal(
-    boardTierFor('iron_condor', { ivr: 50, iv: 0.30, rv: 0.30, spansEarnings: true }),
+    boardTierFor('iron_condor', { ivr: 50, iv: 0.40, rv: 0.30, spansEarnings: true }),
     null // never auto-sell premium through earnings
   )
   assert.equal(

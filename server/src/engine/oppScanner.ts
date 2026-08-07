@@ -145,6 +145,7 @@ export type OppTier = 'qualified' | 'reference'
 export type BoardTierReason =
   | 'ivr_below_floor'      // sell-vol: IVR in [ref, qualify)
   | 'earnings_recency'     // sell-vol: just reported; IV spike may be evaporating
+  | 'vol_not_rich'         // sell-vol: IVR ok but IV/RV < floor → thin/negative VRP
   | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
 
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
@@ -156,9 +157,26 @@ export const SCAN_SIMULATIONS = 2000
 export const IVR_QUALIFY_FLOOR = Number(process.env.IVR_QUALIFY_FLOOR) || 30
 /** IVR in [reference, qualify) surfaces as a labeled near-miss, not a rec. */
 export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
+/**
+ * Minimum IV/RV a sell-vol structure must clear to auto-recommend. IVR is a
+ * RANK — it says vol is high for THIS name's own history, not that the premium
+ * is actually rich vs how the name is moving. A high-IVR name can still have
+ * IV ≤ RV (thin or NEGATIVE variance premium — selling insurance below the fair
+ * price). This floor is the magnitude check IVR can't provide.
+ *
+ * Applied only when a real RV is PRESENT. Skipped when `rv` is null (RV genuinely
+ * absent) — NOT when the IVR is merely rv-fallback-sourced: an rv-fallback IVR
+ * *rank* still has an RV, so those names DO go through this gate (that's how the
+ * DIA condor, IVR 51 from rv-fallback, got demoted at IV/RV 0.92). With RV truly
+ * absent, a sell-vol setup still carries IVR + the downstream EV>0 filter, so it
+ * qualifies — deliberately more permissive than buy-vol (which → reference when
+ * RV is missing), because buy-vol without RV is fully blind while sell-vol is
+ * not. Env-tunable.
+ */
+export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
 
 // Board vol gates are symmetric:
-//   - sell-vol  → needs vol RICH  (IVR floor + no earnings) via sellVolTier
+//   - sell-vol  → needs vol RICH  (IVR floor + IV/RV ≥ floor + no earnings) via sellVolTier
 //   - buy-vol   → needs vol CHEAP (IV < RV authoritative)   via buyVolTier
 //   - directional debit spreads → autoScanEligible (view), not a vol floor
 // Credit/condor structures that live or die by selling a RICH, event-free
@@ -172,15 +190,15 @@ export type BoardTierDecision = { tier: OppTier | null; reason?: BoardTierReason
 /**
  * Auto-board decision for sell-vol opportunities. The engine's only proven edge
  * is harvesting a rich, event-free variance risk premium, so a sell-vol structure
- * must clear an IVR floor AND not span earnings before it's recommended:
- *   - 'qualified'  IVR ≥ floor, no forward earnings before expiry, not just-reported
- *   - 'reference'  IVR in [ref, floor) → reason ivr_below_floor; OR just-reported
- *                  demotion from qualified → reason earnings_recency
+ * must clear an IVR floor, be genuinely rich (IV/RV ≥ SELL_IVRV_FLOOR when RV is
+ * known), AND not span earnings before it's recommended:
+ *   - 'qualified'  IVR ≥ floor, IV/RV ≥ floor (or RV absent), no earnings span, not just-reported
+ *   - 'reference'  IVR in [ref, floor) → ivr_below_floor;  IVR ok but IV/RV < floor → vol_not_rich;
+ *                  OR just-reported demotion → earnings_recency
  *   - null         IVR < ref, OR earnings-spanning                         → dropped
- * `recentlyReported` is the backward mirror of `spansEarnings`: same ET calendar
- * day as the print (default; AMC yesterday does not block today's open) — demote
- * qualified → reference while the print-day spike/crush is in play.
- * See docs/earnings-recency-gate.md.
+ * `recentlyReported` demotes qualified → reference for the N days AFTER the print
+ * (default N=1 = the day after; the print day itself is hard-nulled by spans —
+ * see buildNextEarnIsoMap). See docs/earnings-recency-gate.md.
  *
  * Directional debit spreads (bull_call/bear_put) return 'qualified' here — they
  * carry no vol floor and are gated upstream by autoScanEligible. Buy-vol
@@ -188,18 +206,22 @@ export type BoardTierDecision = { tier: OppTier | null; reason?: BoardTierReason
  * a stray direct call can't hand a straddle a qualified ticket — buy-vol must
  * route through boardTierDecision → buyVolDecision.
  *
- * The IVR floor is only a coarse screen; the real edge test is the downstream
- * score>0 (EV) filter. An rv-fallback IVR is an unreliable *rank* but the EV
- * is computed from real IV, so a positive-EV setup on an rv-fallback name is
- * still a real opportunity — we DON'T demote here (that discarded genuine edge,
- * e.g. QQQ +0.81 EV). The rv-fallback caveat lives in the display layer only
+ * The IVR + IV/RV floors are coarse screens; the final edge test is the
+ * downstream score>0 (EV) filter. Note "rv-fallback IVR" (rank derived from RV
+ * percentile) is NOT the same as "no RV": rv-fallback names HAVE an RV and so
+ * DO run through the IV/RV floor. We only skip the IV/RV floor when RV is truly
+ * absent — there a positive-EV setup still surfaces (that unreliable *rank*
+ * alone never demotes it; discarding it dropped genuine edge, e.g. QQQ +0.81
+ * EV). The rv-fallback rank caveat otherwise lives in the display layer only
  * (narrative/notes must not headline a fake rank as "seller's paradise").
  */
 export function sellVolDecision(
   strategy: StrategyType,
   ivr: number,
   spansEarnings: boolean,
-  recentlyReported = false
+  recentlyReported = false,
+  iv: number | null = null,
+  rv: number | null = null
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return { tier: null } // footgun guard
   if (!SELL_VOL_STRATEGIES.has(strategy)) return { tier: 'qualified' }
@@ -207,6 +229,13 @@ export function sellVolDecision(
   if (ivr >= IVR_QUALIFY_FLOOR) {
     // Post-print: cap qualified → reference (reason set here — sole source).
     if (recentlyReported) return { tier: 'reference', reason: 'earnings_recency' }
+    // Rank passed, but is the premium actually rich? IVR can't see IV vs RV, so a
+    // high-rank name with IV ≤ RV (thin/negative VRP) would slip through. Demote
+    // when a real RV shows the premium isn't rich enough. Skip when RV is absent
+    // (rv-fallback) — the downstream EV filter still guards those.
+    if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
+      return { tier: 'reference', reason: 'vol_not_rich' }
+    }
     return { tier: 'qualified' }
   }
   if (ivr >= IVR_REFERENCE_FLOOR) return { tier: 'reference', reason: 'ivr_below_floor' }
@@ -218,9 +247,11 @@ export function sellVolTier(
   strategy: StrategyType,
   ivr: number,
   spansEarnings: boolean,
-  recentlyReported = false
+  recentlyReported = false,
+  iv: number | null = null,
+  rv: number | null = null
 ): OppTier | null {
-  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported).tier
+  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv).tier
 }
 
 /**
@@ -277,7 +308,7 @@ export function boardTierDecision(
   }
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true)
+  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true, ctx.iv, ctx.rv)
 }
 
 /** Thin wrapper — prefer boardTierDecision when reason is needed. */
@@ -716,7 +747,8 @@ async function runScan(
   }
 
   // Drop opps that fail the auto-board gate (boardTierFor): sell-vol needs a rich
-  // IVR + no earnings (sellVolTier); buy-vol needs cheap vol (buyVolTier). Filter
+  // IVR + IV/RV ≥ floor + no earnings (sellVolTier); buy-vol needs cheap vol
+  // (buyVolTier). Filter
   // BEFORE dedup so a rejected high-score expiration can't crowd a qualified one
   // of the same symbol out of the max-2 budget.
   const eligible = allOpps.filter((o) => o.boardTier != null)
@@ -1089,8 +1121,11 @@ export async function getScannedOpps(
   // the 12h day-cache serves stale entries.
   // v11: buyVolTier board-gate (expensive-vol straddle no longer 'qualified').
   // v12: earnings-recency demote path.
-  // v13: today excluded from nextEarnIso — print-day is reference not spans-null.
-  const key = `opp-scan-v13-${etCalendarDay()}-${wlSlug}`
+  // v13: (superseded) Plan A — today excluded from nextEarnIso. REVERSED: today
+  //      is now hard-nulled via spansEarnings; recency owns the post-print days.
+  // v14: IV/RV richness gate — IVR ok but IV/RV < SELL_IVRV_FLOOR → reference
+  //      (vol_not_rich). High rank no longer boards thin/negative-VRP names.
+  const key = `opp-scan-v14-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit
