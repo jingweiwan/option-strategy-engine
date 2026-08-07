@@ -842,7 +842,7 @@ async function scanSymbol(
             const legs = d != null ? legsForShortDelta(st, d) : null
             if (d != null && legs) {
               pinned[st] = legs
-              pinnedVariant[st] = variantId(d)
+              pinnedVariant[st] = variantId(d, st)
             }
           }
           const probe = runEngineLive({
@@ -1006,7 +1006,7 @@ async function scanSymbol(
             const legSpecs = d != null ? legsForShortDelta(st, d) : null
             if (d != null && legSpecs) {
               pinned[st] = legSpecs
-              pinnedVariant[st] = variantId(d)
+              pinnedVariant[st] = variantId(d, st)
             }
           }
           try {

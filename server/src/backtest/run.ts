@@ -41,7 +41,7 @@ for (const a of report.arms) {
 }
 
 for (const [k, arms] of byBucket) {
-  const leader = [...arms].sort((x, y) => y.avgReward - x.avgReward)[0]
+  const leader = [...arms].sort((x, y) => y.avgPnl - x.avgPnl)[0]
   const enoughN = arms.every((a) => a.n >= MIN_TRUST_N)
   // The delta knob trades premium against tail risk — only weeks that actually
   // contained losses can tell the arms apart. An all-win period just rewards
@@ -54,7 +54,7 @@ for (const [k, arms] of byBucket) {
     console.log(
       `    ${a.variant}  n=${String(a.n).padStart(3)}  ` +
       `win=${(a.winRate * 100).toFixed(0).padStart(3)}%  ` +
-      `avgPnL=${fmt(a.avgPnl).padStart(7)}  reward=${a.avgReward.toFixed(3)}${lead}${thin}`
+      `avgPnL=${fmt(a.avgPnl).padStart(7)}${lead}${thin}`
     )
   }
   let verdict: string
