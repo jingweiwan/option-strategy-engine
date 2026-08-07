@@ -218,6 +218,11 @@ export async function fetchEarningsCalendar(
  * ≤15-day slices. A single wide query hits Finnhub's 1500-row response cap,
  * which silently drops the NEAREST earnings (the ones that matter) — chunking
  * keeps every slice well under the cap.
+ *
+ * FORWARD-ONLY: never fold past dates into this map. A past earnings date would
+ * make `spansEarningsDate` (earn ≤ expiration) true for every future expiry and
+ * hard-ban the whole name. Recent-print detection is a separate map — see
+ * `buildRecentlyReportedMap` / `EARNINGS_RECENCY_DAYS`.
  */
 export async function getUpcomingEarningsMap(
   symbols: string[],
@@ -236,6 +241,82 @@ export async function getUpcomingEarningsMap(
     if (want.has(e.symbol) && (!(e.symbol in map) || e.date < map[e.symbol])) map[e.symbol] = e.date
   }
   return map
+}
+
+/**
+ * Extra ET **calendar** days BEFORE today to treat as "just reported".
+ * Default **0** = only the print's own ET calendar date.
+ *   - AMC yesterday → today NOT flagged → today's open may auto-rec again
+ *   - BMO/AMC today → flagged for today's scans (same-day spike / crush-in-progress)
+ * Set to 1 to also demote "printed yesterday", 3 for a multi-day cushion.
+ * Set negative to disable the recency gate entirely.
+ *
+ * IMPORTANT — must stay wired with `buildNextEarnIsoMap`: **today's print must
+ * NOT enter nextEarnIso**, or `spansEarningsDate(today, futureExp)` hard-drops
+ * the name and the recency demote branch is dead code. Today is owned by
+ * `recentlyReported` (→ reference), future prints by nextEarn (→ null if span).
+ */
+export const EARNINGS_RECENCY_DAYS = Number(process.env.EARNINGS_RECENCY_DAYS ?? 0)
+
+/**
+ * Pure helper: symbols with an earnings date in [today−N, today] (ET calendar
+ * YYYY-MM-DD, inclusive). N=0 → today only. Does NOT touch next-earn maps.
+ */
+export function buildRecentlyReportedMap(
+  entries: EarningsEntry[],
+  symbols: string[],
+  today: string,
+  recencyDays = EARNINGS_RECENCY_DAYS
+): Record<string, boolean> {
+  if (recencyDays < 0) return {}
+  const todayMs = Date.parse(today)
+  if (!Number.isFinite(todayMs)) return {}
+  const from = new Date(todayMs - recencyDays * 86400000).toISOString().slice(0, 10)
+  const want = new Set(symbols.map((s) => s.toUpperCase()))
+  const out: Record<string, boolean> = {}
+  for (const e of entries) {
+    const sym = e.symbol.toUpperCase()
+    if (!want.has(sym)) continue
+    if (e.date >= from && e.date <= today) out[sym] = true
+  }
+  return out
+}
+
+/**
+ * Earliest **strictly future** earnings date per symbol (`date > today`).
+ * Today and past are excluded so same-day prints are handled by recency demotion
+ * (reference), not by spansEarnings hard-drop (null).
+ */
+export function buildNextEarnIsoMap(
+  entries: EarningsEntry[],
+  symbols: string[],
+  today: string
+): Record<string, string> {
+  const want = new Set(symbols.map((s) => s.toUpperCase()))
+  const map: Record<string, string> = {}
+  for (const e of entries) {
+    if (e.date <= today) continue
+    const sym = e.symbol.toUpperCase()
+    if (!want.has(sym)) continue
+    if (!(sym in map) || e.date < map[sym]) map[sym] = e.date
+  }
+  return map
+}
+
+/** Partition calendar rows into next-earn vs just-reported (single source). */
+export function partitionEarningsForScan(
+  entries: EarningsEntry[],
+  symbols: string[],
+  today: string,
+  recencyDays = EARNINGS_RECENCY_DAYS
+): {
+  nextEarnIsoBySymbol: Record<string, string>
+  recentlyReportedBySymbol: Record<string, boolean>
+} {
+  return {
+    nextEarnIsoBySymbol: buildNextEarnIsoMap(entries, symbols, today),
+    recentlyReportedBySymbol: buildRecentlyReportedMap(entries, symbols, today, recencyDays)
+  }
 }
 
 export async function getOptionChain(

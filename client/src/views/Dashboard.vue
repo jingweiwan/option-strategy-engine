@@ -47,6 +47,25 @@ const referenceOpps = computed(() =>
   !data.value ? [] : data.value.opps.filter((o) => o.boardTier === 'reference')
 )
 
+/** Banner under 参考位 — distinguish IVR near-miss vs just-reported demotion. */
+const referenceBannerHint = computed(() => {
+  const refs = referenceOpps.value
+  if (!refs.length) return ''
+  const nRecency = refs.filter((o) => o.boardTierReason === 'earnings_recency').length
+  const nIvr = refs.filter((o) => o.boardTierReason !== 'earnings_recency').length
+  if (nRecency > 0 && nIvr === 0) return '刚报财报·IV 未稳定,暂不自动荐'
+  if (nRecency > 0 && nIvr > 0) {
+    return `含刚报财报·IV 未稳定,及其他 IVR 未及 ${IVR_FLOOR} 的近似项`
+  }
+  return `离达标线最近的几个,IVR 未及 ${IVR_FLOOR}`
+})
+
+const refReasonLabel = (reason?: string): string => {
+  if (reason === 'earnings_recency') return '刚报财报·IV 未稳定'
+  if (reason === 'vol_signal_missing') return '缺 RV,无法验便宜度'
+  return `IVR 未及 ${IVR_FLOOR}`
+}
+
 const opps = computed(() =>
   boardOpps.value.filter((o) => oppFilter.value === 'all' || o.tag === oppFilter.value)
 )
@@ -637,7 +656,7 @@ watch(data, (v) => {
         <div v-if="referenceOpps.length" class="opps-reference">
           <div class="ref-banner mono">
             参考位 · 未达标 · 仅供参考,不建议开仓
-            <span class="dim">离达标线最近的几个,IVR 未及 {{ IVR_FLOOR }}</span>
+            <span class="dim">{{ referenceBannerHint }}</span>
           </div>
           <div class="ref-list">
             <div
@@ -652,7 +671,8 @@ watch(data, (v) => {
               <span class="ref-sym serif">{{ o.sym }}</span>
               <span class="ref-strat mono">{{ o.strategy }}</span>
               <span class="ref-ivr mono">
-                IVR {{ o.ivr }} <span class="loss-text">&lt; {{ IVR_FLOOR }}</span>
+                IVR {{ o.ivr }}
+                <span class="loss-text"> · {{ refReasonLabel(o.boardTierReason) }}</span>
               </span>
               <span class="ref-dte mono dim">{{ o.dte }}d</span>
               <span class="ref-thesis mono dim">{{ o.thesis }}</span>
