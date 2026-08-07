@@ -47,6 +47,26 @@ const referenceOpps = computed(() =>
   !data.value ? [] : data.value.opps.filter((o) => o.boardTier === 'reference')
 )
 
+/** Banner under 参考位 — summarize the actual demotion reasons present, without
+ *  miscategorizing (e.g. a missing-RV buy-vol near-miss is NOT "IVR 未及"). */
+const referenceBannerHint = computed(() => {
+  const refs = referenceOpps.value
+  if (!refs.length) return ''
+  const has = (r: string) => refs.some((o) => o.boardTierReason === r)
+  const parts: string[] = []
+  if (has('earnings_recency')) parts.push('刚报财报·IV 未稳定')
+  if (has('ivr_below_floor')) parts.push(`IVR 未及 ${IVR_FLOOR}`)
+  if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
+  if (parts.length === 0) return '离达标线最近的几个'
+  return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
+})
+
+const refReasonLabel = (reason?: string): string => {
+  if (reason === 'earnings_recency') return '刚报财报·IV 未稳定'
+  if (reason === 'vol_signal_missing') return '缺 RV,无法验便宜度'
+  return `IVR 未及 ${IVR_FLOOR}`
+}
+
 const opps = computed(() =>
   boardOpps.value.filter((o) => oppFilter.value === 'all' || o.tag === oppFilter.value)
 )
@@ -637,7 +657,7 @@ watch(data, (v) => {
         <div v-if="referenceOpps.length" class="opps-reference">
           <div class="ref-banner mono">
             参考位 · 未达标 · 仅供参考,不建议开仓
-            <span class="dim">离达标线最近的几个,IVR 未及 {{ IVR_FLOOR }}</span>
+            <span class="dim">{{ referenceBannerHint }}</span>
           </div>
           <div class="ref-list">
             <div
@@ -652,7 +672,8 @@ watch(data, (v) => {
               <span class="ref-sym serif">{{ o.sym }}</span>
               <span class="ref-strat mono">{{ o.strategy }}</span>
               <span class="ref-ivr mono">
-                IVR {{ o.ivr }} <span class="loss-text">&lt; {{ IVR_FLOOR }}</span>
+                IVR {{ o.ivr }}
+                <span class="loss-text"> · {{ refReasonLabel(o.boardTierReason) }}</span>
               </span>
               <span class="ref-dte mono dim">{{ o.dte }}d</span>
               <span class="ref-thesis mono dim">{{ o.thesis }}</span>

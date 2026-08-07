@@ -64,9 +64,12 @@ export type Opp = {
    *  card can carry a low-conviction badge. */
   lowConviction?: boolean
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss
-   *  shown as "参考位 · 不建议开仓" — for sell-vol that's IVR below the floor;
-   *  for buy-vol (straddle) that's vol-cheapness unverifiable (no real RV). */
+   *  shown as "参考位 · 不建议开仓" — for sell-vol that's IVR below the floor
+   *  or just-reported (earnings_recency); for buy-vol (straddle) that's
+   *  vol-cheapness unverifiable (no real RV). */
   boardTier?: 'qualified' | 'reference'
+  /** Why reference is sub-threshold — Dashboard copy switch. */
+  boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_signal_missing'
   /** Nearest support/resistance to each short strike (strike-placement context). */
   shortLevels?: ShortLevel[]
   /** Underlying in a strong aligned trend — condor easily run over (warning). */
@@ -273,7 +276,11 @@ export async function buildOppsFromScan(
   if (scannedOpps.length === 0) return []
 
   const symKey = [...new Set(scannedOpps.map((o) => o.sym))].sort().join(',')
-  const key = `opps-copy-v8-${etCalendarDay()}-${symKey}`
+  // Independent 12h cache that copies boardTier through (see `boardTier: o.boardTier`
+  // below). Bump alongside opp-scan whenever boardTier semantics change, else a
+  // pre-fix opps-copy hit re-serves a stale tier. v8: buyVolTier; v9: recency;
+  // v10: print-day → reference (today out of nextEarnIso).
+  const key = `opps-copy-v10-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit
@@ -342,6 +349,7 @@ export async function buildOppsFromScan(
         aiViewReason: o.aiViewReason ?? null,
         lowConviction: o.regime === 'buy',
         boardTier: o.boardTier,
+        boardTierReason: o.boardTierReason,
         shortLevels: o.shortLevels,
         strongTrend: o.strongTrend,
         variant: o.variant ?? null,

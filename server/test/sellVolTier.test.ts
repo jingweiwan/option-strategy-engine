@@ -1,10 +1,11 @@
 /**
  * Sell-vol auto-board qualification (oppScanner.sellVolTier):
- *   - qualified: IVR ≥ floor, no earnings
- *   - reference: IVR in [ref, floor), no earnings
+ *   - qualified: IVR ≥ floor, no forward earnings, not just-reported
+ *   - reference: IVR in [ref, floor), OR just-reported demotion from qualified
  *   - dropped (null): IVR < ref, OR earnings-spanning (at any IVR)
  *   - directional debit spreads bypass the vol floor (always qualified)
  *   - buy-vol (long_straddle) is guarded to null — must route via buyVolTier
+ * Post-print demotion cases live in earningsRecency.test.ts.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

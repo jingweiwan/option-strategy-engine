@@ -9,7 +9,11 @@ import { computeRealBook, type RealBook } from '../engine/realBook.js'
 import { fetchWatchlistQuotes, fetchLiveIvData, computeIvRank } from '../api/marketdata.js'
 import { fetchCnnFearGreed } from '../api/cnnFearGreed.js'
 import { archiveChains } from '../api/chainArchive.js'
-import { fetchEarningsCalendar } from '../api/finnhub.js'
+import {
+  fetchEarningsCalendar,
+  partitionEarningsForScan,
+  EARNINGS_RECENCY_DAYS
+} from '../api/finnhub.js'
 import { cached, etCalendarDay, DAY } from '../ai/cache.js'
 import { recordDashboardScanSnapshots } from '../feedback/index.js'
 import {
@@ -145,6 +149,8 @@ async function fetchEarningsData(symbols: string[]): Promise<{
   todayCount: number
   nextEarnBySymbol: Record<string, string>
   nextEarnIsoBySymbol: Record<string, string>
+  /** Per-symbol: reported in [today−N, today] ET (N default 0 = today only). */
+  recentlyReportedBySymbol: Record<string, boolean>
   calendar: EarningsCalendarEntry[]
 }> {
   const etNow = new Date(
@@ -157,9 +163,19 @@ async function fetchEarningsData(symbols: string[]): Promise<{
   // ones that matter most (e.g. UNH reporting in 3 days vanished behind 45 days
   // of small-caps). Chunk the horizon into ≤15-day slices, each well under the
   // cap, and merge. Cached daily, so the extra calls cost nothing.
+  //
+  // When N>0, also pull [today−N, today] for the recency map (post-print demote).
+  // buildNextEarnIsoMap keeps only date >= today, so these past rows never leak
+  // into nextEarnIso (the spansEarnings footgun). Default N=1 → one past day.
+  // See docs/earnings-recency-gate.md.
   const CHUNK_DAYS = 15
   const HORIZON_DAYS = 90
   const ranges: Array<[string, string]> = []
+  const recency = EARNINGS_RECENCY_DAYS
+  if (recency > 0) {
+    const pastFrom = new Date(etNow.getTime() - recency * 86400000).toISOString().slice(0, 10)
+    ranges.push([pastFrom, today])
+  }
   for (let start = 0; start < HORIZON_DAYS; start += CHUNK_DAYS) {
     const from = new Date(etNow.getTime() + start * 86400000).toISOString().slice(0, 10)
     const to = new Date(etNow.getTime() + Math.min(start + CHUNK_DAYS, HORIZON_DAYS) * 86400000).toISOString().slice(0, 10)
@@ -169,19 +185,21 @@ async function fetchEarningsData(symbols: string[]): Promise<{
   const calendar = chunks.flat()
 
   let todayCount = 0
-  const nextEarnBySymbol: Record<string, string> = {}
-  const nextEarnIsoBySymbol: Record<string, string> = {}
-  const symSet = new Set(symbols.map((s) => s.toUpperCase()))
-
-  // Chunks may not be globally date-sorted (and can overlap on boundaries), so
-  // keep the EARLIEST future date per symbol explicitly rather than first-seen.
   for (const entry of calendar) {
     if (entry.date === today) todayCount++
-    const sym = entry.symbol.toUpperCase()
-    if (symSet.has(sym) && (!(sym in nextEarnIsoBySymbol) || entry.date < nextEarnIsoBySymbol[sym])) {
-      nextEarnBySymbol[sym] = formatEarnDate(entry.date)
-      nextEarnIsoBySymbol[sym] = entry.date
-    }
+  }
+
+  // Split: today-or-future → nextEarnIso (spansEarnings hard-drop, incl. today's
+  // print); [today−N, today−1) past prints → recentlyReported (demote to
+  // reference the day(s) AFTER). Today is hard-nulled, not referenced — we can't
+  // tell a done-BMO from a pending-AMC, so treat the print day as upcoming.
+  // See docs/earnings-recency-gate.md.
+  const { nextEarnIsoBySymbol, recentlyReportedBySymbol } = partitionEarningsForScan(
+    calendar, symbols, today, recency
+  )
+  const nextEarnBySymbol: Record<string, string> = {}
+  for (const [sym, date] of Object.entries(nextEarnIsoBySymbol)) {
+    nextEarnBySymbol[sym] = formatEarnDate(date)
   }
 
   const todayMs = Date.parse(today)
@@ -192,7 +210,13 @@ async function fetchEarningsData(symbols: string[]): Promise<{
     })
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  return { todayCount, nextEarnBySymbol, nextEarnIsoBySymbol, calendar: entryCalendar }
+  return {
+    todayCount,
+    nextEarnBySymbol,
+    nextEarnIsoBySymbol,
+    recentlyReportedBySymbol,
+    calendar: entryCalendar
+  }
 }
 
 // ==================== Dashboard seed (minimal — only non-live parts) ====================
@@ -426,10 +450,18 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
         return null
       }),
       fetchWatchlistQuotes(symbols),
-      cached(`earnings-calendar-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
+      // v4: today INCLUDED in nextEarnIso → print day is hard-nulled (spans) and
+      // shown in display; recency owns the post-print days (default N=1).
+      cached(`earnings-calendar-v4-${wlSlug}`, DAY, () => fetchEarningsData(symbols)).catch(
         (err): Awaited<ReturnType<typeof fetchEarningsData>> => {
           console.warn('[dashboard] earnings calendar unavailable:', (err as Error).message)
-          return { todayCount: 0, nextEarnBySymbol: {}, nextEarnIsoBySymbol: {}, calendar: [] }
+          return {
+            todayCount: 0,
+            nextEarnBySymbol: {},
+            nextEarnIsoBySymbol: {},
+            recentlyReportedBySymbol: {},
+            calendar: []
+          }
         }
       ),
       // IV data: 1 chain call per symbol, 24h self-cached in fetchLiveIvData
@@ -488,7 +520,12 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
   const earnsBySymbol = earningsData.nextEarnBySymbol
 
   const [scanResult, notesResult] = await Promise.allSettled([
-    getScannedOpps(watchlist, watchlist.length, earningsData.nextEarnIsoBySymbol),
+    getScannedOpps(
+      watchlist,
+      watchlist.length,
+      earningsData.nextEarnIsoBySymbol,
+      earningsData.recentlyReportedBySymbol
+    ),
     getAiTickerNotes({ tickers: tickerDataForAi })
   ])
 

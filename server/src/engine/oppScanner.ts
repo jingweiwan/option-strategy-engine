@@ -88,6 +88,8 @@ export type ScannedOpp = {
   spansEarnings?: boolean
   /** Auto-board tier: 'qualified' recommends, 'reference' is a labeled near-miss. */
   boardTier?: OppTier
+  /** Why a reference opp is sub-threshold (UI copy); unset on qualified. */
+  boardTierReason?: BoardTierReason
   /** Nearest support/resistance level to each SHORT strike (for strike placement). */
   shortLevels?: ShortLevel[]
   /** Underlying is in a strong aligned trend — a condor is easily run over. */
@@ -139,6 +141,12 @@ export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): Short
 
 export type OppTier = 'qualified' | 'reference'
 
+/** Why a `reference` boardTier is sub-threshold — drives Dashboard copy. */
+export type BoardTierReason =
+  | 'ivr_below_floor'      // sell-vol: IVR in [ref, qualify)
+  | 'earnings_recency'     // sell-vol: just reported; IV spike may be evaporating
+  | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
+
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
  *  replay a card with this exact count (+ seed 42 + same legs) for POP/EV to
  *  reproduce deterministically — a different count is the last source of drift. */
@@ -158,18 +166,27 @@ export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
 const SELL_VOL_STRATEGIES: Set<StrategyType> = new Set(['iron_condor', 'bull_put_spread', 'bear_call_spread'])
 const BUY_VOL_STRATEGIES: Set<StrategyType> = new Set(['long_straddle'])
 
+/** Tier + UI reason from one decision — reason cannot drift from tier. */
+export type BoardTierDecision = { tier: OppTier | null; reason?: BoardTierReason }
+
 /**
- * Auto-board tier for sell-vol opportunities. The engine's only proven edge is
- * harvesting a rich, event-free variance risk premium, so a sell-vol structure
+ * Auto-board decision for sell-vol opportunities. The engine's only proven edge
+ * is harvesting a rich, event-free variance risk premium, so a sell-vol structure
  * must clear an IVR floor AND not span earnings before it's recommended:
- *   - 'qualified'  IVR ≥ floor, no earnings before expiry → a real rec
- *   - 'reference'  IVR in [ref, floor), no earnings        → labeled near-miss
- *   - null         IVR < ref, OR earnings-spanning         → dropped entirely
+ *   - 'qualified'  IVR ≥ floor, no forward earnings before expiry, not just-reported
+ *   - 'reference'  IVR in [ref, floor) → reason ivr_below_floor; OR just-reported
+ *                  demotion from qualified → reason earnings_recency
+ *   - null         IVR < ref, OR earnings-spanning                         → dropped
+ * `recentlyReported` is the backward mirror of `spansEarnings`: same ET calendar
+ * day as the print (default; AMC yesterday does not block today's open) — demote
+ * qualified → reference while the print-day spike/crush is in play.
+ * See docs/earnings-recency-gate.md.
+ *
  * Directional debit spreads (bull_call/bear_put) return 'qualified' here — they
  * carry no vol floor and are gated upstream by autoScanEligible. Buy-vol
  * (long_straddle) is explicitly NOT eligible via this helper: it returns null so
  * a stray direct call can't hand a straddle a qualified ticket — buy-vol must
- * route through boardTierFor → buyVolTier.
+ * route through boardTierDecision → buyVolDecision.
  *
  * The IVR floor is only a coarse screen; the real edge test is the downstream
  * score>0 (EV) filter. An rv-fallback IVR is an unreliable *rank* but the EV
@@ -178,17 +195,36 @@ const BUY_VOL_STRATEGIES: Set<StrategyType> = new Set(['long_straddle'])
  * e.g. QQQ +0.81 EV). The rv-fallback caveat lives in the display layer only
  * (narrative/notes must not headline a fake rank as "seller's paradise").
  */
-export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: boolean): OppTier | null {
-  if (BUY_VOL_STRATEGIES.has(strategy)) return null // footgun guard: buy-vol never qualifies via the sell-vol helper
-  if (!SELL_VOL_STRATEGIES.has(strategy)) return 'qualified'
-  if (spansEarnings) return null // never auto-sell premium through earnings — not even as reference
-  if (ivr >= IVR_QUALIFY_FLOOR) return 'qualified'
-  if (ivr >= IVR_REFERENCE_FLOOR) return 'reference'
-  return null
+export function sellVolDecision(
+  strategy: StrategyType,
+  ivr: number,
+  spansEarnings: boolean,
+  recentlyReported = false
+): BoardTierDecision {
+  if (BUY_VOL_STRATEGIES.has(strategy)) return { tier: null } // footgun guard
+  if (!SELL_VOL_STRATEGIES.has(strategy)) return { tier: 'qualified' }
+  if (spansEarnings) return { tier: null } // never auto-sell through earnings
+  if (ivr >= IVR_QUALIFY_FLOOR) {
+    // Post-print: cap qualified → reference (reason set here — sole source).
+    if (recentlyReported) return { tier: 'reference', reason: 'earnings_recency' }
+    return { tier: 'qualified' }
+  }
+  if (ivr >= IVR_REFERENCE_FLOOR) return { tier: 'reference', reason: 'ivr_below_floor' }
+  return { tier: null }
+}
+
+/** Thin wrapper — prefer sellVolDecision when reason is needed. */
+export function sellVolTier(
+  strategy: StrategyType,
+  ivr: number,
+  spansEarnings: boolean,
+  recentlyReported = false
+): OppTier | null {
+  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported).tier
 }
 
 /**
- * Auto-board tier for buy-vol (long_straddle). Buying vol is off-thesis (the
+ * Auto-board decision for buy-vol (long_straddle). Buying vol is off-thesis (the
  * engine's edge is the SELL side) and a documented bleeder, so we require the
  * AUTHORITATIVE cheapness signal and delegate the judgment to `deriveRegime` —
  * the single source of truth the rest of the engine uses. That reuse keeps three
@@ -200,32 +236,62 @@ export function sellVolTier(strategy: StrategyType, ivr: number, spansEarnings: 
  *   - 'qualified'  real RV present AND deriveRegime → 'buy'
  *   - null         real RV present AND regime ≠ 'buy' (rich/neutral/high-IVR)
  *   - 'reference'  no real RV → only the unreliable IVR-fallback rank exists;
- *                  never auto-recommend a bleeder on that → labeled near-miss.
+ *                  never auto-recommend a bleeder on that → labeled near-miss
+ *                  (reason vol_signal_missing).
  *
  * NOTE: this stops buying EXPENSIVE / not-cheap-enough vol. It does NOT fully
  * kill straddle: a genuinely cheap 'buy'-regime straddle still boards, yet
  * calibration shows straddle loses even there — hard-killing that residual is a
  * separate follow-up (缺陷 4).
  */
+export function buyVolDecision(
+  iv: number | null,
+  rv: number | null,
+  ivr: number
+): BoardTierDecision {
+  if (iv == null || rv == null) return { tier: 'reference', reason: 'vol_signal_missing' }
+  return { tier: deriveRegime(ivr, iv, rv) === 'buy' ? 'qualified' : null }
+}
+
+/** Thin wrapper — prefer buyVolDecision when reason is needed. */
 export function buyVolTier(iv: number | null, rv: number | null, ivr: number): OppTier | null {
-  if (iv == null || rv == null) return 'reference'
-  return deriveRegime(ivr, iv, rv) === 'buy' ? 'qualified' : null
+  return buyVolDecision(iv, rv, ivr).tier
 }
 
 /**
- * Single entry for a candidate's auto-board tier — the ONE place that routes by
- * structure so no caller can forget the dispatch:
- *   - buy-vol (long_straddle)          → buyVolTier   (needs vol cheap)
- *   - sell-vol (condor/credit spreads) → sellVolTier  (needs vol rich, no earnings)
- *   - directional debit spreads        → sellVolTier returns 'qualified'; direction
+ * Single entry for a candidate's auto-board decision — the ONE place that routes
+ * by structure so no caller can forget the dispatch (tier + reason together):
+ *   - buy-vol (long_straddle)          → buyVolDecision
+ *   - sell-vol (condor/credit spreads) → sellVolDecision
+ *   - directional debit spreads        → sellVolDecision returns qualified; direction
  *                                        is gated upstream by autoScanEligible.
  */
+export function boardTierDecision(
+  strategy: StrategyType,
+  ctx: {
+    ivr: number
+    iv: number | null
+    rv: number | null
+    spansEarnings: boolean
+    recentlyReported?: boolean
+  }
+): BoardTierDecision {
+  if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
+  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true)
+}
+
+/** Thin wrapper — prefer boardTierDecision when reason is needed. */
 export function boardTierFor(
   strategy: StrategyType,
-  ctx: { ivr: number; iv: number | null; rv: number | null; spansEarnings: boolean }
+  ctx: {
+    ivr: number
+    iv: number | null
+    rv: number | null
+    spansEarnings: boolean
+    recentlyReported?: boolean
+  }
 ): OppTier | null {
-  if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolTier(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolTier(strategy, ctx.ivr, ctx.spansEarnings)
+  return boardTierDecision(strategy, ctx).tier
 }
 
 /** Whether an expiration (YYYY-MM-DD) falls on/after the next earnings date. */
@@ -501,7 +567,8 @@ type WatchlistEntry = { sym: string; name: string }
 async function runScan(
   watchlist: WatchlistEntry[],
   limit = 5,
-  earningsIso: Record<string, string> = {}
+  earningsIso: Record<string, string> = {},
+  recentlyReported: Record<string, boolean> = {}
 ): Promise<ScannedOpp[]> {
   const allOpps: ScannedOpp[] = []
 
@@ -620,7 +687,12 @@ async function runScan(
       const reason = dv?.reason
       const confidence = dv?.confidence
       const pd = preDataMap.get(entry.sym)
-      return scanSymbol(entry, view, reason, confidence, pd?.quote, pd?.ivRankInfo, earningsIso[entry.sym], calibration, armStats, viewSkill, pd?.keyLevels ?? [], pd?.strongTrend ?? false)
+      return scanSymbol(
+        entry, view, reason, confidence, pd?.quote, pd?.ivRankInfo,
+        earningsIso[entry.sym], calibration, armStats, viewSkill,
+        pd?.keyLevels ?? [], pd?.strongTrend ?? false,
+        recentlyReported[entry.sym] === true
+      )
     }
   )
 
@@ -689,7 +761,8 @@ async function scanSymbol(
   armStats?: ArmStats,
   viewSkill?: ViewSkillTable,
   keyLevels: KeyLevel[] = [],
-  strongTrend = false
+  strongTrend = false,
+  recentlyReported = false
 ): Promise<{ opps: ScannedOpp[]; shadow: ScannedOpp[] }> {
   const { sym, name } = entry
 
@@ -844,6 +917,15 @@ async function scanSymbol(
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
         const legs = r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity }))
+        const decision = boardTierDecision(r.strategy, {
+          ivr: result.state.ivRank,
+          iv: result.state.iv,
+          rv: ivRankInfo?.currentRv ?? null,
+          spansEarnings,
+          recentlyReported
+        })
+        const boardTier = decision.tier ?? undefined
+        const boardTierReason = decision.reason
         return {
           sym,
           name,
@@ -874,12 +956,8 @@ async function scanSymbol(
           variant: variantBy[r.strategy] ?? null,
           exitPolicy: exitPolicyBy[r.strategy] ?? null,
           spansEarnings,
-          boardTier: boardTierFor(r.strategy, {
-            ivr: result.state.ivRank,
-            iv: result.state.iv,
-            rv: ivRankInfo?.currentRv ?? null,
-            spansEarnings
-          }) ?? undefined,
+          boardTier,
+          boardTierReason,
           shortLevels: shortLegLevels(legs, keyLevels),
           strongTrend
         }
@@ -1003,10 +1081,16 @@ async function scanSymbol(
 export async function getScannedOpps(
   watchlist: WatchlistEntry[],
   limit = 5,
-  earningsIso: Record<string, string> = {}
+  earningsIso: Record<string, string> = {},
+  recentlyReported: Record<string, boolean> = {}
 ): Promise<ScannedOpp[]> {
   const wlSlug = watchlistCacheSlug(watchlist)
-  const key = `opp-scan-v11-${etCalendarDay()}-${wlSlug}`
+  // Bump the version whenever the cached ScannedOpp shape/semantics change, else
+  // the 12h day-cache serves stale entries.
+  // v11: buyVolTier board-gate (expensive-vol straddle no longer 'qualified').
+  // v12: earnings-recency demote path.
+  // v13: today excluded from nextEarnIso — print-day is reference not spans-null.
+  const key = `opp-scan-v13-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit
@@ -1014,7 +1098,7 @@ export async function getScannedOpps(
   return cached<ScannedOpp[]>(key, 12 * HOUR, async () => {
     console.log(`[oppScanner] scanning ${watchlist.length} symbols...`)
     const t0 = Date.now()
-    const opps = await runScan(watchlist, limit, earningsIso)
+    const opps = await runScan(watchlist, limit, earningsIso, recentlyReported)
     console.log(`[oppScanner] done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${opps.length} opportunities`)
     return opps
   })
