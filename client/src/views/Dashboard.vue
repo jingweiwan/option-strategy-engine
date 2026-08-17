@@ -38,6 +38,11 @@ const aiError = ref<string | null>(null)
 /** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 const IVR_FLOOR = 30
 
+/** Feedback loads that failed server-side — board built without learned weights. */
+const feedbackDegraded = computed(() => data.value?.feedbackDegraded ?? [])
+const degradedLabel = (what: string) =>
+  what === 'calibration' ? '策略校准' : what === 'tuner' ? '参数调优' : what
+
 // 'reference' near-misses (IVR below the floor) are shown separately and never
 // counted as recommendations; older cached opps without boardTier read as qualified.
 const boardOpps = computed(() =>
@@ -282,6 +287,18 @@ watch(data, (v) => {
       <div v-if="marketClosed" class="market-banner mono">
         <span class="mb-dot" />
         美股{{ session }} · 实时行情有限，下列数值为最近可得（多为上一交易日收盘）
+      </div>
+
+      <!-- Feedback layer degraded: engine is running WITHOUT its learned weights.
+           This is the failure that once let hard-disabled strategies back onto the
+           board silently, so it gets a loud banner rather than a log line. -->
+      <div v-if="feedbackDegraded.length" class="degraded-banner mono">
+        <span class="db-dot" />
+        <span>
+          ⚠️ 学习权重未加载（{{ feedbackDegraded.map((d) => degradedLabel(d.what)).join('、') }}）——
+          下方推荐<strong>未经历史校准</strong>，历史证明会亏的策略可能重新出现。请检查
+          <code>server/cache/recommendations/snapshots.json</code>
+        </span>
       </div>
 
       <!-- Page head -->
@@ -757,6 +774,32 @@ watch(data, (v) => {
 
 <style scoped>
 /* Market session banner */
+.degraded-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--loss);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--loss) 8%, transparent);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.degraded-banner code {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.db-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--loss);
+}
+
 .market-banner {
   display: flex;
   align-items: center;

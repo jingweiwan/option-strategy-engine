@@ -387,7 +387,15 @@ export type RhStrategyPnl = {
   notes: string[]
 }
 
+export type FeedbackDegradation = {
+  what: 'calibration' | 'tuner'
+  message: string
+  at: string
+}
+
 export type DashboardData = {
+  /** 非空 = 反馈层(校准/调参)加载失败,引擎正在**不带学习权重**运行 */
+  feedbackDegraded?: FeedbackDegradation[]
   market: Market
   mood: Mood
   engine: EngineView

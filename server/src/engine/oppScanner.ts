@@ -39,6 +39,7 @@ import {
 } from '../feedback/tuner.js'
 import { loadSnapshots } from '../feedback/store.js'
 import { recordShadowArmSnapshots } from '../feedback/record.js'
+import { noteFeedbackLoadFailure, clearFeedbackLoadFailure } from '../feedback/health.js'
 import type { LegSpec } from './liveStrategies.js'
 
 // ---------- Types ----------
@@ -606,8 +607,16 @@ async function runScan(
   // Calibration table from realized feedback — nudges scoring toward
   // (strategy × regime) combos that have historically won. Empty until
   // enough outcomes accumulate (multiplier defaults to 1×).
-  const calibration = await loadCalibrationTable().catch((): CalibrationTable => new Map())
+  // A load failure here is NOT harmless: an empty table means every multiplier
+  // silently defaults to 1×, which re-enables combos the recorded outcomes had
+  // hard-disabled (long_straddle at 0×). Fall back so the scan still runs, but
+  // record the degradation so it is visible instead of inferred. See health.ts.
+  const calibration = await loadCalibrationTable().catch((err): CalibrationTable => {
+    noteFeedbackLoadFailure('calibration', err)
+    return new Map()
+  })
   if (calibration.size > 0) {
+    clearFeedbackLoadFailure('calibration')
     const summary = [...calibration.entries()].map(([k, m]) => `${k}=${m.toFixed(2)}`).join(', ')
     console.log(`[oppScanner] calibration: ${summary}`)
   }
@@ -619,7 +628,16 @@ async function runScan(
   // Online tuner: Beta posteriors per (strategy × regime × variant), built from
   // the same recorded outcomes that feed calibration.
   const armStats: ArmStats = TUNER_ENABLED
-    ? await loadSnapshots().then(buildArmStats).catch((): ArmStats => new Map())
+    ? await loadSnapshots()
+        .then((snaps) => {
+          const stats = buildArmStats(snaps)
+          if (stats.size > 0) clearFeedbackLoadFailure('tuner')
+          return stats
+        })
+        .catch((err): ArmStats => {
+          noteFeedbackLoadFailure('tuner', err)
+          return new Map()
+        })
     : new Map()
 
   // Phase 0: fetch AI directional views for all symbols.
