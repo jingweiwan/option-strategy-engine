@@ -6,7 +6,13 @@ export type {
 export { recordDashboardScanSnapshots } from './record.js'
 export { hydrateDueSnapshots, hydrateSnapshotById } from './hydrate.js'
 export { computeOutcomeForSnapshot } from './outcome.js'
-export { feedbackStorePath, loadSnapshots, saveSnapshots } from './store.js'
+export {
+  feedbackStorePath,
+  loadSnapshots,
+  saveSnapshots,
+  assertLoadedHistoryMatchesFile,
+  SnapshotStoreError
+} from './store.js'
 export {
   loadCalibrationTable,
   buildCalibrationTable,
