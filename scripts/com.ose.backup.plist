@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily backup of the engine's irreplaceable state (see backup-state.sh).
+  NOT installed automatically — installing a launchd agent is a persistent
+  system change, so it is left for you to run deliberately:
+
+    cp scripts/com.ose.backup.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.ose.backup.plist
+
+  Verify:  launchctl list | grep com.ose.backup
+  Logs:    ~/OSE-Backups/backup.log   (stderr in backup.err)
+  Remove:  launchctl unload ~/Library/LaunchAgents/com.ose.backup.plist
+
+  Edit OSE_BACKUP_DIR below to a synced folder (iCloud/Dropbox) for an
+  off-machine copy. Keep it PRIVATE: the archive contains rh-positions.json,
+  i.e. the full portfolio and net worth.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ose.backup</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/jingwei.wan/Desktop/personal/option-strategy-engine/scripts/backup-state.sh</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OSE_BACKUP_DIR</key>
+    <string>/Users/jingwei.wan/OSE-Backups</string>
+    <key>OSE_KEEP_DAYS</key>
+    <string>30</string>
+    <key>PATH</key>
+    <string>/Users/jingwei.wan/.nvm/versions/node/v20.19.0/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <!-- 每天 18:30 本地时间(收盘后)。RunAtLoad 让装上就先跑一次验证。 -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>18</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/jingwei.wan/OSE-Backups/backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/jingwei.wan/OSE-Backups/backup.err</string>
+</dict>
+</plist>
