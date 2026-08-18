@@ -30,6 +30,10 @@ export type OptionLeg = {
   premium: number
   quantity: number
   greeks: Greeks
+  /** Per-STRIKE implied vol from the chain (not the ATM IV). Undefined when the
+   *  source didn't supply one. Used to judge the richness of what is actually
+   *  being sold — the ATM IV is a different point on the skew curve. */
+  iv?: number
 }
 
 export type Greeks = {
