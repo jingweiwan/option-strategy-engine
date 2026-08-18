@@ -23,7 +23,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { legsFromSpec, STRATEGY_SPECS, CREDIT_SPREAD_WING_PCT } from '../src/engine/liveStrategies.js'
-import { legsForShortDelta } from '../src/feedback/tuner.js'
+import { legsForShortDelta, variantId, CREDIT_SPREAD_STRUCT_EPOCH } from '../src/feedback/tuner.js'
 import type { OptionContract } from '../src/api/types.js'
 
 /** Put-skewed chain: below spot the delta curve is stretched, so a given delta
@@ -98,5 +98,15 @@ test('tuned path and static specs build the SAME geometry (no "two spreads")', (
       staticLegs.map((l) => l.strike).sort((a, b) => a - b),
       `${strat}: tuner arm 0.30 must reproduce the static default structure`
     )
+  }
+})
+
+test('credit-spread tuner variant ids are epoched so legacy sd0.30 cannot match', () => {
+  // Same trap the condor hit: 10Δ-wing outcomes recorded as "sd0.30" must not
+  // teach the live 2%-wing arm. Epoch is required on BOTH one-sided spreads.
+  for (const st of ['bull_put_spread', 'bear_call_spread'] as const) {
+    assert.ok(variantId(0.3, st).endsWith(`@${CREDIT_SPREAD_STRUCT_EPOCH}`))
+    assert.notEqual(variantId(0.3, st), 'sd0.30')
+    assert.equal(variantId(0.3, st), `sd0.30@${CREDIT_SPREAD_STRUCT_EPOCH}`)
   }
 })

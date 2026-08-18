@@ -78,11 +78,9 @@ test('iron condor: put and call wings are equal dollar width (within one strike 
   }
 })
 
-test('condor tuner variant ids are epoched; single-sided credit spreads are not', () => {
+test('condor tuner variant ids are epoched so legacy sd0.20 cannot match', () => {
   // Legacy old-structure condor snapshots recorded "sd0.20" must NOT match the
   // new epoched arm, so they cannot pollute the fresh posterior.
   assert.ok(variantId(0.2, 'iron_condor').endsWith(`@${CONDOR_STRUCT_EPOCH}`))
   assert.notEqual(variantId(0.2, 'iron_condor'), 'sd0.20')
-  assert.equal(variantId(0.3, 'bull_put_spread'), 'sd0.30')
-  assert.equal(variantId(0.3, 'bear_call_spread'), 'sd0.30')
 })
