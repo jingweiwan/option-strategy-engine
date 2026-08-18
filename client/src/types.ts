@@ -236,8 +236,16 @@ export type Opp = {
   aiViewReason?: string | null
   /** 自动板分级:'qualified' 达标推荐,'reference' 未达标参考位(不建议开仓) */
   boardTier?: 'qualified' | 'reference'
-  /** 参考位原因:IVR 未及门槛 / 溢价不足 IV/RV<1.2 / 刚报财报 IV 未稳定 / 买波动缺 RV */
-  boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_not_rich' | 'vol_signal_missing'
+  /** 参考位原因:IVR 未及门槛 / 溢价不足 IV/RV<1.2 / 赔率过薄 / 刚报财报 IV 未稳定 / 买波动缺 RV */
+  boardTierReason?:
+    | 'ivr_below_floor'
+    | 'earnings_recency'
+    | 'vol_not_rich'
+    | 'reward_too_thin'
+    | 'vol_signal_missing'
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它就是机械盈亏平衡胜率。
+   *  无界盈亏(裸卖/借方)为 null。 */
+  creditWidth?: number | null
   /** 每条短腿离最近关键位的距离(定行权位用) */
   shortLevels?: ShortLevel[]
   /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */

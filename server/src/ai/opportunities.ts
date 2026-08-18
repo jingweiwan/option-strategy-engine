@@ -11,7 +11,7 @@
 
 import { chatJson, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
-import type { ScannedOpp, ShortLevel } from '../engine/oppScanner.js'
+import type { ScannedOpp, ShortLevel, BoardTierReason } from '../engine/oppScanner.js'
 import type { StrategyType } from '../engine/types.js'
 
 // ---------- Types ----------
@@ -70,7 +70,8 @@ export type Opp = {
    *  (no real RV, vol_signal_missing). */
   boardTier?: 'qualified' | 'reference'
   /** Why reference is sub-threshold — Dashboard copy switch. */
-  boardTierReason?: 'ivr_below_floor' | 'earnings_recency' | 'vol_not_rich' | 'vol_signal_missing'
+  /** Single source of truth — re-declaring the union here let it drift. */
+  boardTierReason?: BoardTierReason
   /** Nearest support/resistance to each short strike (strike-placement context). */
   shortLevels?: ShortLevel[]
   /** Underlying in a strong aligned trend — condor easily run over (warning). */

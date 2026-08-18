@@ -12,14 +12,14 @@
     {
       "strategy": "bear_call_spread",
       "tier": "primary",
-      "netPremium": 2,
-      "pop": 0.719,
-      "ev": 0.24,
-      "cvar95": -3.31,
-      "maxProfit": 2,
-      "maxLoss": -13,
+      "netPremium": 0.47,
+      "pop": 0.622,
+      "ev": 0,
+      "cvar95": -0.79,
+      "maxProfit": 0.47,
+      "maxLoss": -2.03,
       "breakevens": [
-        114.5
+        113
       ],
       "legs": [
         {
@@ -31,8 +31,8 @@
         {
           "type": "call",
           "action": "buy",
-          "strike": 127.5,
-          "premium": 0.73
+          "strike": 115,
+          "premium": 2.26
         }
       ]
     },
@@ -93,14 +93,14 @@
     {
       "strategy": "bull_put_spread",
       "tier": "primary",
-      "netPremium": 2.36,
-      "pop": 0.677,
-      "ev": 0.23,
-      "cvar95": -3.02,
-      "maxProfit": 2.36,
-      "maxLoss": -7.64,
+      "netPremium": 0.74,
+      "pop": 0.591,
+      "ev": 0.01,
+      "cvar95": -0.92,
+      "maxProfit": 0.74,
+      "maxLoss": -1.76,
       "breakevens": [
-        90.1
+        91.8
       ],
       "legs": [
         {
@@ -112,8 +112,8 @@
         {
           "type": "put",
           "action": "buy",
-          "strike": 82.5,
-          "premium": 1
+          "strike": 90,
+          "premium": 2.62
         }
       ]
     },

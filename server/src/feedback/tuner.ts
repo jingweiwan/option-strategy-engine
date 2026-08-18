@@ -35,6 +35,7 @@
 import type { StrategyType } from '../engine/types.js'
 import type { Regime } from '../engine/index.js'
 import type { LegSpec } from '../engine/liveStrategies.js'
+import { CREDIT_SPREAD_WING_PCT } from '../engine/liveStrategies.js'
 import type { RecommendationSnapshot } from './types.js'
 import { outcomePnl } from './calibration.js'
 
@@ -43,9 +44,6 @@ export const TUNER_ENABLED = process.env.STRATEGY_TUNER !== '0'
 // Credit spreads sell one leg near the money; arms tune that short delta.
 export const SHORT_DELTA_ARMS = [0.25, 0.3, 0.35] as const
 export const DEFAULT_SHORT_DELTA = 0.3
-/** Long wing stays at the spec's 10-delta; only the short leg is tuned. */
-const WING_DELTA = 0.1
-
 // The iron condor arm tunes the PUT short delta; the call short drifts off it
 // (CONDOR_CALL_DRIFT, keeping the put-skew) and both long wings are placed an
 // EQUAL dollar width from their short (CONDOR_WING_PCT). Condors sell further
@@ -210,7 +208,9 @@ export function pickShortDelta(
 
 /**
  * Leg specs for a tuned strategy at the chosen short delta.
- *   credit spreads: shortDelta = the single short leg; wing fixed at 10Δ.
+ *   credit spreads: shortDelta = the single short leg; wing at equal-$ width
+ *                   (CREDIT_SPREAD_WING_PCT) — NOT a delta, so the tuned path and
+ *                   the static ALL_STRATEGY_SPECS build the SAME geometry.
  *   iron_condor:    shortDelta = the PUT short; the call short drifts off it and
  *                   both long wings are equal-$ (widthPctFromShort). See the
  *                   CONDOR_* constants.
@@ -219,13 +219,13 @@ export function legsForShortDelta(strategy: StrategyType, shortDelta: number): L
   if (strategy === 'bull_put_spread') {
     return [
       { type: 'put', action: 'sell', targetDelta: shortDelta },
-      { type: 'put', action: 'buy', targetDelta: WING_DELTA }
+      { type: 'put', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   }
   if (strategy === 'bear_call_spread') {
     return [
       { type: 'call', action: 'sell', targetDelta: shortDelta },
-      { type: 'call', action: 'buy', targetDelta: WING_DELTA }
+      { type: 'call', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   }
   if (strategy === 'iron_condor') {

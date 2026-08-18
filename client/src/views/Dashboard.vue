@@ -62,17 +62,23 @@ const referenceBannerHint = computed(() => {
   if (has('earnings_recency')) parts.push('刚报财报·IV 未稳定')
   if (has('ivr_below_floor')) parts.push(`IVR 未及 ${IVR_FLOOR}`)
   if (has('vol_not_rich')) parts.push('溢价不足·IV/RV<1.2')
+  if (has('reward_too_thin')) parts.push('赔率过薄·收/宽不足')
   if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
   if (parts.length === 0) return '离达标线最近的几个'
   return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
 })
 
-const refReasonLabel = (reason?: string): string => {
-  if (reason === 'earnings_recency') return '刚报财报·IV 未稳定'
-  if (reason === 'vol_not_rich') return '溢价不足·IV/RV<1.2'
-  if (reason === 'vol_signal_missing') return '缺 RV,无法验便宜度'
-  return `IVR 未及 ${IVR_FLOOR}`
+// Explicit map, not a default-to-IVR fallback: the old `return 'IVR 未及'` tail
+// silently mislabeled every NEW reason as an IVR miss until someone noticed.
+const REF_REASON_LABELS: Record<string, string> = {
+  earnings_recency: '刚报财报·IV 未稳定',
+  vol_not_rich: '溢价不足·IV/RV<1.2',
+  reward_too_thin: '赔率过薄·收/宽不足',
+  vol_signal_missing: '缺 RV,无法验便宜度',
+  ivr_below_floor: `IVR 未及 ${IVR_FLOOR}`
 }
+const refReasonLabel = (reason?: string): string =>
+  (reason && REF_REASON_LABELS[reason]) || `IVR 未及 ${IVR_FLOOR}`
 
 const opps = computed(() =>
   boardOpps.value.filter((o) => oppFilter.value === 'all' || o.tag === oppFilter.value)
@@ -584,6 +590,17 @@ watch(data, (v) => {
                 <span v-if="o.maxLoss != null" class="level-item">
                   最大亏损
                   <b class="tnum loss-text">${{ Math.abs(o.maxLoss).toFixed(2) }}</b>
+                </span>
+                <span
+                  v-if="o.creditWidth != null"
+                  class="level-item"
+                  :title="`收/宽 ${(o.creditWidth * 100).toFixed(1)}% — 到期不动就得赢 ${((1 - o.creditWidth) * 100).toFixed(1)}% 的时候才打平`"
+                >
+                  收/宽
+                  <b class="tnum" :class="{ 'loss-text': o.creditWidth < 0.10 }">
+                    {{ (o.creditWidth * 100).toFixed(1) }}%
+                  </b>
+                  <span class="lvl-sub">需胜率 {{ ((1 - o.creditWidth) * 100).toFixed(0) }}%</span>
                 </span>
                 <span v-if="o.breakevens && o.breakevens.length" class="level-item">
                   盈亏平衡
@@ -1341,6 +1358,13 @@ watch(data, (v) => {
 .keylevel-warn { color: var(--loss, #e53935); font-size: 10.5px; }
 .level-item b.loss-text {
   color: var(--loss, #e53935);
+}
+/* 收/宽 旁边的「需胜率」——次要信息,不跟主数字抢视线 */
+.level-item .lvl-sub {
+  margin-left: 5px;
+  font-size: 0.85em;
+  color: var(--ink-3, var(--ink-2));
+  opacity: 0.75;
 }
 
 .opp-why {
