@@ -325,6 +325,7 @@ export function legsFromSpec(
       strike: c.strike,
       premium: executionPremium(c, s.action),
       quantity: 1,
+      iv: c.iv,
       greeks: c.greeks
         ? {
             delta: c.greeks.delta,
@@ -350,6 +351,33 @@ export function legsFromSpec(
  * - Iron condor: put strikes below call strikes
  * `specs[i]` corresponds to `legs[i]` (legsFromSpec builds them in order).
  */
+/**
+ * Premium-weighted implied vol of the SOLD legs — "how rich is the vol I am
+ * actually selling", which the ATM IV does not answer. On IWM 2026-10-02 the
+ * ATM read was 17.4% while the 290 put being sold traded at 21.2%; against
+ * RV 14.1% that is IV/RV 1.50, not the 1.23 the ATM number implies.
+ *
+ * Weighted by premium because that is what the credit is made of: a condor whose
+ * put short carries most of the credit should be judged mostly on the put's vol.
+ * Returns null unless EVERY sold leg has a usable per-strike IV — a partial mix
+ * of real and missing IVs would silently bias the mean toward whichever side
+ * happened to be populated.
+ */
+export function soldLegIv(legs: readonly OptionLeg[]): number | null {
+  const sold = legs.filter((l) => l.action === 'sell')
+  if (sold.length === 0) return null
+  if (!sold.every((l) => ivSane(l.iv))) return null
+  let wsum = 0
+  let w = 0
+  for (const l of sold) {
+    const weight = Math.abs(l.premium) * l.quantity
+    if (!(weight > 0)) return null
+    wsum += l.iv! * weight
+    w += weight
+  }
+  return w > 0 ? wsum / w : null
+}
+
 export function validateLegStructure(specs: LegSpec[], legs: OptionLeg[]): boolean {
   if (legs.length < 2) return true
 

@@ -19,7 +19,7 @@ import type { ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
 import type { StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
-import { impliedVolFromChain } from './liveStrategies.js'
+import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
@@ -266,7 +266,8 @@ export function sellVolDecision(
   recentlyReported = false,
   iv: number | null = null,
   rv: number | null = null,
-  creditWidth: number | null = null
+  creditWidth: number | null = null,
+  soldIv: number | null = null
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return { tier: null } // footgun guard
   if (!SELL_VOL_STRATEGIES.has(strategy)) return { tier: 'qualified' }
@@ -278,7 +279,13 @@ export function sellVolDecision(
     // high-rank name with IV ≤ RV (thin/negative VRP) would slip through. Demote
     // when a real RV shows the premium isn't rich enough. Skip when RV is absent
     // (rv-fallback) — the downstream EV filter still guards those.
-    if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
+    // Judge the vol you are SELLING, not the ATM point. Under put skew the sold
+    // strike is materially richer than ATM (IWM 2026-10-02: sold 290P at 21.2%
+    // vs ATM 17.4% → IV/RV 1.50 not 1.23), and under call skew it is CHEAPER —
+    // so this is not a one-way loosening. Falls back to ATM when the chain gave
+    // no per-strike IV.
+    const richnessIv = soldIv ?? iv
+    if (richnessIv != null && rv != null && rv > 0 && richnessIv / rv < SELL_IVRV_FLOOR) {
       return { tier: 'reference', reason: 'vol_not_rich' }
     }
     // Geometry check, ordered AFTER richness on purpose: "is the premium real?"
@@ -301,9 +308,10 @@ export function sellVolTier(
   recentlyReported = false,
   iv: number | null = null,
   rv: number | null = null,
-  creditWidth: number | null = null
+  creditWidth: number | null = null,
+  soldIv: number | null = null
 ): OppTier | null {
-  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv, creditWidth).tier
+  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv, creditWidth, soldIv).tier
 }
 
 /**
@@ -359,12 +367,14 @@ export function boardTierDecision(
     recentlyReported?: boolean
     /** maxProfit / (maxProfit + maxLoss); null when either side is unbounded. */
     creditWidth?: number | null
+    /** Premium-weighted IV of the SOLD legs; overrides ATM iv for the richness test. */
+    soldIv?: number | null
   }
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
   return sellVolDecision(
     strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
-    ctx.iv, ctx.rv, ctx.creditWidth ?? null
+    ctx.iv, ctx.rv, ctx.creditWidth ?? null, ctx.soldIv ?? null
   )
 }
 
@@ -378,6 +388,7 @@ export function boardTierFor(
     spansEarnings: boolean
     recentlyReported?: boolean
     creditWidth?: number | null
+    soldIv?: number | null
   }
 ): OppTier | null {
   return boardTierDecision(strategy, ctx).tier
@@ -1030,7 +1041,8 @@ async function scanSymbol(
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
           recentlyReported,
-          creditWidth: creditWidthOf(r)
+          creditWidth: creditWidthOf(r),
+          soldIv: soldLegIv(r.legs)
         })
         const boardTier = decision.tier ?? undefined
         const boardTierReason = decision.reason
