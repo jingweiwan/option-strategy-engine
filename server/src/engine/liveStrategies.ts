@@ -67,6 +67,40 @@ export type StrategySpec = {
   legs: LegSpec[]
 }
 
+/**
+ * Long-wing width for the two-leg credit spreads, as a fraction of the short
+ * strike. Same value and same rationale as the iron condor's CONDOR_WING_PCT:
+ * a delta-placed wing is NOT a stable geometry — under put skew the 10Δ strike
+ * drifts far OTM, ballooning maxLoss while adding almost no protection, and it
+ * makes the wing width a function of the name's skew rather than a choice.
+ *
+ * Measured on the real 2026-10-02 chains (2026-08-17 close):
+ *   IWM 304.06  10Δ wing → 290/270 ($20 wide): credit/width 10.8%, maxLoss $1,785
+ *               2%  wing → 290/285 ($5  wide): credit/width 16.1%, maxLoss $420
+ *   TLT  81.45  10Δ wing → 79/76   ($3  wide): credit/width 13.3%, maxLoss $260
+ *               2%  wing → 79/77   ($2  wide): credit/width 15.5%, maxLoss $169
+ *
+ * The narrow wing is NOT strictly better — loss saturates sooner, and the same
+ * capital buys more contracts (more short gamma, more assignment surface). The
+ * point is that width becomes a DELIBERATE parameter instead of a skew accident.
+ * Env-tunable so the tuner/backtest can adjudicate it later.
+ *
+ * WHY THE GOLDEN EV FELL WHEN THIS LANDED (read before "fixing" it back):
+ * the golden fixture prices EVERY strike at one flat IV (fixtures.ts, sigma=iv),
+ * so its far wing is cheap insurance and a WIDE spread genuinely wins on EV in
+ * that world. Real chains are skewed — on IWM 2026-10-02 the wing the old 10Δ
+ * rule picked (270P) traded at 7.1× its ATM-vol value. Worse, `markPnL` marks
+ * every leg with ONE ATM sigma while entry premiums come from the real chain,
+ * so a wide spread is handed a spurious inception P&L:
+ *     290/270 → +$23 at t=0 = +11% of max profit, from nothing
+ *     290/285 → −$9  at t=0 = −12%
+ * Both the fixture and the live sim therefore FAVOR wide wings for reasons that
+ * do not exist in the market. Per-leg IV is the real fix (separate work); this
+ * constant just stops the wing from wandering out to where the bias is largest.
+ */
+export const CREDIT_SPREAD_WING_PCT =
+  Number(process.env.CREDIT_SPREAD_WING_PCT) || 0.02
+
 const ALL_STRATEGY_SPECS: StrategySpec[] = [
   // --- Debit spreads (buy near-ATM, sell further OTM) ---
   {
@@ -85,17 +119,20 @@ const ALL_STRATEGY_SPECS: StrategySpec[] = [
   },
   // --- Credit spreads (sell near-ATM, buy further OTM as hedge) ---
   {
+    // Long wing by EQUAL-$ width, NOT by delta — same fix the iron condor took
+    // (see CREDIT_SPREAD_WING_PCT). A 10Δ wing lands wherever skew puts it, so
+    // the SAME rule produced a 3.7%-of-spot wing on TLT and a 6.6% one on IWM.
     type: 'bear_call_spread',
     legs: [
       { type: 'call', action: 'sell', targetDelta: 0.30 },
-      { type: 'call', action: 'buy', targetDelta: 0.10 }
+      { type: 'call', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   },
   {
     type: 'bull_put_spread',
     legs: [
       { type: 'put', action: 'sell', targetDelta: 0.30 },
-      { type: 'put', action: 'buy', targetDelta: 0.10 }
+      { type: 'put', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   },
   // --- Multi-leg / vol strategies ---

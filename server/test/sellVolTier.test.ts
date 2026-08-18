@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sellVolTier, sellVolDecision, boardTierDecision, boardTierFor, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR } from '../src/engine/oppScanner.js'
+import { sellVolTier, sellVolDecision, boardTierDecision, boardTierFor, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR, CREDIT_WIDTH_FLOOR } from '../src/engine/oppScanner.js'
 
 test('iron_condor: IVR at/above floor, rich IV/RV, no earnings → qualified', () => {
   assert.equal(sellVolTier('iron_condor', IVR_QUALIFY_FLOOR, false, false, 0.4, 0.3), 'qualified')
@@ -100,3 +100,54 @@ test('buy-vol (long_straddle) is guarded to null — never qualifies via the sel
   assert.equal(sellVolTier('long_straddle', 90, false), null)
 })
 
+// ---- credit/width floor (CREDIT_WIDTH_FLOOR) ----
+// Deliberately a LOW outlier-catcher, not the 15% first draft: the resolved
+// snapshot history showed no P&L gradient across credit/width buckets and 15%
+// would have blocked 46.7% of the board. See the constant's docstring.
+
+test('credit/width: below floor → reference reward_too_thin (not dropped)', () => {
+  const d = sellVolDecision('iron_condor', 55, false, false, 0.4, 0.3, 0.042)
+  assert.equal(d.tier, 'reference')
+  assert.equal(d.reason, 'reward_too_thin')
+})
+
+test('credit/width: at/above the floor qualifies (≥, not >)', () => {
+  assert.equal(sellVolTier('bull_put_spread', 55, false, false, 0.4, 0.3, CREDIT_WIDTH_FLOOR), 'qualified')
+  assert.equal(sellVolTier('bull_put_spread', 55, false, false, 0.4, 0.3, CREDIT_WIDTH_FLOOR - 0.001), 'reference')
+})
+
+test('credit/width: the real IWM card — 290/270 passes the LOW floor, and that is intended', () => {
+  // IWM 10/02 real chain: credit 2.15 / width 20 = 10.8%. It is above the 10%
+  // outlier floor ON PURPOSE — the wing-geometry fix (CREDIT_SPREAD_WING_PCT)
+  // is what repairs this card, turning it into 290/285 at 16.1%. The gate is a
+  // backstop for pathological geometry, NOT the fix for this case.
+  assert.equal(sellVolTier('bull_put_spread', 44, false, false, 0.174, 0.141, 0.1075), 'qualified')
+})
+
+test('credit/width: null (unbounded payoff) skips the gate entirely', () => {
+  assert.equal(sellVolTier('iron_condor', 55, false, false, 0.4, 0.3, null), 'qualified')
+  assert.equal(sellVolTier('iron_condor', 55, false, false, 0.4, 0.3, NaN), 'qualified')
+})
+
+test('credit/width: vol_not_rich wins when BOTH fail (thesis beats geometry)', () => {
+  const d = sellVolDecision('iron_condor', 55, false, false, 0.13, 0.14, 0.05)
+  assert.equal(d.reason, 'vol_not_rich')
+})
+
+test('credit/width: earnings recency still outranks it', () => {
+  const d = sellVolDecision('iron_condor', 55, false, true, 0.4, 0.3, 0.05)
+  assert.equal(d.reason, 'earnings_recency')
+})
+
+test('boardTierDecision wiring: creditWidth reaches the gate through ctx', () => {
+  const d = boardTierDecision('bull_put_spread', {
+    ivr: 55, iv: 0.4, rv: 0.3, spansEarnings: false, creditWidth: 0.05
+  })
+  assert.equal(d.tier, 'reference')
+  assert.equal(d.reason, 'reward_too_thin')
+  // ctx without creditWidth behaves exactly as before this change.
+  assert.equal(
+    boardTierFor('bull_put_spread', { ivr: 55, iv: 0.4, rv: 0.3, spansEarnings: false }),
+    'qualified'
+  )
+})

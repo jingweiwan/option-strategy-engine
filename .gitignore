@@ -20,6 +20,25 @@ client/src/**/*.js
 # AI response cache (regenerated on demand)
 **/cache/
 
+# EXCEPTION: the learning book is NOT regenerable — settled outcomes are real
+# elapsed time, and a truncated write once destroyed 90 days of it with no
+# remote copy. Tracked so git is the off-machine backup of last resort.
+#
+# git will not descend into an excluded DIRECTORY, so a bare `!.../snapshots.json`
+# under `**/cache/` never takes effect. Every parent has to be re-included and
+# then re-excluded by contents — hence the ladder below. Order matters.
+!server/cache/
+server/cache/*
+!server/cache/recommendations/
+server/cache/recommendations/*
+!server/cache/recommendations/snapshots.json
+
+# The `server/cache/*` line above already re-excludes everything else, so the
+# portfolio bridge files (full position book, cost basis, cash, net worth) stay
+# out of git. Listed explicitly anyway: this is the one mistake that must never
+# be made silently. See scripts/backup-state.sh for their private backup path.
+server/cache/rh-*.json
+
 # Self-accumulated IV history (runtime data, per-deployment)
 server/data/iv-history.json
 

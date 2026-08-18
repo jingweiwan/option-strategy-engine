@@ -26,15 +26,16 @@
  * posterior updates from {n, Σpnl, Σpnl²}; its mean is what we maximize.
  *
  * Honest expectations: convergence is weeks-to-months at this trade volume.
- * Keep arms few. Legacy credit-spread snapshots (before variants existed) seed
- * the 0.30 arm they all traded; legacy condor snapshots used the old symmetric
- * structure and are skipped, so the condor arms start fresh.
+ * Keep arms few. Pre-epoch snapshots (credit-spread 10Δ wings, condor
+ * symmetric/unequal wings, or variant-less history) do not match a live arm
+ * and are skipped, so the current posteriors start uncontaminated.
  *
  * Disable with STRATEGY_TUNER=0 (falls back to the static 0.30 spec).
  */
 import type { StrategyType } from '../engine/types.js'
 import type { Regime } from '../engine/index.js'
 import type { LegSpec } from '../engine/liveStrategies.js'
+import { CREDIT_SPREAD_WING_PCT } from '../engine/liveStrategies.js'
 import type { RecommendationSnapshot } from './types.js'
 import { outcomePnl } from './calibration.js'
 
@@ -43,9 +44,6 @@ export const TUNER_ENABLED = process.env.STRATEGY_TUNER !== '0'
 // Credit spreads sell one leg near the money; arms tune that short delta.
 export const SHORT_DELTA_ARMS = [0.25, 0.3, 0.35] as const
 export const DEFAULT_SHORT_DELTA = 0.3
-/** Long wing stays at the spec's 10-delta; only the short leg is tuned. */
-const WING_DELTA = 0.1
-
 // The iron condor arm tunes the PUT short delta; the call short drifts off it
 // (CONDOR_CALL_DRIFT, keeping the put-skew) and both long wings are placed an
 // EQUAL dollar width from their short (CONDOR_WING_PCT). Condors sell further
@@ -59,10 +57,11 @@ const CONDOR_MIN_CALL_SHORT = 0.08 // don't let the tightest arm collapse the ca
 // dollar widths under skew (25-wide put / 5-wide call), decoupling maxLoss (and
 // therefore normalizedReward) from realized $. See test/condorWings.test.ts.
 const CONDOR_WING_PCT = 0.02
-// Structure epoch: bump when the condor leg geometry changes so legacy snapshots
+// Structure epoch: bump when leg geometry changes so legacy snapshots
 // (recorded under the old structure) map to a DIFFERENT variant id and cannot
-// pollute the new arms' posteriors. 'w2' = the equal-$ wing structure.
+// pollute the new arms' posteriors. 'w2' = equal-$ wings (k × short strike).
 export const CONDOR_STRUCT_EPOCH = 'w2'
+export const CREDIT_SPREAD_STRUCT_EPOCH = 'w2'
 
 export const TUNED_STRATEGIES: ReadonlyArray<StrategyType> = [
   'bull_put_spread',
@@ -80,22 +79,16 @@ function defaultDeltaFor(strategy: StrategyType): number {
   return strategy === 'iron_condor' ? DEFAULT_CONDOR_PUT_DELTA : DEFAULT_SHORT_DELTA
 }
 
-// Pre-variant history: credit spreads all traded the hardcoded 0.30 short delta,
-// so their variant-less snapshots seed that arm. The condor is DELIBERATELY
-// absent — its pre-tuner snapshots used a different (symmetric, wide-wing)
-// structure that maps to no current arm, so they're skipped and the condor arms
-// start fresh (see buildArmStats).
-const LEGACY_DEFAULT: Partial<Record<StrategyType, number>> = {
-  bull_put_spread: DEFAULT_SHORT_DELTA,
-  bear_call_spread: DEFAULT_SHORT_DELTA
-}
-
 export function variantId(shortDelta: number, strategy: StrategyType): string {
   const base = `sd${shortDelta.toFixed(2)}`
-  // strategy is REQUIRED so a condor call can't silently drop its structure
-  // epoch: the epoch keeps legacy (old-geometry) snapshots from matching a live
-  // arm — see CONDOR_STRUCT_EPOCH.
-  return strategy === 'iron_condor' ? `${base}@${CONDOR_STRUCT_EPOCH}` : base
+  // strategy is REQUIRED so a caller can't silently drop the structure epoch:
+  // the epoch keeps legacy (old-geometry) snapshots from matching a live arm.
+  const epoch =
+    strategy === 'iron_condor' ? CONDOR_STRUCT_EPOCH
+    : strategy === 'bull_put_spread' || strategy === 'bear_call_spread'
+      ? CREDIT_SPREAD_STRUCT_EPOCH
+      : null
+  return epoch ? `${base}@${epoch}` : base
 }
 
 /**
@@ -128,11 +121,13 @@ export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
     if (s.source === 'shadow' && surfaced.has(`${s.etDay}|${s.sym}|${s.strategyId}|${s.variant}`)) continue
     const pnl = outcomePnl(s.outcome)
     if (pnl == null) continue
-    // Attribute to the recorded arm; variant-less snapshots seed the strategy's
-    // legacy default. The condor has no legacy default (structure changed) → its
-    // variant-less snapshots are skipped so the new arms start uncontaminated.
-    const legacy = LEGACY_DEFAULT[s.strategyId]
-    const v = s.variant ?? (legacy != null ? variantId(legacy, s.strategyId) : null)
+    // Attribute to the recorded arm. Variant-less snapshots are skipped —
+    // every tuned strategy has changed geometry since pre-variant history
+    // (credit spreads: 10Δ wings → @w2 equal-$; condor: symmetric/unequal
+    // wings → @w2 equal-$), so seeding a live arm would mix two structures.
+    // Unepoched ids (e.g. `sd0.30`) still land in the map as orphan keys;
+    // pickShortDelta only reads the epoched live id (`sd0.30@w2`).
+    const v = s.variant
     if (v == null) continue
     const k = armKey(s.strategyId, s.regime, v)
     const cur = stats.get(k) ?? { n: 0, sum: 0, sumSq: 0 }
@@ -210,7 +205,9 @@ export function pickShortDelta(
 
 /**
  * Leg specs for a tuned strategy at the chosen short delta.
- *   credit spreads: shortDelta = the single short leg; wing fixed at 10Δ.
+ *   credit spreads: shortDelta = the single short leg; wing at equal-$ width
+ *                   (CREDIT_SPREAD_WING_PCT) — NOT a delta, so the tuned path and
+ *                   the static ALL_STRATEGY_SPECS build the SAME geometry.
  *   iron_condor:    shortDelta = the PUT short; the call short drifts off it and
  *                   both long wings are equal-$ (widthPctFromShort). See the
  *                   CONDOR_* constants.
@@ -219,13 +216,13 @@ export function legsForShortDelta(strategy: StrategyType, shortDelta: number): L
   if (strategy === 'bull_put_spread') {
     return [
       { type: 'put', action: 'sell', targetDelta: shortDelta },
-      { type: 'put', action: 'buy', targetDelta: WING_DELTA }
+      { type: 'put', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   }
   if (strategy === 'bear_call_spread') {
     return [
       { type: 'call', action: 'sell', targetDelta: shortDelta },
-      { type: 'call', action: 'buy', targetDelta: WING_DELTA }
+      { type: 'call', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   }
   if (strategy === 'iron_condor') {
@@ -257,8 +254,8 @@ export function specOverridesFromVariants(
     if (!variant) continue
     const delta = armsFor(st).find((d) => variantId(d, st) === variant)
     if (delta == null) {
-      // Unknown/stale variant (e.g. a pre-@w2 condor bookmark or an old deep
-      // link). Don't silently fall back to the default arm — warn so a wrong
+      // Unknown/stale variant (e.g. a pre-@w2 bookmark or an old deep link).
+      // Don't silently fall back to the default arm — warn so a wrong
       // structure is visible; the caller then renders the default arm.
       console.warn(`[tuner] stale/unknown variant ${st}=${variant}; falling back to default arm`)
       continue

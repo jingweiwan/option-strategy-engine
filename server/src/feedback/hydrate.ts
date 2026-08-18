@@ -1,6 +1,6 @@
 import type { RecommendationSnapshot } from './types.js'
 import { computeOutcomeForSnapshot, type OutcomeOptions } from './outcome.js'
-import { loadSnapshots, saveSnapshots } from './store.js'
+import { assertLoadedHistoryMatchesFile, loadSnapshots, saveSnapshots } from './store.js'
 import { managedHoldDays } from '../engine/managedExit.js'
 
 /** Rule-based hold period (forward days) — matches the live engine, honoring
@@ -38,6 +38,7 @@ export async function hydrateDueSnapshots(
 }> {
   const maxUpdates = options.maxUpdates ?? 50
   const all = await loadSnapshots()
+  await assertLoadedHistoryMatchesFile(all)
   let updated = 0
   let pendingWithinHorizon = 0
 
@@ -96,6 +97,7 @@ export async function hydrateSnapshotById(
   options: Pick<OutcomeOptions, 'stopLossFraction'> = {}
 ): Promise<RecommendationSnapshot | null> {
   const all = await loadSnapshots()
+  await assertLoadedHistoryMatchesFile(all)
   const idx = all.findIndex((s) => s.id === id)
   if (idx < 0) return null
   const s = all[idx]

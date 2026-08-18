@@ -39,6 +39,7 @@ import {
 } from '../feedback/tuner.js'
 import { loadSnapshots } from '../feedback/store.js'
 import { recordShadowArmSnapshots } from '../feedback/record.js'
+import { noteFeedbackLoadFailure, clearFeedbackLoadFailure } from '../feedback/health.js'
 import type { LegSpec } from './liveStrategies.js'
 
 // ---------- Types ----------
@@ -67,6 +68,9 @@ export type ScannedOpp = {
   ev: number
   maxProfit: number | null
   maxLoss: number | null
+  /** credit/width = maxProfit/(maxProfit+maxLoss). The mechanical breakeven win
+   *  rate is 1 − this. null when either leg of the payoff is unbounded. */
+  creditWidth: number | null
   netPremium: number
   delta: number
   gamma: number
@@ -146,6 +150,7 @@ export type BoardTierReason =
   | 'ivr_below_floor'      // sell-vol: IVR in [ref, qualify)
   | 'earnings_recency'     // sell-vol: just reported; IV spike may be evaporating
   | 'vol_not_rich'         // sell-vol: IVR ok but IV/RV < floor → thin/negative VRP
+  | 'reward_too_thin'      // sell-vol: credit/width below floor → needs a near-certain win
   | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
 
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
@@ -174,6 +179,45 @@ export const IVR_REFERENCE_FLOOR = Number(process.env.IVR_REFERENCE_FLOOR) || 20
  * not. Env-tunable.
  */
 export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
+
+/**
+ * Minimum credit/width (= maxProfit / (maxProfit + maxLoss)) for a defined-risk
+ * credit structure to auto-recommend. It is the mechanical breakeven win rate:
+ * credit/width 10% means the trade must win 90% of the time just to be flat, so
+ * the whole thesis rests on POP being accurate to a few points — which it is not
+ * (a TLT 79/76 card showed POP 92.1%, i.e. a 7.9% loss rate, while 10 years of
+ * real 46-day windows breached its short strike 28.0% of the time).
+ *
+ * DELIBERATELY LOW. The first draft of this gate was 15%; the resolved snapshot
+ * history REFUSED to support it:
+ *   credit/width bucket   n    avg managedPnl   win%
+ *     [ 0%,10%)           23        +1.83       95.7%
+ *     [10%,15%)           60        +1.49       95.0%
+ *     [15%,20%)           18        +1.93       88.9%
+ * — no gradient, and a 15% floor would have blocked 46.7% of the board. That
+ * evidence is itself weak (outcome horizonDays=5 almost never sees a breach, so
+ * it cannot price tail risk), so this is set to catch only genuine geometry
+ * outliers (blocks ~7% of the historical board: condors seen as low as 4.2%),
+ * NOT to express a view the data can't back. Raise via env once the backtester
+ * resolves trades at expiration rather than +5 days.
+ *
+ * Demotes to `reference` — never drops. Applies only when a finite credit/width
+ * is known (undefined-risk / debit structures pass through untouched).
+ */
+export const CREDIT_WIDTH_FLOOR = Number(process.env.CREDIT_WIDTH_FLOOR) || 0.10
+
+/**
+ * credit/width from the SAME metrics the DTO reports, so the gate's input and the
+ * number rendered on the card can never disagree. null when either side of the
+ * payoff is unbounded (naked/debit structures are not gated on this).
+ */
+export function creditWidthOf(r: StrategyResult): number | null {
+  if (r.metrics.unboundedProfit || r.metrics.unboundedLoss) return null
+  const mp = Math.abs(r.metrics.theoMaxProfit)
+  const ml = Math.abs(r.metrics.theoMaxLoss)
+  const w = mp + ml
+  return w > 0 && Number.isFinite(w) ? mp / w : null
+}
 
 // Board vol gates are symmetric:
 //   - sell-vol  → needs vol RICH  (IVR floor + IV/RV ≥ floor + no earnings) via sellVolTier
@@ -221,7 +265,8 @@ export function sellVolDecision(
   spansEarnings: boolean,
   recentlyReported = false,
   iv: number | null = null,
-  rv: number | null = null
+  rv: number | null = null,
+  creditWidth: number | null = null
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return { tier: null } // footgun guard
   if (!SELL_VOL_STRATEGIES.has(strategy)) return { tier: 'qualified' }
@@ -236,6 +281,12 @@ export function sellVolDecision(
     if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
       return { tier: 'reference', reason: 'vol_not_rich' }
     }
+    // Geometry check, ordered AFTER richness on purpose: "is the premium real?"
+    // is the thesis, "are the odds worth it?" is the sizing question. A structure
+    // failing both should read as vol_not_rich (the more fundamental defect).
+    if (creditWidth != null && Number.isFinite(creditWidth) && creditWidth < CREDIT_WIDTH_FLOOR) {
+      return { tier: 'reference', reason: 'reward_too_thin' }
+    }
     return { tier: 'qualified' }
   }
   if (ivr >= IVR_REFERENCE_FLOOR) return { tier: 'reference', reason: 'ivr_below_floor' }
@@ -249,9 +300,10 @@ export function sellVolTier(
   spansEarnings: boolean,
   recentlyReported = false,
   iv: number | null = null,
-  rv: number | null = null
+  rv: number | null = null,
+  creditWidth: number | null = null
 ): OppTier | null {
-  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv).tier
+  return sellVolDecision(strategy, ivr, spansEarnings, recentlyReported, iv, rv, creditWidth).tier
 }
 
 /**
@@ -305,10 +357,15 @@ export function boardTierDecision(
     rv: number | null
     spansEarnings: boolean
     recentlyReported?: boolean
+    /** maxProfit / (maxProfit + maxLoss); null when either side is unbounded. */
+    creditWidth?: number | null
   }
 ): BoardTierDecision {
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolDecision(strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true, ctx.iv, ctx.rv)
+  return sellVolDecision(
+    strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
+    ctx.iv, ctx.rv, ctx.creditWidth ?? null
+  )
 }
 
 /** Thin wrapper — prefer boardTierDecision when reason is needed. */
@@ -320,6 +377,7 @@ export function boardTierFor(
     rv: number | null
     spansEarnings: boolean
     recentlyReported?: boolean
+    creditWidth?: number | null
   }
 ): OppTier | null {
   return boardTierDecision(strategy, ctx).tier
@@ -606,8 +664,16 @@ async function runScan(
   // Calibration table from realized feedback — nudges scoring toward
   // (strategy × regime) combos that have historically won. Empty until
   // enough outcomes accumulate (multiplier defaults to 1×).
-  const calibration = await loadCalibrationTable().catch((): CalibrationTable => new Map())
+  // A load failure here is NOT harmless: an empty table means every multiplier
+  // silently defaults to 1×, which re-enables combos the recorded outcomes had
+  // hard-disabled (long_straddle at 0×). Fall back so the scan still runs, but
+  // record the degradation so it is visible instead of inferred. See health.ts.
+  const calibration = await loadCalibrationTable().catch((err): CalibrationTable => {
+    noteFeedbackLoadFailure('calibration', err)
+    return new Map()
+  })
   if (calibration.size > 0) {
+    clearFeedbackLoadFailure('calibration')
     const summary = [...calibration.entries()].map(([k, m]) => `${k}=${m.toFixed(2)}`).join(', ')
     console.log(`[oppScanner] calibration: ${summary}`)
   }
@@ -619,7 +685,16 @@ async function runScan(
   // Online tuner: Beta posteriors per (strategy × regime × variant), built from
   // the same recorded outcomes that feed calibration.
   const armStats: ArmStats = TUNER_ENABLED
-    ? await loadSnapshots().then(buildArmStats).catch((): ArmStats => new Map())
+    ? await loadSnapshots()
+        .then((snaps) => {
+          const stats = buildArmStats(snaps)
+          if (stats.size > 0) clearFeedbackLoadFailure('tuner')
+          return stats
+        })
+        .catch((err): ArmStats => {
+          noteFeedbackLoadFailure('tuner', err)
+          return new Map()
+        })
     : new Map()
 
   // Phase 0: fetch AI directional views for all symbols.
@@ -954,7 +1029,8 @@ async function scanSymbol(
           iv: result.state.iv,
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
-          recentlyReported
+          recentlyReported,
+          creditWidth: creditWidthOf(r)
         })
         const boardTier = decision.tier ?? undefined
         const boardTierReason = decision.reason
@@ -973,6 +1049,7 @@ async function scanSymbol(
           ev: r.metrics.ev,
           maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
           maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
+          creditWidth: creditWidthOf(r),
           netPremium: r.netPremium,
           delta: r.netGreeks.delta,
           gamma: r.netGreeks.gamma,
@@ -1079,6 +1156,7 @@ async function scanSymbol(
                 ev: r.metrics.ev,
                 maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
                 maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
+                creditWidth: creditWidthOf(r),
                 netPremium: r.netPremium,
                 delta: r.netGreeks.delta,
                 gamma: r.netGreeks.gamma,

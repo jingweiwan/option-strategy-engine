@@ -80,9 +80,9 @@ const verdict = computed(() => {
 
 // ---- Parameter experiment (tuner) — plain-language presentation ----
 // The engine A/B-tests how far out-of-the-money it sells. Arm sets differ by
-// strategy (condor arms carry a structure epoch, e.g. sd0.20@w2). score is the
+// strategy (live arms carry a structure epoch, e.g. sd0.30@w2). score is the
 // arm's MEAN per-trade P&L in $/share (the tuner ranks by absolute $/trade).
-const SPREAD_VARIANTS = ['sd0.25', 'sd0.30', 'sd0.35'] as const
+const SPREAD_VARIANTS = ['sd0.25@w2', 'sd0.30@w2', 'sd0.35@w2'] as const
 const CONDOR_VARIANTS = ['sd0.16@w2', 'sd0.20@w2', 'sd0.24@w2'] as const
 function variantsForStrategy(strategy: string): readonly string[] {
   return strategy === 'iron_condor' ? CONDOR_VARIANTS : SPREAD_VARIANTS

@@ -16,6 +16,7 @@ import {
 } from '../api/finnhub.js'
 import { cached, etCalendarDay, DAY } from '../ai/cache.js'
 import { recordDashboardScanSnapshots } from '../feedback/index.js'
+import { feedbackDegradations, type FeedbackDegradation } from '../feedback/health.js'
 import {
   DEFAULT_WATCHLIST,
   parseWatchlistSymbolsQuery,
@@ -89,6 +90,9 @@ export type Ticker = {
 }
 
 export type DashboardData = {
+  /** Best-effort feedback loads that failed — engine is running WITHOUT its
+   *  learned weights while non-empty. Surfaced so silent degradation is visible. */
+  feedbackDegraded?: FeedbackDegradation[]
   market: Market
   mood: Mood
   engine: EngineView
@@ -601,6 +605,10 @@ async function buildLiveDashboard(watchlist: WatchlistEntry[]): Promise<Dashboar
     tickers,
     bookRisk,
     realBook,
+    // Non-empty when calibration/tuner failed to load: the board below was
+    // produced WITHOUT the learned weights, so combos the recorded outcomes
+    // disabled can reappear. Surfaced instead of silently degrading.
+    feedbackDegraded: feedbackDegradations(),
     fetchedAt: new Date().toISOString()
   }
 }

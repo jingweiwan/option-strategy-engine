@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { etCalendarDay } from '../ai/cache.js'
 import type { ScannedOpp } from '../engine/oppScanner.js'
 import type { RecommendationSnapshot } from './types.js'
-import { loadSnapshots, saveSnapshots } from './store.js'
+import { assertLoadedHistoryMatchesFile, loadSnapshots, saveSnapshots } from './store.js'
 
 const OFF = process.env.FEEDBACK_RECORD === '0'
 
@@ -51,6 +51,7 @@ export async function recordDashboardScanSnapshots(scanned: ScannedOpp[]): Promi
   if (rows.length === 0) return
 
   const all = await loadSnapshots()
+  await assertLoadedHistoryMatchesFile(all)
   const kept = all.filter((s) => !(s.etDay === etDay && s.source === 'dashboard'))
   await saveSnapshots([...kept, ...rows])
 }
@@ -70,6 +71,7 @@ export async function recordShadowArmSnapshots(rows: ScannedOpp[]): Promise<void
   if (snaps.length === 0) return
 
   const all = await loadSnapshots()
+  await assertLoadedHistoryMatchesFile(all)
   const kept = all.filter((s) => !(s.etDay === etDay && s.source === 'shadow'))
   await saveSnapshots([...kept, ...snaps])
 }

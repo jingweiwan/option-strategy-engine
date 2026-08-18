@@ -1,6 +1,6 @@
 /**
  * Online tuner (Thompson sampling) — invariants:
- *   1. Legacy snapshots (no variant) seed the default 0.30 arm.
+ *   1. Legacy snapshots (no variant / unepoched id) do not seed @w2 arms.
  *   2. With strong evidence, sampling overwhelmingly picks the winning arm,
  *      while never fully abandoning exploration.
  *   3. specOverrides actually moves the engine's chosen strikes.
@@ -11,7 +11,7 @@ import {
   buildArmStats,
   pickShortDelta,
   variantId,
-  DEFAULT_SHORT_DELTA,
+  SHORT_DELTA_ARMS,
   CONDOR_ARMS,
   legsForShortDelta
 } from '../src/feedback/tuner.js'
@@ -49,14 +49,37 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
   }
 }
 
-test('tuner: legacy snapshots (no variant) seed the default arm with mean-variance stats', () => {
-  // reward = raw per-share pnl. snap(): win pnl +0.5 → r=0.5; loss pnl −1 → r=−1.
+test('tuner: legacy snapshots (no variant, old 10Δ wings) do not seed @w2 arms', () => {
   const stats = buildArmStats([snap({}, true), snap({}, true), snap({}, false)])
-  const k = `bull_put_spread|sell|${variantId(DEFAULT_SHORT_DELTA)}`
-  const s = stats.get(k)!
-  assert.equal(s.n, 3)
-  assert.ok(Math.abs(s.sum - (0.5 + 0.5 - 1)) < 1e-9, `sum=${s.sum}`) // 0
-  assert.ok(Math.abs(s.sumSq - (0.25 + 0.25 + 1)) < 1e-9, `sumSq=${s.sumSq}`) // 1.5
+  for (const d of SHORT_DELTA_ARMS) {
+    assert.equal(
+      stats.get(`bull_put_spread|sell|${variantId(d, 'bull_put_spread')}`),
+      undefined,
+      `variant-less history must not teach live arm ${variantId(d, 'bull_put_spread')}`
+    )
+  }
+})
+
+test('tuner: unepoched sd0.30 (old geometry) does not match live @w2 arm', () => {
+  const stats = buildArmStats([
+    snap({ variant: 'sd0.30' }, true),
+    snap({ variant: 'sd0.25' }, true),
+    snap({ strategyId: 'bear_call_spread', variant: 'sd0.35' }, true)
+  ])
+  for (const st of ['bull_put_spread', 'bear_call_spread'] as const) {
+    for (const d of SHORT_DELTA_ARMS) {
+      assert.equal(
+        stats.get(`${st}|sell|${variantId(d, st)}`),
+        undefined,
+        `old ${st} sd0.xx must not teach ${variantId(d, st)}`
+      )
+    }
+  }
+  // Orphan keys still exist in the map; pickShortDelta must not read them.
+  assert.equal(stats.get('bull_put_spread|sell|sd0.30')?.n, 1)
+  const pick = pickShortDelta('bull_put_spread', 'sell', stats, () => 0.5)
+  assert.ok(pick!.variant.endsWith('@w2'))
+  assert.notEqual(pick!.variant, 'sd0.30')
 })
 
 test('tuner: normalizedReward = return on capital-at-risk', () => {
@@ -71,27 +94,30 @@ test('tuner: normalizedReward = return on capital-at-risk', () => {
 
 test('tuner: rejects the win-rate trap — picks the high-EV arm over the high-POP arm', () => {
   // Bounds ±1 → r = (pnl+1)/2.
-  // sd0.25: 80% win rate but tiny wins / big losses → per-trade EV −0.10
-  // sd0.35: 60% win rate but big wins / small losses → per-trade EV +0.34
+  // sd0.25@w2: 80% win rate but tiny wins / big losses → per-trade EV −0.10
+  // sd0.35@w2: 60% win rate but big wins / small losses → per-trade EV +0.34
+  const V25 = variantId(0.25, 'bull_put_spread')
+  const V30 = variantId(0.3, 'bull_put_spread')
+  const V35 = variantId(0.35, 'bull_put_spread')
   const w = (variant: string, pnl: number) =>
     snap({ variant, maxProfit: 1, maxLoss: -1,
       outcome: { ...snap({}, true).outcome!, managedPnl: pnl } }, pnl > 0)
   const snaps: RecommendationSnapshot[] = []
-  for (let i = 0; i < 16; i++) snaps.push(w('sd0.25', +0.1))
-  for (let i = 0; i < 4; i++) snaps.push(w('sd0.25', -0.9))
-  for (let i = 0; i < 12; i++) snaps.push(w('sd0.35', +0.9))
-  for (let i = 0; i < 8; i++) snaps.push(w('sd0.35', -0.5))
+  for (let i = 0; i < 16; i++) snaps.push(w(V25, +0.1))
+  for (let i = 0; i < 4; i++) snaps.push(w(V25, -0.9))
+  for (let i = 0; i < 12; i++) snaps.push(w(V35, +0.9))
+  for (let i = 0; i < 8; i++) snaps.push(w(V35, -0.5))
 
   const stats = buildArmStats(snaps)
   const rng = mulberry32(7)
-  const picks: Record<string, number> = { 'sd0.25': 0, 'sd0.30': 0, 'sd0.35': 0 }
+  const picks: Record<string, number> = { [V25]: 0, [V30]: 0, [V35]: 0 }
   for (let i = 0; i < 500; i++) picks[pickShortDelta('bull_put_spread', 'sell', stats, rng)!.variant]++
 
   // A win/loss-reward bandit would crown sd0.25 (80% > 60%). The PnL reward
   // must instead favor sd0.35, while still exploring the others.
-  assert.ok(picks['sd0.35'] > picks['sd0.25'], `EV arm ${picks['sd0.35']} vs POP arm ${picks['sd0.25']}`)
-  assert.ok(picks['sd0.35'] > 250, `EV arm should dominate: ${picks['sd0.35']}/500`)
-  assert.ok(picks['sd0.25'] + picks['sd0.30'] > 0, 'other arms must still get explored')
+  assert.ok(picks[V35] > picks[V25], `EV arm ${picks[V35]} vs POP arm ${picks[V25]}`)
+  assert.ok(picks[V35] > 250, `EV arm should dominate: ${picks[V35]}/500`)
+  assert.ok(picks[V25] + picks[V30] > 0, 'other arms must still get explored')
 })
 
 test('tuner: untuned strategies return null; non-arm strategies have no legs', () => {
@@ -192,6 +218,8 @@ test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key
   const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
   assert.deepEqual(specOverridesFromVariants({ iron_condor: 'sd9.99' }), {})
   assert.deepEqual(specOverridesFromVariants({ iron_condor: '' }), {})
+  assert.deepEqual(specOverridesFromVariants({ bull_put_spread: 'sd0.30' }), {},
+    'unepoched credit-spread id is stale after @w2')
   assert.deepEqual(specOverridesFromVariants({}), {})
 })
 

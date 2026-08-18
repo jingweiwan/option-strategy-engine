@@ -38,6 +38,11 @@ const aiError = ref<string | null>(null)
 /** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 const IVR_FLOOR = 30
 
+/** Feedback loads that failed server-side — board built without learned weights. */
+const feedbackDegraded = computed(() => data.value?.feedbackDegraded ?? [])
+const degradedLabel = (what: string) =>
+  what === 'calibration' ? '策略校准' : what === 'tuner' ? '参数调优' : what
+
 // 'reference' near-misses (IVR below the floor) are shown separately and never
 // counted as recommendations; older cached opps without boardTier read as qualified.
 const boardOpps = computed(() =>
@@ -57,17 +62,23 @@ const referenceBannerHint = computed(() => {
   if (has('earnings_recency')) parts.push('刚报财报·IV 未稳定')
   if (has('ivr_below_floor')) parts.push(`IVR 未及 ${IVR_FLOOR}`)
   if (has('vol_not_rich')) parts.push('溢价不足·IV/RV<1.2')
+  if (has('reward_too_thin')) parts.push('赔率过薄·收/宽不足')
   if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
   if (parts.length === 0) return '离达标线最近的几个'
   return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
 })
 
-const refReasonLabel = (reason?: string): string => {
-  if (reason === 'earnings_recency') return '刚报财报·IV 未稳定'
-  if (reason === 'vol_not_rich') return '溢价不足·IV/RV<1.2'
-  if (reason === 'vol_signal_missing') return '缺 RV,无法验便宜度'
-  return `IVR 未及 ${IVR_FLOOR}`
+// Explicit map, not a default-to-IVR fallback: the old `return 'IVR 未及'` tail
+// silently mislabeled every NEW reason as an IVR miss until someone noticed.
+const REF_REASON_LABELS: Record<string, string> = {
+  earnings_recency: '刚报财报·IV 未稳定',
+  vol_not_rich: '溢价不足·IV/RV<1.2',
+  reward_too_thin: '赔率过薄·收/宽不足',
+  vol_signal_missing: '缺 RV,无法验便宜度',
+  ivr_below_floor: `IVR 未及 ${IVR_FLOOR}`
 }
+const refReasonLabel = (reason?: string): string =>
+  (reason && REF_REASON_LABELS[reason]) || `IVR 未及 ${IVR_FLOOR}`
 
 const opps = computed(() =>
   boardOpps.value.filter((o) => oppFilter.value === 'all' || o.tag === oppFilter.value)
@@ -282,6 +293,18 @@ watch(data, (v) => {
       <div v-if="marketClosed" class="market-banner mono">
         <span class="mb-dot" />
         美股{{ session }} · 实时行情有限，下列数值为最近可得（多为上一交易日收盘）
+      </div>
+
+      <!-- Feedback layer degraded: engine is running WITHOUT its learned weights.
+           This is the failure that once let hard-disabled strategies back onto the
+           board silently, so it gets a loud banner rather than a log line. -->
+      <div v-if="feedbackDegraded.length" class="degraded-banner mono">
+        <span class="db-dot" />
+        <span>
+          ⚠️ 学习权重未加载（{{ feedbackDegraded.map((d) => degradedLabel(d.what)).join('、') }}）——
+          下方推荐<strong>未经历史校准</strong>，历史证明会亏的策略可能重新出现。请检查
+          <code>server/cache/recommendations/snapshots.json</code>
+        </span>
       </div>
 
       <!-- Page head -->
@@ -568,6 +591,17 @@ watch(data, (v) => {
                   最大亏损
                   <b class="tnum loss-text">${{ Math.abs(o.maxLoss).toFixed(2) }}</b>
                 </span>
+                <span
+                  v-if="o.creditWidth != null"
+                  class="level-item"
+                  :title="`收/宽 ${(o.creditWidth * 100).toFixed(1)}% — 到期不动就得赢 ${((1 - o.creditWidth) * 100).toFixed(1)}% 的时候才打平`"
+                >
+                  收/宽
+                  <b class="tnum" :class="{ 'loss-text': o.creditWidth < 0.10 }">
+                    {{ (o.creditWidth * 100).toFixed(1) }}%
+                  </b>
+                  <span class="lvl-sub">需胜率 {{ ((1 - o.creditWidth) * 100).toFixed(0) }}%</span>
+                </span>
                 <span v-if="o.breakevens && o.breakevens.length" class="level-item">
                   盈亏平衡
                   <b class="tnum" v-for="(be, bi) in o.breakevens" :key="bi">
@@ -757,6 +791,32 @@ watch(data, (v) => {
 
 <style scoped>
 /* Market session banner */
+.degraded-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--loss);
+  border-left-width: 4px;
+  background: color-mix(in srgb, var(--loss) 8%, transparent);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.degraded-banner code {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.db-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--loss);
+}
+
 .market-banner {
   display: flex;
   align-items: center;
@@ -1298,6 +1358,13 @@ watch(data, (v) => {
 .keylevel-warn { color: var(--loss, #e53935); font-size: 10.5px; }
 .level-item b.loss-text {
   color: var(--loss, #e53935);
+}
+/* 收/宽 旁边的「需胜率」——次要信息,不跟主数字抢视线 */
+.level-item .lvl-sub {
+  margin-left: 5px;
+  font-size: 0.85em;
+  color: var(--ink-3, var(--ink-2));
+  opacity: 0.75;
 }
 
 .opp-why {
