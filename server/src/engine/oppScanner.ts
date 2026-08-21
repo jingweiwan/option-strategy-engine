@@ -50,6 +50,12 @@ export type ScannedLeg = {
   strike: number
   premium: number
   quantity: number
+  /** This strike's own chain IV. Carried all the way to the snapshot so the
+   *  feedback backtester MARKS the position the same way the live sim did —
+   *  展示与学习共用同一套 managed exit is an architecture invariant, and it is
+   *  violated the moment the displayed card marks per-leg while the outcome
+   *  that trains calibration/tuner marks everything at one ATM sigma. */
+  iv?: number
 }
 
 export type ScannedOpp = {
@@ -1085,7 +1091,11 @@ async function scanSymbol(
       function makeOpp(sr: { r: StrategyResult; score: number }): ScannedOpp {
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
-        const legs = r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity }))
+        const legs = r.legs.map((l) => ({
+          type: l.type, action: l.action, strike: l.strike,
+          premium: l.premium, quantity: l.quantity,
+          ...(l.iv != null ? { iv: l.iv } : {})
+        }))
         const ivSold = soldLegIv(r.legs)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
@@ -1268,7 +1278,10 @@ export async function getScannedOpps(
   //      is now hard-nulled via spansEarnings; recency owns the post-print days.
   // v14: IV/RV richness gate — IVR ok but IV/RV < SELL_IVRV_FLOOR → reference
   //      (vol_not_rich). High rank no longer boards thin/negative-VRP names.
-  const key = `opp-scan-v14-${etCalendarDay()}-${wlSlug}`
+  // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
+  // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
+  // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
+  const key = `opp-scan-v15-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

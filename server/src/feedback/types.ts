@@ -9,6 +9,12 @@ export type StoredLeg = {
   strike: number
   premium: number
   quantity: number
+  /** The strike's own IV at scan time. The outcome pass feeds it back into the
+   *  SAME markPnL the live sim used, so a card displayed with per-leg marking
+   *  is also SETTLED with per-leg marking. Absent on pre-2026-08 snapshots and
+   *  on shadow arms built from specs — those fall back to the ATM `iv`, i.e.
+   *  exactly the old behaviour. */
+  iv?: number
 }
 
 export type RecommendationSnapshot = {

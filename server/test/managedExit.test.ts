@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runManagedExit, managedThresholds, markPnL } from '../src/engine/managedExit.js'
 import { totalPnL } from '../src/engine/payoff.js'
+import { storedLegsToOptionLegs } from '../src/feedback/legAdapter.js'
 import type { OptionLeg } from '../src/engine/types.js'
 
 const g = (delta: number) => ({ delta, gamma: 0, theta: 0, vega: 0 })
@@ -115,4 +116,42 @@ test('markPnL: volRatio crushes every strike proportionally, keeping skew shape'
   assert.ok(Math.abs(crushed - explicit) < 1e-9, 'volRatio must equal scaling each leg iv')
   // And a crush is good for a short-vol structure.
   assert.ok(crushed > markPnL(iwmCondor, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM))
+})
+
+/**
+ * FEEDBACK-LOOP CLOSURE: a snapshot's stored legs must settle on the same vol
+ * surface the card was displayed with. Before this, `makeOpp` dropped `iv` when
+ * building ScannedLeg, so every outcome was marked at one ATM sigma while the
+ * card's POP/EV came from per-leg marking — the learning loop trained on exits
+ * the displayed sim never produced.
+ */
+test('storedLegsToOptionLegs: round-trips per-leg iv, omits it when absent', () => {
+  const stored = [
+    { type: 'put' as const, action: 'sell' as const, strike: 276, premium: 2.015, quantity: 1, iv: 0.2389 },
+    { type: 'call' as const, action: 'sell' as const, strike: 321, premium: 0.635, quantity: 1 }
+  ]
+  const legs = storedLegsToOptionLegs(stored)
+  assert.equal(legs[0].iv, 0.2389)
+  // Absent stays absent — markPnL must fall back to the context sigma for
+  // pre-skew snapshots, i.e. behave exactly as before.
+  assert.equal('iv' in legs[1], false)
+})
+
+test('feedback loop: stored per-leg iv reproduces the displayed mark, ATM does not', () => {
+  // Real 2026-08-20 IWM condor. Marked at t=0 the P&L must be ~0 (you just paid
+  // what it is worth). Stripping the stored IVs re-introduces the phantom loss.
+  const stored = iwmCondor.map((l) => ({
+    type: l.type, action: l.action, strike: l.strike,
+    premium: l.premium, quantity: l.quantity, iv: l.iv
+  }))
+  const perLeg = markPnL(storedLegsToOptionLegs(stored), IWM_S, IWM_T, 0.04, 0.012, IWM_ATM)
+  const atmOnly = markPnL(
+    storedLegsToOptionLegs(stored.map(({ iv, ...rest }) => rest)),
+    IWM_S, IWM_T, 0.04, 0.012, IWM_ATM
+  )
+  assert.ok(Math.abs(perLeg) < 0.05, `per-leg entry mark ${perLeg} should be ~0`)
+  assert.ok(Math.abs(atmOnly) > 5 * Math.abs(perLeg), `ATM-only ${atmOnly} vs per-leg ${perLeg}`)
+  // And the gap is material against the structure's own take-profit target.
+  const tp = managedThresholds(0.8575).takeProfit
+  assert.ok(Math.abs(atmOnly) > tp * 0.15, `phantom ${atmOnly} vs TP target ${tp}`)
 })

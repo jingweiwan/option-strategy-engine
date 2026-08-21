@@ -115,7 +115,8 @@ function toStoredLegs(legs: OptionLeg[]): StoredLeg[] {
     action: l.action,
     strike: l.strike,
     premium: l.premium,
-    quantity: l.quantity
+    quantity: l.quantity,
+    ...(l.iv != null ? { iv: l.iv } : {})
   }))
 }
 
