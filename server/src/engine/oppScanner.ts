@@ -17,7 +17,7 @@
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
 import type { ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
-import type { StrategyResult } from './types.js'
+import type { OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
 import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
@@ -56,6 +56,25 @@ export type ScannedLeg = {
    *  violated the moment the displayed card marks per-leg while the outcome
    *  that trains calibration/tuner marks everything at one ATM sigma. */
   iv?: number
+}
+
+/**
+ * StrategyResult legs → the serializable rows that reach the snapshot.
+ *
+ * The ONLY place this mapping is written. It used to be inlined per call site,
+ * and the shadow (tuner-arm) copy silently dropped `iv` — so the arms whose
+ * metrics came from a per-leg vol surface were then SETTLED at one ATM sigma,
+ * quietly poisoning the very evidence the tuner ranks arms on.
+ */
+export function toScannedLegs(legs: readonly OptionLeg[]): ScannedLeg[] {
+  return legs.map((l) => ({
+    type: l.type,
+    action: l.action,
+    strike: l.strike,
+    premium: l.premium,
+    quantity: l.quantity,
+    ...(l.iv != null ? { iv: l.iv } : {})
+  }))
 }
 
 export type ScannedOpp = {
@@ -1091,11 +1110,7 @@ async function scanSymbol(
       function makeOpp(sr: { r: StrategyResult; score: number }): ScannedOpp {
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
-        const legs = r.legs.map((l) => ({
-          type: l.type, action: l.action, strike: l.strike,
-          premium: l.premium, quantity: l.quantity,
-          ...(l.iv != null ? { iv: l.iv } : {})
-        }))
+        const legs = toScannedLegs(r.legs)
         const ivSold = soldLegIv(r.legs)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
@@ -1225,6 +1240,7 @@ async function scanSymbol(
                 score: scoreStrategy(r, quote.last), // raw; may be ≤0 — that's the point
                 spot: quote.last,
                 iv: res.state.iv,
+                ivSold: soldLegIv(r.legs),
                 ivr: res.state.ivRank,
                 dte: res.state.dte,
                 pop: r.metrics.probabilityProfit,
@@ -1240,7 +1256,7 @@ async function scanSymbol(
                 regime: res.state.regime,
                 rvAtScan: ivRankInfo?.currentRv ?? null,
                 breakevens: [...r.metrics.breakevens],
-                legs: r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity })),
+                legs: toScannedLegs(r.legs),
                 variant: pinnedVariant[st],
                 exitPolicy: exitPolicyBy[st] ?? null
               })

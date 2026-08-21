@@ -7,7 +7,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runManagedExit, managedThresholds, markPnL } from '../src/engine/managedExit.js'
 import { totalPnL } from '../src/engine/payoff.js'
+import { readFileSync } from 'node:fs'
 import { storedLegsToOptionLegs } from '../src/feedback/legAdapter.js'
+import { toScannedLegs } from '../src/engine/oppScanner.js'
+import type { StoredLeg } from '../src/feedback/types.js'
 import type { OptionLeg } from '../src/engine/types.js'
 
 const g = (delta: number) => ({ delta, gamma: 0, theta: 0, vega: 0 })
@@ -154,4 +157,44 @@ test('feedback loop: stored per-leg iv reproduces the displayed mark, ATM does n
   // And the gap is material against the structure's own take-profit target.
   const tp = managedThresholds(0.8575).takeProfit
   assert.ok(Math.abs(atmOnly) > tp * 0.15, `phantom ${atmOnly} vs TP target ${tp}`)
+})
+
+/**
+ * Same invariant, the SHADOW half of it. The tuner ranks arms on realized
+ * outcomes, so an arm whose metrics came from a per-leg vol surface must also
+ * be SETTLED on that surface. The shadow row used to be built by its own
+ * inlined leg mapping that dropped `iv` — main cards learned correctly while
+ * the tuner's evidence stayed ATM-marked. One shared `toScannedLegs` now feeds
+ * both, and this walks the whole path: engine legs → ScannedLeg → StoredLeg →
+ * back to OptionLeg → markPnL.
+ */
+test('scan → snapshot → outcome: the stored leg marks identically to the scan side', () => {
+  const stored: StoredLeg[] = toScannedLegs(iwmCondor) // ScannedLeg is StoredLeg + optional iv
+  const roundTripped = storedLegsToOptionLegs(stored)
+
+  for (const S of [270, 297.67, 325]) {
+    const scanSide = markPnL(iwmCondor, S, IWM_T, 0.04, 0.012, IWM_ATM)
+    const learnSide = markPnL(roundTripped, S, IWM_T, 0.04, 0.012, IWM_ATM)
+    assert.ok(
+      Math.abs(scanSide - learnSide) < 1e-9,
+      `S=${S}: scan ${scanSide} vs learning ${learnSide}`
+    )
+  }
+
+  // And the thing that would silently break it: a dropped iv is NOT equivalent.
+  const dropped = storedLegsToOptionLegs(stored.map(({ iv, ...l }) => l))
+  assert.ok(
+    Math.abs(markPnL(iwmCondor, 297.67, IWM_T, 0.04, 0.012, IWM_ATM) -
+             markPnL(dropped, 297.67, IWM_T, 0.04, 0.012, IWM_ATM)) > 0.05,
+    'dropping iv must visibly change the mark — otherwise this test proves nothing'
+  )
+})
+
+test('oppScanner builds every snapshot leg through toScannedLegs (no inlined copy)', () => {
+  // This exact bug shipped twice: makeOpp was fixed while the shadow push kept
+  // its own inlined mapping. A structural check is the only thing that catches
+  // a third copy appearing.
+  const src = readFileSync(new URL('../src/engine/oppScanner.ts', import.meta.url), 'utf8')
+  const inlined = src.match(/legs:\s*\w+\.legs\.map\(/g) ?? []
+  assert.deepEqual(inlined, [], `inlined leg mapping found: ${inlined.join(', ')}`)
 })
