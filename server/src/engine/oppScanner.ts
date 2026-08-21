@@ -100,42 +100,80 @@ export type ScannedOpp = {
   strongTrend?: boolean
 }
 
-/** A short strike's proximity to the nearest key level — informational, for
- *  strike placement / management. Not a filter. */
+/** A short strike's proximity to the key level that would DEFEND it —
+ *  informational, for strike placement / management. Not a filter. */
 export type ShortLevel = {
   strike: number
   type: 'call' | 'put'
-  /** Nearest key level to the short strike. */
-  level: number
-  /** Signed % from strike to level: +above / −below the strike. */
-  distPct: number
-  /** How many swing pivots formed the level (significance). */
-  touches: number
-  /** Short strike sits ON a well-tested level (contested/pin risk). */
+  /** Which side of the strike a defending level must sit on. Derived from the
+   *  leg, not from where the nearest level happens to be. */
+  side: 'support' | 'resistance'
+  /** Nearest DEFENDING level, or null when history has none on that side. */
+  level: number | null
+  /** Signed % from strike to the defending level (≤0 puts, ≥0 calls). */
+  distPct: number | null
+  /** How many swing pivots formed the defending level (significance). */
+  touches: number | null
+  /** Short strike sits ON a well-tested level, EITHER side (contested/pin risk). */
   tested: boolean
+  /** The level that tripped `tested` — may be on the non-defending side. */
+  contestedLevel?: number
 }
 
 const LEVEL_NEAR_PCT = 3 // within this % of a level counts as "at" it
 const LEVEL_TESTED_TOUCHES = 3 // a level this well-tested near a short strike → flag
 
-/** Nearest key level to each short leg; flags shorts pinned on a tested level. */
+/**
+ * The key level that would DEFEND each short leg, plus a pin-risk flag.
+ *
+ * "Defending" is decided by the leg, not by which level happens to be closest:
+ * a short PUT is defended by SUPPORT at/below its strike (price must break
+ * through it to reach the strike); a short CALL is defended by RESISTANCE
+ * at/above. A level on the other side of the strike is the wrong half of the
+ * chart — it cannot stop the move that hurts the position.
+ *
+ * The previous version took the nearest level in EITHER direction and let the
+ * display layer name it from the sign (above → "resistance", below →
+ * "support"). That is positionally true and decision-useless: an IWM short put
+ * at 276 was paired with a level at 278.71 ABOVE it, and a short call at 321
+ * with a level at 303.95 BELOW it — in both cases the level offered exactly
+ * zero protection, presented as if it did. Now: no defending level → `level`
+ * is null and the UI says so.
+ *
+ * `tested` asks a different question — is the strike PINNED on a battleground?
+ * — so it still scans both directions: a well-tested level just the wrong side
+ * of the strike still contests it.
+ */
 export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): ShortLevel[] {
   if (keyLevels.length === 0) return []
   const out: ShortLevel[] = []
   for (const l of legs) {
     if (l.action !== 'sell') continue
-    let best = keyLevels[0]
+    const side: 'support' | 'resistance' = l.type === 'put' ? 'support' : 'resistance'
+
+    let def: KeyLevel | null = null
     for (const kl of keyLevels) {
-      if (Math.abs(kl.price - l.strike) < Math.abs(best.price - l.strike)) best = kl
+      const defends = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
+      if (!defends) continue
+      if (!def || Math.abs(kl.price - l.strike) < Math.abs(def.price - l.strike)) def = kl
     }
-    const distPct = ((best.price - l.strike) / l.strike) * 100
+
+    let near = keyLevels[0]
+    for (const kl of keyLevels) {
+      if (Math.abs(kl.price - l.strike) < Math.abs(near.price - l.strike)) near = kl
+    }
+    const nearPct = ((near.price - l.strike) / l.strike) * 100
+    const tested = Math.abs(nearPct) <= LEVEL_NEAR_PCT && near.touches >= LEVEL_TESTED_TOUCHES
+
     out.push({
       strike: l.strike,
       type: l.type,
-      level: best.price,
-      distPct: Math.round(distPct * 10) / 10,
-      touches: best.touches,
-      tested: Math.abs(distPct) <= LEVEL_NEAR_PCT && best.touches >= LEVEL_TESTED_TOUCHES
+      side,
+      level: def ? def.price : null,
+      distPct: def ? Math.round(((def.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
+      touches: def ? def.touches : null,
+      tested,
+      ...(tested ? { contestedLevel: near.price } : {})
     })
   }
   return out
