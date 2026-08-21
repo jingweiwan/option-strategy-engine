@@ -325,6 +325,10 @@ export function legsFromSpec(
       strike: c.strike,
       premium: executionPremium(c, s.action),
       quantity: 1,
+      // Carry the strike's own IV so the managed-exit sim marks this leg on the
+      // same vol surface its premium came from (see markPnL). Without it a
+      // skewed structure starts the sim at a phantom P&L.
+      ...(c.iv != null ? { iv: c.iv } : {}),
       greeks: c.greeks
         ? {
             delta: c.greeks.delta,
