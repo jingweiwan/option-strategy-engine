@@ -17,9 +17,9 @@
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
 import type { ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
-import type { StrategyResult } from './types.js'
+import type { OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
-import { impliedVolFromChain } from './liveStrategies.js'
+import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
@@ -50,6 +50,31 @@ export type ScannedLeg = {
   strike: number
   premium: number
   quantity: number
+  /** This strike's own chain IV. Carried all the way to the snapshot so the
+   *  feedback backtester MARKS the position the same way the live sim did —
+   *  展示与学习共用同一套 managed exit is an architecture invariant, and it is
+   *  violated the moment the displayed card marks per-leg while the outcome
+   *  that trains calibration/tuner marks everything at one ATM sigma. */
+  iv?: number
+}
+
+/**
+ * StrategyResult legs → the serializable rows that reach the snapshot.
+ *
+ * The ONLY place this mapping is written. It used to be inlined per call site,
+ * and the shadow (tuner-arm) copy silently dropped `iv` — so the arms whose
+ * metrics came from a per-leg vol surface were then SETTLED at one ATM sigma,
+ * quietly poisoning the very evidence the tuner ranks arms on.
+ */
+export function toScannedLegs(legs: readonly OptionLeg[]): ScannedLeg[] {
+  return legs.map((l) => ({
+    type: l.type,
+    action: l.action,
+    strike: l.strike,
+    premium: l.premium,
+    quantity: l.quantity,
+    ...(l.iv != null ? { iv: l.iv } : {})
+  }))
 }
 
 export type ScannedOpp = {
@@ -61,7 +86,14 @@ export type ScannedOpp = {
   strategy: string
   score: number
   spot: number
+  /** ATM implied vol of the expiration. */
   iv: number
+  /** Premium-weighted IV of the legs this structure SELLS — the vol actually
+   *  collected. Differs from `iv` whenever skew is live (an IWM condor sells
+   *  the 276P at 23.9% while ATM is 18.2%). null for debit/long structures and
+   *  when any sold leg lacks a chain IV. Stamped on snapshots so realized
+   *  outcomes can adjudicate the skew-aware gate against the old ATM one. */
+  ivSold?: number | null
   ivr: number
   dte: number
   pop: number        // probabilityProfit (0-1 → will be converted to % in AI)
@@ -100,42 +132,80 @@ export type ScannedOpp = {
   strongTrend?: boolean
 }
 
-/** A short strike's proximity to the nearest key level — informational, for
- *  strike placement / management. Not a filter. */
+/** A short strike's proximity to the key level that would DEFEND it —
+ *  informational, for strike placement / management. Not a filter. */
 export type ShortLevel = {
   strike: number
   type: 'call' | 'put'
-  /** Nearest key level to the short strike. */
-  level: number
-  /** Signed % from strike to level: +above / −below the strike. */
-  distPct: number
-  /** How many swing pivots formed the level (significance). */
-  touches: number
-  /** Short strike sits ON a well-tested level (contested/pin risk). */
+  /** Which side of the strike a defending level must sit on. Derived from the
+   *  leg, not from where the nearest level happens to be. */
+  side: 'support' | 'resistance'
+  /** Nearest DEFENDING level, or null when history has none on that side. */
+  level: number | null
+  /** Signed % from strike to the defending level (≤0 puts, ≥0 calls). */
+  distPct: number | null
+  /** How many swing pivots formed the defending level (significance). */
+  touches: number | null
+  /** Short strike sits ON a well-tested level, EITHER side (contested/pin risk). */
   tested: boolean
+  /** The level that tripped `tested` — may be on the non-defending side. */
+  contestedLevel?: number
 }
 
 const LEVEL_NEAR_PCT = 3 // within this % of a level counts as "at" it
 const LEVEL_TESTED_TOUCHES = 3 // a level this well-tested near a short strike → flag
 
-/** Nearest key level to each short leg; flags shorts pinned on a tested level. */
+/**
+ * The key level that would DEFEND each short leg, plus a pin-risk flag.
+ *
+ * "Defending" is decided by the leg, not by which level happens to be closest:
+ * a short PUT is defended by SUPPORT at/below its strike (price must break
+ * through it to reach the strike); a short CALL is defended by RESISTANCE
+ * at/above. A level on the other side of the strike is the wrong half of the
+ * chart — it cannot stop the move that hurts the position.
+ *
+ * The previous version took the nearest level in EITHER direction and let the
+ * display layer name it from the sign (above → "resistance", below →
+ * "support"). That is positionally true and decision-useless: an IWM short put
+ * at 276 was paired with a level at 278.71 ABOVE it, and a short call at 321
+ * with a level at 303.95 BELOW it — in both cases the level offered exactly
+ * zero protection, presented as if it did. Now: no defending level → `level`
+ * is null and the UI says so.
+ *
+ * `tested` asks a different question — is the strike PINNED on a battleground?
+ * — so it still scans both directions: a well-tested level just the wrong side
+ * of the strike still contests it.
+ */
 export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): ShortLevel[] {
   if (keyLevels.length === 0) return []
   const out: ShortLevel[] = []
   for (const l of legs) {
     if (l.action !== 'sell') continue
-    let best = keyLevels[0]
+    const side: 'support' | 'resistance' = l.type === 'put' ? 'support' : 'resistance'
+
+    let def: KeyLevel | null = null
     for (const kl of keyLevels) {
-      if (Math.abs(kl.price - l.strike) < Math.abs(best.price - l.strike)) best = kl
+      const defends = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
+      if (!defends) continue
+      if (!def || Math.abs(kl.price - l.strike) < Math.abs(def.price - l.strike)) def = kl
     }
-    const distPct = ((best.price - l.strike) / l.strike) * 100
+
+    let near = keyLevels[0]
+    for (const kl of keyLevels) {
+      if (Math.abs(kl.price - l.strike) < Math.abs(near.price - l.strike)) near = kl
+    }
+    const nearPct = ((near.price - l.strike) / l.strike) * 100
+    const tested = Math.abs(nearPct) <= LEVEL_NEAR_PCT && near.touches >= LEVEL_TESTED_TOUCHES
+
     out.push({
       strike: l.strike,
       type: l.type,
-      level: best.price,
-      distPct: Math.round(distPct * 10) / 10,
-      touches: best.touches,
-      tested: Math.abs(distPct) <= LEVEL_NEAR_PCT && best.touches >= LEVEL_TESTED_TOUCHES
+      side,
+      level: def ? def.price : null,
+      distPct: def ? Math.round(((def.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
+      touches: def ? def.touches : null,
+      tested,
+      ...(tested ? { contestedLevel: near.price } : {})
     })
   }
   return out
@@ -278,6 +348,15 @@ export function sellVolDecision(
     // high-rank name with IV ≤ RV (thin/negative VRP) would slip through. Demote
     // when a real RV shows the premium isn't rich enough. Skip when RV is absent
     // (rv-fallback) — the downstream EV filter still guards those.
+    //
+    // `iv` here is the vol this structure actually SELLS (boardTierDecision
+    // passes soldLegIv, falling back to ATM). ATM understates a skewed short
+    // put: the 2026-08-20 IWM condor sold 276P at 23.9% and 321C at 15.2%,
+    // premium-weighted 21.8%, while ATM read 18.2% — the seller collects the
+    // former. KNOWN ASYMMETRY: put skew is largely a persistent RISK premium,
+    // so comparing a skew-lifted sold IV against a symmetric RV flatters the
+    // edge. That is why `ivSold` is stamped on every snapshot — realized
+    // outcomes, not this comment, settle whether the looser reading pays.
     if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
       return { tier: 'reference', reason: 'vol_not_rich' }
     }
@@ -353,7 +432,15 @@ export function boardTierDecision(
   strategy: StrategyType,
   ctx: {
     ivr: number
+    /** ATM implied vol. */
     iv: number | null
+    /**
+     * Premium-weighted IV of the legs THIS candidate sells (soldLegIv). The
+     * sell-vol richness gate uses it in place of ATM — that is the vol the
+     * seller collects. Buy-vol keeps ATM: a straddle IS an ATM position.
+     * Null/absent → falls back to `iv`, i.e. the pre-skew behaviour.
+     */
+    ivSold?: number | null
     rv: number | null
     spansEarnings: boolean
     recentlyReported?: boolean
@@ -364,7 +451,7 @@ export function boardTierDecision(
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
   return sellVolDecision(
     strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
-    ctx.iv, ctx.rv, ctx.creditWidth ?? null
+    ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
   )
 }
 
@@ -1023,10 +1110,12 @@ async function scanSymbol(
       function makeOpp(sr: { r: StrategyResult; score: number }): ScannedOpp {
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
-        const legs = r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity }))
+        const legs = toScannedLegs(r.legs)
+        const ivSold = soldLegIv(r.legs)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
           iv: result.state.iv,
+          ivSold,
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
           recentlyReported,
@@ -1043,6 +1132,7 @@ async function scanSymbol(
           score: sr.score,
           spot: quote.last,
           iv: result.state.iv,
+          ivSold,
           ivr: result.state.ivRank,
           dte: result.state.dte,
           pop: r.metrics.probabilityProfit,
@@ -1150,6 +1240,7 @@ async function scanSymbol(
                 score: scoreStrategy(r, quote.last), // raw; may be ≤0 — that's the point
                 spot: quote.last,
                 iv: res.state.iv,
+                ivSold: soldLegIv(r.legs),
                 ivr: res.state.ivRank,
                 dte: res.state.dte,
                 pop: r.metrics.probabilityProfit,
@@ -1165,7 +1256,7 @@ async function scanSymbol(
                 regime: res.state.regime,
                 rvAtScan: ivRankInfo?.currentRv ?? null,
                 breakevens: [...r.metrics.breakevens],
-                legs: r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity })),
+                legs: toScannedLegs(r.legs),
                 variant: pinnedVariant[st],
                 exitPolicy: exitPolicyBy[st] ?? null
               })
@@ -1203,7 +1294,10 @@ export async function getScannedOpps(
   //      is now hard-nulled via spansEarnings; recency owns the post-print days.
   // v14: IV/RV richness gate — IVR ok but IV/RV < SELL_IVRV_FLOOR → reference
   //      (vol_not_rich). High rank no longer boards thin/negative-VRP names.
-  const key = `opp-scan-v14-${etCalendarDay()}-${wlSlug}`
+  // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
+  // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
+  // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
+  const key = `opp-scan-v15-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

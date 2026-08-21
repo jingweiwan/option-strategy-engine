@@ -30,6 +30,10 @@ export type OptionLeg = {
   premium: number
   quantity: number
   greeks: Greeks
+  /** This strike's own implied vol from the chain. Used to MARK the leg during
+   *  the managed-exit sim, so entry premiums (real, skewed) and marks come from
+   *  the same vol surface. Absent → the caller's ATM sigma marks it. */
+  iv?: number
 }
 
 export type Greeks = {

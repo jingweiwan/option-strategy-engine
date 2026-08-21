@@ -55,3 +55,61 @@ test('shortLegLevels: far-from-level short is not flagged; no levels → empty',
   assert.equal(far[0].tested, false) // 100 is 10% from either level
   assert.deepEqual(shortLegLevels([{ type: 'put', action: 'sell', strike: 95, premium: 1, quantity: 1 }], []), [])
 })
+
+/**
+ * Regression — the IWM 2026-10-02 condor that surfaced this. The nearest level
+ * to the short put 276 was 278.71 (ABOVE it) and to the short call 321 was
+ * 303.95 (BELOW it). Nearest-in-either-direction paired each short with a level
+ * that cannot defend it, and the sign-based label dressed that up as
+ * "resistance" / "support".
+ */
+test('shortLegLevels: picks the DEFENDING side, not the nearest level', () => {
+  const keyLevels = [
+    { price: 262.0, touches: 4 },  // real support under the short put
+    { price: 278.71, touches: 2 }, // above the put — cannot defend it
+    { price: 303.95, touches: 2 }, // below the call — cannot defend it
+    { price: 330.0, touches: 3 }   // real resistance over the short call
+  ]
+  const legs = [
+    { type: 'put' as const, action: 'sell' as const, strike: 276, premium: 1.99, quantity: 1 },
+    { type: 'call' as const, action: 'sell' as const, strike: 321, premium: 0.62, quantity: 1 }
+  ]
+  const sl = shortLegLevels(legs, keyLevels)
+
+  const put = sl.find((x) => x.type === 'put')!
+  assert.equal(put.side, 'support')
+  assert.equal(put.level, 262.0, 'short put must take the level BELOW it, not 278.71')
+  assert.ok(put.distPct !== null && put.distPct < 0)
+
+  const call = sl.find((x) => x.type === 'call')!
+  assert.equal(call.side, 'resistance')
+  assert.equal(call.level, 330.0, 'short call must take the level ABOVE it, not 303.95')
+  assert.ok(call.distPct !== null && call.distPct > 0)
+})
+
+test('shortLegLevels: no level on the defending side → null, never the wrong side', () => {
+  // Only levels ABOVE the short put exist. Reporting 278.71 as "support" would
+  // be a lie; the honest answer is "there is none".
+  const keyLevels = [{ price: 278.71, touches: 4 }, { price: 290, touches: 3 }]
+  const [put] = shortLegLevels(
+    [{ type: 'put', action: 'sell', strike: 276, premium: 1.99, quantity: 1 }],
+    keyLevels
+  )
+  assert.equal(put.side, 'support')
+  assert.equal(put.level, null)
+  assert.equal(put.distPct, null)
+  assert.equal(put.touches, null)
+})
+
+test('shortLegLevels: `tested` still scans BOTH sides (pin risk ignores defence)', () => {
+  // 278.71 cannot defend the 276 put, but sitting 1% under a 4-touch level is
+  // exactly the contested placement the flag exists to warn about.
+  const keyLevels = [{ price: 200, touches: 5 }, { price: 278.71, touches: 4 }]
+  const [put] = shortLegLevels(
+    [{ type: 'put', action: 'sell', strike: 276, premium: 1.99, quantity: 1 }],
+    keyLevels
+  )
+  assert.equal(put.tested, true, 'nearest level is 1% away with 4 touches')
+  assert.equal(put.contestedLevel, 278.71)
+  assert.equal(put.level, 200, 'defending level is still the one below')
+})

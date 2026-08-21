@@ -259,12 +259,17 @@ export type Opp = {
 export type ShortLevel = {
   strike: number
   type: 'call' | 'put'
-  level: number
-  /** 短腿到关键位的带符号 %:+在上方 / −在下方 */
-  distPct: number
-  touches: number
-  /** 短腿正压在一个被反复测试的关键位上(争夺/被钉风险) */
+  /** 防守方向由腿决定:短 put 靠下方支撑,短 call 靠上方阻力 */
+  side: 'support' | 'resistance'
+  /** 最近的「防守位」;该侧没有关键位时为 null */
+  level: number | null
+  /** 短腿到防守位的带符号 %(put ≤0 / call ≥0) */
+  distPct: number | null
+  touches: number | null
+  /** 短腿正压在一个被反复测试的关键位上(争夺/被钉风险,不分方向) */
   tested: boolean
+  /** 触发 tested 的那个位 — 可能在非防守侧 */
+  contestedLevel?: number
 }
 
 export type Ticker = {

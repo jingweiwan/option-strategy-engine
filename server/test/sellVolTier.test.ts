@@ -13,7 +13,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { soldLegIv } from '../src/engine/liveStrategies.js'
 import { sellVolTier, sellVolDecision, boardTierDecision, boardTierFor, IVR_QUALIFY_FLOOR, IVR_REFERENCE_FLOOR, SELL_IVRV_FLOOR, CREDIT_WIDTH_FLOOR } from '../src/engine/oppScanner.js'
+
+const G = { delta: 0, gamma: 0, theta: 0, vega: 0 }
 
 test('iron_condor: IVR at/above floor, rich IV/RV, no earnings → qualified', () => {
   assert.equal(sellVolTier('iron_condor', IVR_QUALIFY_FLOOR, false, false, 0.4, 0.3), 'qualified')
@@ -150,4 +153,69 @@ test('boardTierDecision wiring: creditWidth reaches the gate through ctx', () =>
     boardTierFor('bull_put_spread', { ivr: 55, iv: 0.4, rv: 0.3, spansEarnings: false }),
     'qualified'
   )
+})
+
+/**
+ * Skew-aware richness: the gate reads the vol the structure SELLS, not ATM.
+ * Numbers are the real 2026-08-20 IWM condor (276P/321C short, 274P/323C long)
+ * with the chain's own per-strike IVs and marks.
+ */
+const IWM_LEGS = [
+  { type: 'put' as const, action: 'buy' as const, strike: 274, premium: 1.435, quantity: 1, iv: 0.2535, greeks: G },
+  { type: 'put' as const, action: 'sell' as const, strike: 276, premium: 2.015, quantity: 1, iv: 0.2389, greeks: G },
+  { type: 'call' as const, action: 'sell' as const, strike: 321, premium: 0.635, quantity: 1, iv: 0.1525, greeks: G },
+  { type: 'call' as const, action: 'buy' as const, strike: 323, premium: 0.29, quantity: 1, iv: 0.1531, greeks: G }
+]
+
+test('soldLegIv: premium-weights the SOLD legs only (IWM condor → 21.8%)', () => {
+  const s = soldLegIv(IWM_LEGS)
+  assert.ok(s != null)
+  // (0.2389·2.015 + 0.1525·0.635) / (2.015 + 0.635)
+  assert.ok(Math.abs(s - 0.2182) < 0.0005, `got ${s}`)
+  // The bought wings must not drag it — a plain 4-leg average would be ~0.199.
+  assert.ok(s > 0.21)
+})
+
+test('soldLegIv: null when any sold leg has no usable chain IV', () => {
+  assert.equal(soldLegIv(IWM_LEGS.map((l) => ({ ...l, iv: undefined }))), null)
+  assert.equal(
+    soldLegIv(IWM_LEGS.map((l) => (l.action === 'sell' && l.strike === 321 ? { ...l, iv: 0 } : l))),
+    null
+  )
+  // A LONG leg missing its IV is irrelevant — only the sold side is measured.
+  assert.ok(
+    soldLegIv(IWM_LEGS.map((l) => (l.action === 'buy' ? { ...l, iv: undefined } : l))) != null
+  )
+})
+
+test('richness gate: IWM condor fails on ATM 18.2% but passes on sold-leg 21.8%', () => {
+  const base = { ivr: 45, rv: 0.16, spansEarnings: false }
+  // ATM: 0.182 / 0.16 = 1.14 < 1.2 → demoted as thin premium.
+  const atm = boardTierDecision('iron_condor', { ...base, iv: 0.182 })
+  assert.equal(atm.tier, 'reference')
+  assert.equal(atm.reason, 'vol_not_rich')
+  // Sold-leg: 0.2182 / 0.16 = 1.36 ≥ 1.2 → the vol it actually collects is rich.
+  const skewed = boardTierDecision('iron_condor', {
+    ...base, iv: 0.182, ivSold: soldLegIv(IWM_LEGS)
+  })
+  assert.equal(skewed.tier, 'qualified')
+})
+
+test('richness gate: ivSold null/absent falls back to ATM (pre-skew behaviour)', () => {
+  const ctx = { ivr: 45, iv: 0.182, rv: 0.16, spansEarnings: false }
+  assert.equal(boardTierDecision('iron_condor', { ...ctx, ivSold: null }).reason, 'vol_not_rich')
+  assert.equal(boardTierDecision('iron_condor', ctx).reason, 'vol_not_rich')
+})
+
+test('buy-vol keeps ATM: ivSold never reaches the straddle path', () => {
+  // A straddle IS an ATM position; it sells nothing, so ivSold is meaningless
+  // here. Passing a rich one must not flip a not-cheap reading into 'buy'.
+  const withSold = boardTierFor('long_straddle', {
+    ivr: 40, iv: 0.182, rv: 0.16, spansEarnings: false, ivSold: 0.2182
+  })
+  const withoutSold = boardTierFor('long_straddle', {
+    ivr: 40, iv: 0.182, rv: 0.16, spansEarnings: false
+  })
+  assert.equal(withSold, withoutSold)
+  assert.equal(withSold, null) // IV > RV → not cheap → never auto-boards
 })

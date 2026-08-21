@@ -17,6 +17,7 @@ function toSnapshot(o: ScannedOpp, etDay: string, source: RecommendationSnapshot
     expiration: o.expiration,
     spot: o.spot,
     iv: o.iv,
+    ivSold: o.ivSold ?? null,
     ivr: o.ivr,
     rvAtScan: o.rvAtScan ?? null,
     ivRvGap:

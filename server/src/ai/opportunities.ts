@@ -282,8 +282,9 @@ export async function buildOppsFromScan(
   // below). Bump alongside opp-scan whenever boardTier semantics change, else a
   // pre-fix opps-copy hit re-serves a stale tier. v8: buyVolTier; v9: recency;
   // v10: (superseded) Plan A print-day → reference — reversed to spans hard-null;
-  // v11: IV/RV richness gate (vol_not_rich).
-  const key = `opps-copy-v11-${etCalendarDay()}-${symKey}`
+  // v11: IV/RV richness gate (vol_not_rich); v12: that gate's numerator became
+  // the SOLD legs' IV, key levels gained `side`, POP/EV mark per-leg.
+  const key = `opps-copy-v12-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

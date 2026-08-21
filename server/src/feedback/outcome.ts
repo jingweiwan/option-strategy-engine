@@ -137,6 +137,11 @@ export async function computeOutcomeForSnapshot(
       tauAt: (i) => Math.max(0, daysBetween(win[i].date, s.expiration) / 365),
       r: 0.045,
       q: 0,
+      // ATM FALLBACK, not the mark vol: legs carrying their own scan-time `iv`
+      // (storedLegsToOptionLegs brings it back) are marked at that IV inside
+      // markPnL. This keeps the learning loop on the same vol surface as the
+      // displayed card — otherwise calibration/tuner would train on take-profit
+      // and stop touches that the card's own sim never produced.
       sigma: s.iv
     }, s.exitPolicy ?? 'managed')
     if (me.reason !== 'end_of_window') {

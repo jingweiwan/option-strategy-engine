@@ -19,10 +19,18 @@
  *   Credit (netPremium > 0): take profit at 50% of credit, stop at 2× credit
  *   Debit  (netPremium < 0): take profit at 1:1 (debit paid), stop at 50% debit
  *
- * LIMITATION: a single ATM `sigma` marks every leg — it ignores per-strike skew
- * (small entry residual). It is NOT constant through the window: `sigmaAt` lets
- * the caller drop the mark vol after an earnings step (IV crush). Per-leg IV
- * (full vega P&L across strikes) is still a follow-up.
+ * MARK VOL: each leg is marked at ITS OWN implied vol when the chain supplied
+ * one (`leg.iv`), falling back to the context's ATM `sigma`. This matters most
+ * for multi-leg index structures, where put skew is large: an IWM condor priced
+ * from the real chain (276P @ 23.9%, 321C @ 15.2%) but MARKED at one ATM vol
+ * (18.2%) starts the simulation already at −0.105 P&L — 23% of its own
+ * take-profit target — purely from the vol mismatch between entry premiums and
+ * the marking model. Per-leg marking removes that residual (−0.105 → −0.012).
+ *
+ * The vol is NOT constant through the window: `sigmaAt` lets the caller drop
+ * mark vol after an earnings step (IV crush). The crush is applied to per-leg
+ * vols as a RATIO (sigmaAt(i)/sigma), so a 30% ATM crush crushes every strike
+ * by 30% and the skew shape survives the event.
  */
 import { blackScholes } from './pricing.js'
 import type { OptionLeg, StrategyType } from './types.js'
@@ -107,23 +115,38 @@ export function managedThresholds(
     : { takeProfit: Math.abs(netPremium), stop: Math.abs(netPremium) * 0.5 }
 }
 
-/** Mark-to-market P&L of the position at underlying S with `tau` years left. */
+/** A leg's own implied vol is usable only when the chain gave a sane one. */
+function legIvSane(iv: number | undefined): iv is number {
+  return typeof iv === 'number' && Number.isFinite(iv) && iv > 0.01 && iv < 5
+}
+
+/**
+ * Mark-to-market P&L of the position at underlying S with `tau` years left.
+ *
+ * `sigma` is the ATM mark vol. Each leg uses its OWN `leg.iv` when present,
+ * scaled by `volRatio` — the caller passes sigmaAt(i)/sigma so an earnings
+ * crush applies proportionally across strikes instead of flattening the skew.
+ * Legs without an iv fall back to `sigma * volRatio`.
+ */
 export function markPnL(
   legs: OptionLeg[],
   S: number,
   tau: number,
   r: number,
   q: number,
-  sigma: number
+  sigma: number,
+  volRatio = 1
 ): number {
   let pnl = 0
   for (const leg of legs) {
+    const base = legIvSane(leg.iv) ? leg.iv : sigma
+    const vol = base * volRatio
     const value =
-      tau <= 0 || sigma <= 0
+      tau <= 0 || vol <= 0
         ? leg.type === 'call'
           ? Math.max(0, S - leg.strike)
           : Math.max(0, leg.strike - S)
-        : blackScholes({ type: leg.type, S, K: leg.strike, T: tau, r, q, sigma })
+        : blackScholes({ type: leg.type, S, K: leg.strike, T: tau, r, q, sigma: vol })
     const sign = leg.action === 'buy' ? 1 : -1
     const cost = leg.action === 'buy' ? leg.premium : -leg.premium
     pnl += (sign * value - cost) * leg.quantity
@@ -144,10 +167,15 @@ export function runManagedExit(
 ): ManagedExit {
   const { takeProfit, stop } = managedThresholds(netPremium, policy)
   const end = ctx.maxSteps != null ? Math.min(ctx.maxSteps, pricePath.length) : pricePath.length
-  const sigmaOf = (i: number) => (ctx.sigmaAt ? ctx.sigmaAt(i) : ctx.sigma)
+  // sigmaAt drops the ATM mark vol after an earnings step. Convert it to a
+  // RATIO so the same crush scales each leg's own IV and the skew shape
+  // survives the event (a flat override would erase it exactly when the
+  // structure's wings matter most).
+  const ratioOf = (i: number) =>
+    ctx.sigmaAt && ctx.sigma > 0 ? ctx.sigmaAt(i) / ctx.sigma : 1
 
   for (let i = 0; i < end; i++) {
-    const v = markPnL(legs, pricePath[i], ctx.tauAt(i), ctx.r, ctx.q, sigmaOf(i))
+    const v = markPnL(legs, pricePath[i], ctx.tauAt(i), ctx.r, ctx.q, ctx.sigma, ratioOf(i))
     // Take-profit is a limit order → fills at the target (a favorable gap is not
     // claimed). A stop is a market order that slips PAST −stop in a gap. But the
     // fill is NOT the full observed mark: on close-only paths a daily GBM step
@@ -163,7 +191,10 @@ export function runManagedExit(
   }
   const last = end - 1
   return {
-    pnl: last >= 0 ? markPnL(legs, pricePath[last], ctx.tauAt(last), ctx.r, ctx.q, sigmaOf(last)) : 0,
+    pnl:
+      last >= 0
+        ? markPnL(legs, pricePath[last], ctx.tauAt(last), ctx.r, ctx.q, ctx.sigma, ratioOf(last))
+        : 0,
     exitIndex: last,
     reason: 'end_of_window'
   }

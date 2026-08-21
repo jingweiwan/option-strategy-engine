@@ -7,6 +7,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runManagedExit, managedThresholds, markPnL } from '../src/engine/managedExit.js'
 import { totalPnL } from '../src/engine/payoff.js'
+import { readFileSync } from 'node:fs'
+import { storedLegsToOptionLegs } from '../src/feedback/legAdapter.js'
+import { toScannedLegs } from '../src/engine/oppScanner.js'
+import type { StoredLeg } from '../src/feedback/types.js'
 import type { OptionLeg } from '../src/engine/types.js'
 
 const g = (delta: number) => ({ delta, gamma: 0, theta: 0, vega: 0 })
@@ -51,4 +55,146 @@ test('managedExit: maxSteps caps the window', () => {
   const r = runManagedExit(shortPut, [97, 94], 2, { ...intrinsic, maxSteps: 1 })
   assert.equal(r.reason, 'end_of_window')
   assert.equal(r.exitIndex, 0)
+})
+
+/**
+ * Per-leg IV marking (skew). Premiums come from the real chain, which is
+ * skewed; marking every leg at one ATM vol makes the position show a P&L before
+ * anything has happened. Reproduces the IWM 2026-10-02 condor that surfaced it:
+ * puts at ~24-25% IV, calls at ~15%, ATM 18.2%.
+ */
+const iwmCondor: OptionLeg[] = [
+  { type: 'put', action: 'sell', strike: 276, premium: 2.015, quantity: 1, greeks: g(-0.154), iv: 0.2389 },
+  { type: 'put', action: 'buy', strike: 270, premium: 1.435, quantity: 1, greeks: g(-0.111), iv: 0.2535 },
+  { type: 'call', action: 'sell', strike: 321, premium: 0.635, quantity: 1, greeks: g(0.091), iv: 0.1525 },
+  { type: 'call', action: 'buy', strike: 327, premium: 0.290, quantity: 1, greeks: g(0.046), iv: 0.1531 }
+]
+const IWM_S = 297.67
+const IWM_T = 43 / 365
+const IWM_ATM = 0.182
+
+test('markPnL: per-leg IV kills the phantom entry P&L a flat ATM vol invents', () => {
+  const stripped = iwmCondor.map(({ iv, ...l }) => l as OptionLeg)
+  const flat = markPnL(stripped, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM)
+  const perLeg = markPnL(iwmCondor, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM)
+
+  // Flat ATM marking invents ~-0.105 at t=0 — 23% of this condor's own 0.463
+  // take-profit target, before a single day passes.
+  assert.ok(flat < -0.08, `flat-vol entry mark ${flat.toFixed(4)} should be materially negative`)
+  // Per-leg marking prices each leg on the surface its premium came from; what
+  // is left is only the execution-premium/mid residual, an order smaller.
+  assert.ok(Math.abs(perLeg) < 0.02, `per-leg entry mark ${perLeg.toFixed(4)} should be ~0`)
+  assert.ok(Math.abs(perLeg) < Math.abs(flat) / 5, 'per-leg must shrink the residual by >5x')
+})
+
+test('markPnL: legs without iv still fall back to the ATM sigma (no behaviour change)', () => {
+  const noIv = iwmCondor.map(({ iv, ...l }) => l as OptionLeg)
+  assert.equal(
+    markPnL(noIv, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM),
+    markPnL(noIv, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM, 1)
+  )
+})
+
+test('markPnL: an insane leg iv is ignored in favour of the ATM sigma', () => {
+  const bad = iwmCondor.map((l) => ({ ...l, iv: 0 }))
+  const stripped = iwmCondor.map(({ iv, ...l }) => l as OptionLeg)
+  assert.equal(
+    markPnL(bad, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM),
+    markPnL(stripped, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM)
+  )
+})
+
+test('markPnL: volRatio crushes every strike proportionally, keeping skew shape', () => {
+  // A 30% ATM crush must scale each leg's own vol by 0.7, not flatten them all
+  // to one number — otherwise the wings lose their skew exactly at the event.
+  const crushed = markPnL(iwmCondor, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM, 0.7)
+  const explicit = markPnL(
+    iwmCondor.map((l) => ({ ...l, iv: l.iv! * 0.7 })),
+    IWM_S,
+    IWM_T,
+    0.04,
+    0.012,
+    IWM_ATM
+  )
+  assert.ok(Math.abs(crushed - explicit) < 1e-9, 'volRatio must equal scaling each leg iv')
+  // And a crush is good for a short-vol structure.
+  assert.ok(crushed > markPnL(iwmCondor, IWM_S, IWM_T, 0.04, 0.012, IWM_ATM))
+})
+
+/**
+ * FEEDBACK-LOOP CLOSURE: a snapshot's stored legs must settle on the same vol
+ * surface the card was displayed with. Before this, `makeOpp` dropped `iv` when
+ * building ScannedLeg, so every outcome was marked at one ATM sigma while the
+ * card's POP/EV came from per-leg marking — the learning loop trained on exits
+ * the displayed sim never produced.
+ */
+test('storedLegsToOptionLegs: round-trips per-leg iv, omits it when absent', () => {
+  const stored = [
+    { type: 'put' as const, action: 'sell' as const, strike: 276, premium: 2.015, quantity: 1, iv: 0.2389 },
+    { type: 'call' as const, action: 'sell' as const, strike: 321, premium: 0.635, quantity: 1 }
+  ]
+  const legs = storedLegsToOptionLegs(stored)
+  assert.equal(legs[0].iv, 0.2389)
+  // Absent stays absent — markPnL must fall back to the context sigma for
+  // pre-skew snapshots, i.e. behave exactly as before.
+  assert.equal('iv' in legs[1], false)
+})
+
+test('feedback loop: stored per-leg iv reproduces the displayed mark, ATM does not', () => {
+  // Real 2026-08-20 IWM condor. Marked at t=0 the P&L must be ~0 (you just paid
+  // what it is worth). Stripping the stored IVs re-introduces the phantom loss.
+  const stored = iwmCondor.map((l) => ({
+    type: l.type, action: l.action, strike: l.strike,
+    premium: l.premium, quantity: l.quantity, iv: l.iv
+  }))
+  const perLeg = markPnL(storedLegsToOptionLegs(stored), IWM_S, IWM_T, 0.04, 0.012, IWM_ATM)
+  const atmOnly = markPnL(
+    storedLegsToOptionLegs(stored.map(({ iv, ...rest }) => rest)),
+    IWM_S, IWM_T, 0.04, 0.012, IWM_ATM
+  )
+  assert.ok(Math.abs(perLeg) < 0.05, `per-leg entry mark ${perLeg} should be ~0`)
+  assert.ok(Math.abs(atmOnly) > 5 * Math.abs(perLeg), `ATM-only ${atmOnly} vs per-leg ${perLeg}`)
+  // And the gap is material against the structure's own take-profit target.
+  const tp = managedThresholds(0.8575).takeProfit
+  assert.ok(Math.abs(atmOnly) > tp * 0.15, `phantom ${atmOnly} vs TP target ${tp}`)
+})
+
+/**
+ * Same invariant, the SHADOW half of it. The tuner ranks arms on realized
+ * outcomes, so an arm whose metrics came from a per-leg vol surface must also
+ * be SETTLED on that surface. The shadow row used to be built by its own
+ * inlined leg mapping that dropped `iv` — main cards learned correctly while
+ * the tuner's evidence stayed ATM-marked. One shared `toScannedLegs` now feeds
+ * both, and this walks the whole path: engine legs → ScannedLeg → StoredLeg →
+ * back to OptionLeg → markPnL.
+ */
+test('scan → snapshot → outcome: the stored leg marks identically to the scan side', () => {
+  const stored: StoredLeg[] = toScannedLegs(iwmCondor) // ScannedLeg is StoredLeg + optional iv
+  const roundTripped = storedLegsToOptionLegs(stored)
+
+  for (const S of [270, 297.67, 325]) {
+    const scanSide = markPnL(iwmCondor, S, IWM_T, 0.04, 0.012, IWM_ATM)
+    const learnSide = markPnL(roundTripped, S, IWM_T, 0.04, 0.012, IWM_ATM)
+    assert.ok(
+      Math.abs(scanSide - learnSide) < 1e-9,
+      `S=${S}: scan ${scanSide} vs learning ${learnSide}`
+    )
+  }
+
+  // And the thing that would silently break it: a dropped iv is NOT equivalent.
+  const dropped = storedLegsToOptionLegs(stored.map(({ iv, ...l }) => l))
+  assert.ok(
+    Math.abs(markPnL(iwmCondor, 297.67, IWM_T, 0.04, 0.012, IWM_ATM) -
+             markPnL(dropped, 297.67, IWM_T, 0.04, 0.012, IWM_ATM)) > 0.05,
+    'dropping iv must visibly change the mark — otherwise this test proves nothing'
+  )
+})
+
+test('oppScanner builds every snapshot leg through toScannedLegs (no inlined copy)', () => {
+  // This exact bug shipped twice: makeOpp was fixed while the shadow push kept
+  // its own inlined mapping. A structural check is the only thing that catches
+  // a third copy appearing.
+  const src = readFileSync(new URL('../src/engine/oppScanner.ts', import.meta.url), 'utf8')
+  const inlined = src.match(/legs:\s*\w+\.legs\.map\(/g) ?? []
+  assert.deepEqual(inlined, [], `inlined leg mapping found: ${inlined.join(', ')}`)
 })

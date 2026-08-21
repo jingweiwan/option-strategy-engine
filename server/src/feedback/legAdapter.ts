@@ -10,5 +10,8 @@ export const storedLegsToOptionLegs = (legs: StoredLeg[]): OptionLeg[] =>
     strike: l.strike,
     premium: l.premium,
     quantity: l.quantity,
-    greeks: zeroGreeks
+    greeks: zeroGreeks,
+    // Carried, not defaulted: markPnL falls back to the context sigma when a
+    // leg has no IV, which is what pre-skew snapshots must keep doing.
+    ...(l.iv != null ? { iv: l.iv } : {})
   }))

@@ -615,12 +615,17 @@ watch(data, (v) => {
                 <div class="opp-keylevels-label mono">关键位</div>
                 <div v-for="(sl, si) in o.shortLevels" :key="si" class="keylevel-row mono" :class="{ tested: sl.tested }">
                   <span>短 {{ sl.type === 'call' ? 'Call' : 'Put' }} <b class="tnum">${{ sl.strike }}</b></span>
-                  <span class="dim">→ {{ sl.distPct > 0 ? '上方阻力' : '下方支撑' }} <b class="tnum">${{ sl.level }}</b></span>
-                  <span class="tnum" :class="Math.abs(sl.distPct) <= 3 ? 'loss-text' : 'dim'">
-                    {{ sl.distPct > 0 ? '+' : '' }}{{ sl.distPct }}%
+                  <template v-if="sl.level !== null">
+                    <span class="dim">→ {{ sl.side === 'resistance' ? '上方阻力' : '下方支撑' }} <b class="tnum">${{ sl.level }}</b></span>
+                    <span class="tnum" :class="Math.abs(sl.distPct!) <= 3 ? 'loss-text' : 'dim'">
+                      {{ sl.distPct! > 0 ? '+' : '' }}{{ sl.distPct }}%
+                    </span>
+                    <span class="dim">· {{ sl.touches }}次</span>
+                  </template>
+                  <span v-else class="dim">→ {{ sl.side === 'resistance' ? '上方无阻力位' : '下方无支撑位' }}</span>
+                  <span v-if="sl.tested" class="keylevel-warn">
+                    ⚠ 短腿压在被测试位上<template v-if="sl.contestedLevel"> ${{ sl.contestedLevel }}</template>
                   </span>
-                  <span class="dim">· {{ sl.touches }}次</span>
-                  <span v-if="sl.tested" class="keylevel-warn">⚠ 短腿压在被测试位上</span>
                 </div>
               </div>
             </div>

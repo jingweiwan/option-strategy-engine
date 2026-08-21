@@ -9,6 +9,12 @@ export type StoredLeg = {
   strike: number
   premium: number
   quantity: number
+  /** The strike's own IV at scan time. The outcome pass feeds it back into the
+   *  SAME markPnL the live sim used, so a card displayed with per-leg marking
+   *  is also SETTLED with per-leg marking. Absent on pre-2026-08 snapshots and
+   *  on shadow arms built from specs — those fall back to the ATM `iv`, i.e.
+   *  exactly the old behaviour. */
+  iv?: number
 }
 
 export type RecommendationSnapshot = {
@@ -31,6 +37,11 @@ export type RecommendationSnapshot = {
   expiration: string
   spot: number
   iv: number
+  /** Premium-weighted IV of the SOLD legs at scan time (null for debit/long
+   *  structures, or when the chain gave no per-strike IV). Recorded so realized
+   *  outcomes can adjudicate the skew-aware richness gate against the ATM one
+   *  it replaced — the two disagree exactly where skew is steep. */
+  ivSold?: number | null
   ivr: number
   /** 30d RV at scan time (same source as IVR), null if unavailable. */
   rvAtScan: number | null
