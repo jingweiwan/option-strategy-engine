@@ -19,7 +19,7 @@ import type { ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
 import type { StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
-import { impliedVolFromChain } from './liveStrategies.js'
+import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
@@ -61,7 +61,14 @@ export type ScannedOpp = {
   strategy: string
   score: number
   spot: number
+  /** ATM implied vol of the expiration. */
   iv: number
+  /** Premium-weighted IV of the legs this structure SELLS — the vol actually
+   *  collected. Differs from `iv` whenever skew is live (an IWM condor sells
+   *  the 276P at 23.9% while ATM is 18.2%). null for debit/long structures and
+   *  when any sold leg lacks a chain IV. Stamped on snapshots so realized
+   *  outcomes can adjudicate the skew-aware gate against the old ATM one. */
+  ivSold?: number | null
   ivr: number
   dte: number
   pop: number        // probabilityProfit (0-1 → will be converted to % in AI)
@@ -316,6 +323,15 @@ export function sellVolDecision(
     // high-rank name with IV ≤ RV (thin/negative VRP) would slip through. Demote
     // when a real RV shows the premium isn't rich enough. Skip when RV is absent
     // (rv-fallback) — the downstream EV filter still guards those.
+    //
+    // `iv` here is the vol this structure actually SELLS (boardTierDecision
+    // passes soldLegIv, falling back to ATM). ATM understates a skewed short
+    // put: the 2026-08-20 IWM condor sold 276P at 23.9% and 321C at 15.2%,
+    // premium-weighted 21.8%, while ATM read 18.2% — the seller collects the
+    // former. KNOWN ASYMMETRY: put skew is largely a persistent RISK premium,
+    // so comparing a skew-lifted sold IV against a symmetric RV flatters the
+    // edge. That is why `ivSold` is stamped on every snapshot — realized
+    // outcomes, not this comment, settle whether the looser reading pays.
     if (iv != null && rv != null && rv > 0 && iv / rv < SELL_IVRV_FLOOR) {
       return { tier: 'reference', reason: 'vol_not_rich' }
     }
@@ -391,7 +407,15 @@ export function boardTierDecision(
   strategy: StrategyType,
   ctx: {
     ivr: number
+    /** ATM implied vol. */
     iv: number | null
+    /**
+     * Premium-weighted IV of the legs THIS candidate sells (soldLegIv). The
+     * sell-vol richness gate uses it in place of ATM — that is the vol the
+     * seller collects. Buy-vol keeps ATM: a straddle IS an ATM position.
+     * Null/absent → falls back to `iv`, i.e. the pre-skew behaviour.
+     */
+    ivSold?: number | null
     rv: number | null
     spansEarnings: boolean
     recentlyReported?: boolean
@@ -402,7 +426,7 @@ export function boardTierDecision(
   if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
   return sellVolDecision(
     strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
-    ctx.iv, ctx.rv, ctx.creditWidth ?? null
+    ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
   )
 }
 
@@ -1062,9 +1086,11 @@ async function scanSymbol(
         const r = sr.r
         const spansEarnings = spansEarningsDate(earningsDate, exp)
         const legs = r.legs.map((l) => ({ type: l.type, action: l.action, strike: l.strike, premium: l.premium, quantity: l.quantity }))
+        const ivSold = soldLegIv(r.legs)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
           iv: result.state.iv,
+          ivSold,
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
           recentlyReported,
@@ -1081,6 +1107,7 @@ async function scanSymbol(
           score: sr.score,
           spot: quote.last,
           iv: result.state.iv,
+          ivSold,
           ivr: result.state.ivRank,
           dte: result.state.dte,
           pop: r.metrics.probabilityProfit,

@@ -31,6 +31,11 @@ export type RecommendationSnapshot = {
   expiration: string
   spot: number
   iv: number
+  /** Premium-weighted IV of the SOLD legs at scan time (null for debit/long
+   *  structures, or when the chain gave no per-strike IV). Recorded so realized
+   *  outcomes can adjudicate the skew-aware richness gate against the ATM one
+   *  it replaced — the two disagree exactly where skew is steep. */
+  ivSold?: number | null
   ivr: number
   /** 30d RV at scan time (same source as IVR), null if unavailable. */
   rvAtScan: number | null

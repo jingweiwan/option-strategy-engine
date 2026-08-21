@@ -95,8 +95,11 @@ export type StrategySpec = {
  *     290/270 → +$23 at t=0 = +11% of max profit, from nothing
  *     290/285 → −$9  at t=0 = −12%
  * Both the fixture and the live sim therefore FAVOR wide wings for reasons that
- * do not exist in the market. Per-leg IV is the real fix (separate work); this
- * constant just stops the wing from wandering out to where the bias is largest.
+ * do not exist in the market. The live half of that bias is now FIXED — markPnL
+ * marks each leg at its own `leg.iv` — so the sim no longer hands wide spreads a
+ * phantom inception P&L. The fixture is still flat-vol by construction, so the
+ * golden numbers keep their flat-vol reading; this constant remains what stops
+ * the wing from wandering out to wherever skew puts it.
  */
 export const CREDIT_SPREAD_WING_PCT =
   Number(process.env.CREDIT_SPREAD_WING_PCT) || 0.02
@@ -475,4 +478,39 @@ export function dteFromExpiration(expiration: string, today = new Date()): numbe
   const exp = new Date(expiration + 'T16:00:00-04:00') // ~ market close ET
   const ms = exp.getTime() - today.getTime()
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)))
+}
+
+/**
+ * Premium-weighted implied vol of the legs a structure SELLS — "the vol you
+ * actually collect", as opposed to the ATM vol the state block reports.
+ *
+ * For a single-strike short these are close. For a multi-leg index structure
+ * they can be far apart: the IWM 2026-10-02 condor sells a 276 put at 23.9% IV
+ * and a 321 call at 15.2%, while its ATM IV is 18.2% — a number that describes
+ * neither leg. Weighting by premium (not equally) is deliberate: the put
+ * dominates the credit, so it should dominate the "is this rich?" verdict.
+ *
+ * Returns null when ANY sold leg lacks a sane IV or a positive premium weight —
+ * a partial average would silently mix a real vol with an ATM stand-in, which
+ * is the exact failure this function exists to remove. Callers fall back to ATM.
+ *
+ * CAVEAT for anyone tightening/loosening a gate on this: put skew is largely a
+ * persistent RISK premium, not a mispricing. Comparing a skew-lifted 23.9% put
+ * IV against a SYMMETRIC realized-vol estimate overstates the edge, because the
+ * realized downside vol that put is priced off is higher than the two-sided RV.
+ * This function measures the right vol; it does not fix the denominator.
+ */
+export function soldLegIv(legs: readonly OptionLeg[]): number | null {
+  const sold = legs.filter((l) => l.action === 'sell')
+  if (sold.length === 0) return null
+  let wsum = 0
+  let w = 0
+  for (const l of sold) {
+    if (!ivSane(l.iv)) return null
+    const weight = Math.abs(l.premium) * l.quantity
+    if (!(weight > 0)) return null
+    wsum += l.iv * weight
+    w += weight
+  }
+  return w > 0 ? wsum / w : null
 }

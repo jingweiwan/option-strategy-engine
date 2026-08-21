@@ -10,6 +10,7 @@ import {
   dteFromExpiration,
   enrichWithGreeks,
   skewFromChain,
+  soldLegIv,
   type LegSpec
 } from './liveStrategies.js'
 import type { OptionContract } from '../api/types.js'
@@ -177,6 +178,11 @@ export type LiveEngineResult = {
     regime: Regime
     /** Return skewness fed to the simulator (negative = fat left tail). */
     returnSkew: number
+    /** Premium-weighted IV of the legs the credit structures SHORT — the vol a
+     *  seller actually collects, vs `iv` which is ATM. Null when no credit
+     *  structure had a full set of sane per-leg IVs. Recorded alongside `iv` so
+     *  realized outcomes can adjudicate the skew-aware gate. */
+    ivSold: number | null
   }
   results: StrategyResult[]
   skipped: { strategy: StrategyType; reason: string }[]
@@ -193,22 +199,52 @@ export type LiveEngineResult = {
  * does NOT say whether options are cheap or rich vs actual movement.
  * We only fall back to IVR when RV data is unavailable.
  */
-export function deriveRegime(ivRank: number, currentIv: number, currentRv?: number): Regime {
+export function deriveRegime(
+  ivRank: number,
+  currentIv: number,
+  currentRv?: number,
+  /**
+   * Premium-weighted IV of the legs a sell-vol structure would actually SHORT
+   * (see soldLegIv). Used ONLY on the sell-edge branch: "is the premium I
+   * collect rich?" is a question about the wings I sell, not about ATM. The
+   * buy-edge branch deliberately keeps ATM — a long straddle IS an ATM
+   * position, so ATM is the right vol there.
+   *
+   * On IWM 2026-10-02: ATM 18.2%, sold-leg 21.8% (276P @ 23.9% dominating a
+   * 321C @ 15.2%). ATM described neither leg.
+   *
+   * KNOWN ASYMMETRY, do not "fix" silently: put skew is largely a persistent
+   * risk premium, so a skew-lifted sold IV measured against a SYMMETRIC RV
+   * flatters the edge. This makes the gate looser for skewed names on purpose —
+   * it measures the right numerator — but the denominator is still two-sided
+   * RV. Both ivAtm and ivSold are stamped on every snapshot so realized
+   * outcomes can adjudicate whether the looser gate actually pays.
+   */
+  sellIv?: number
+): Regime {
   if (currentRv != null && currentRv > 0) {
-    const gap = currentIv - currentRv // positive = IV rich = sell-edge
+    const richIv = sellIv != null && Number.isFinite(sellIv) && sellIv > 0 ? sellIv : currentIv
+    // TWO gaps on purpose: the sell test asks about the vol you'd SELL (skewed
+    // wings), the buy test about the vol you'd BUY (ATM straddle). Collapsing
+    // them into one number is what made an 18.2% ATM stand in for a 23.9% put.
+    const sellGap = richIv - currentRv
+    const buyGap = currentIv - currentRv
     // Use relative threshold (15% of RV) so the detector is equally sensitive
     // for low-vol stocks (IV 10%, RV 7% → 43% gap) and high-vol stocks
     // (IV 60%, RV 57% → 5% gap). Minimum 2pp absolute to avoid noise.
+    // NOTE: that 2pp floor inverts the stated intent for RV < 13.3% names —
+    // it demands iv/rv ≥ 1.25 of a low-vol name but only ≥ 1.15 of a high-vol
+    // one. Left as-is here deliberately; changing it is a separate call.
     const threshold = Math.max(currentRv * 0.15, 0.02)
 
-    if (gap > threshold) {
+    if (sellGap > threshold) {
       // IV > RV → sell-edge, BUT if IVR is historically low (<30),
       // the "richness" may be structural (e.g. meme stock always has IV > RV).
       // Downgrade to 'mid' to avoid selling cheap premium.
       if (ivRank < 30) return 'mid'
       return 'sell'
     }
-    if (gap < -threshold) {
+    if (buyGap < -threshold) {
       // RV > IV → buy-edge, BUT if IVR is historically high (>70),
       // vol is already expensive by rank — buying more is risky.
       // Downgrade to 'mid'.
@@ -420,7 +456,18 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
     })
   }
 
-  const regime = deriveRegime(ivRank, iv, input.currentRv)
+  // "Is the premium rich?" must be asked of the strikes a seller would SHORT,
+  // not of ATM. Average soldLegIv across the CREDIT structures this scan
+  // actually built (netPremium > 0) — those are the legs a sell-vol verdict
+  // would put on. Null when no credit structure produced a full set of sane
+  // per-leg IVs; deriveRegime then falls back to ATM, i.e. the old behaviour.
+  const soldIvs = results
+    .filter((r) => netPremium(r.legs) > 0)
+    .map((r) => soldLegIv(r.legs))
+    .filter((v): v is number => v != null)
+  const ivSold = soldIvs.length > 0 ? soldIvs.reduce((a, b) => a + b, 0) / soldIvs.length : null
+
+  const regime = deriveRegime(ivRank, iv, input.currentRv, ivSold ?? undefined)
 
   // Combine engine score with user-view bonuses + the historical-track-record
   // calibration (down-weights strategy×regime combos that have actually lost).
@@ -465,7 +512,8 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
       symbol: input.symbol,
       expiration: input.expiration,
       regime,
-      returnSkew
+      returnSkew,
+      ivSold
     },
     results,
     skipped
