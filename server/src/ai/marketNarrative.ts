@@ -134,6 +134,61 @@ function stripAiMacroPrefixFromDeck(deck: string): string {
   return t
 }
 
+/**
+ * Uppercase runs that are NOT tickers — jargon the prompt explicitly allows,
+ * plus common macro/technical abbreviations the writer reaches for.
+ */
+const NON_TICKER_TOKENS = new Set([
+  'IV', 'IVR', 'RV', 'EV', 'POP', 'DTE', 'ATM', 'OTM', 'ITM', 'VRP',
+  'FOMC', 'CPI', 'PPI', 'PCE', 'PMI', 'GDP', 'ISM', 'NFP', 'QT', 'QE',
+  'AI', 'ETF', 'ETFS', 'US', 'USD', 'EPS', 'PE', 'ROE', 'IPO', 'MA',
+  'SMA', 'EMA', 'RSI', 'MACD', 'BOLL', 'EM', 'TP', 'SL', 'PNL', 'YTD',
+  'Q1', 'Q2', 'Q3', 'Q4', 'H1', 'H2', 'FY', 'OK', 'ID', 'API'
+])
+
+/**
+ * Every ticker the model is ALLOWED to name — strictly what it was fed.
+ *
+ * SPY/VIXY are always in: they are handed over as the macro line.
+ */
+function groundedTickers(snap: MarketSnapshot): Set<string> {
+  const set = new Set<string>(['SPY', 'VIXY'])
+  for (const t of snap.watchlistTickers ?? []) set.add(t.sym.toUpperCase())
+  for (const e of snap.earningsUpcoming ?? []) set.add(e.sym.toUpperCase())
+  for (const b of snap.board?.setups ?? []) set.add(b.sym.toUpperCase())
+  return set
+}
+
+/**
+ * Tickers the narrative names that were never in its input.
+ *
+ * The prompt already forbids this ("不要点名不在 setups 里的标的"), and the model
+ * still did it: on 2026-08-25 the engine card read "其余标的 IVR 虽有个别偏高
+ * (如 ADBE 72)" — ADBE was not in `watchlistTickers` (it is a HOLDING, and the
+ * narrative is not even given the book), and no symbol anywhere had an IVR of
+ * 72; the only 72 in the payload was VST's earnings `daysUntil`. The advice
+ * happened to land somewhere reasonable, which is precisely the danger: the
+ * next fabrication can point the other way and the reader has no way to tell.
+ *
+ * An instruction the model can ignore is not a control. This is the control.
+ */
+export function ungroundedTickers(n: DashboardNarrative, snap: MarketSnapshot): string[] {
+  const allowed = groundedTickers(snap)
+  const text = [
+    n.heroLine1, n.heroLine2, n.deck, n.enginePose,
+    ...(n.factors ?? []).flatMap((f) => [f.label, f.detail])
+  ].filter((x) => typeof x === 'string').join(' ')
+
+  const bad = new Set<string>()
+  for (const m of text.matchAll(/\b[A-Z]{2,5}\b/g)) {
+    const tok = m[0]
+    if (NON_TICKER_TOKENS.has(tok)) continue
+    if (allowed.has(tok)) continue
+    bad.add(tok)
+  }
+  return [...bad]
+}
+
 export function hydrateDashboardNarrative(n: DashboardNarrative, snap: MarketSnapshot): DashboardNarrative {
   const line = macroDeckLine(snap)
   const rest = stripAiMacroPrefixFromDeck(n.deck)
@@ -147,25 +202,44 @@ export async function getMarketNarrative(snap: MarketSnapshot): Promise<Dashboar
   if (pre != null) return hydrateDashboardNarrative(pre, snap)
 
   const raw = await cached<DashboardNarrative>(key, 12 * HOUR, async () => {
-    const messages: AiMessage[] = [
-      { role: 'system', content: SYSTEM },
-      { role: 'user', content: USER_TEMPLATE(snap) }
-    ]
-    const { data, usage } = await chatJson<DashboardNarrative>(messages, {
-      model: 'deepseek-chat',
-      temperature: 0.5,
-      maxTokens: 2000
-    })
-    if (usage) {
-      console.log(
-        `[ai/narrative] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
-          (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
+    // Two attempts: the retry names the fabricated tickers back at the model.
+    // A third attempt is not worth the latency — by then the run is unusable.
+    let correction = ''
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const messages: AiMessage[] = [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: USER_TEMPLATE(snap) + correction }
+      ]
+      const { data, usage } = await chatJson<DashboardNarrative>(messages, {
+        model: 'deepseek-chat',
+        temperature: 0.5,
+        maxTokens: 2000
+      })
+      if (usage) {
+        console.log(
+          `[ai/narrative] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
+            (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
+        )
+      }
+      if (!data.heroLine1 || !data.deck || !data.enginePose || !Array.isArray(data.factors)) {
+        throw new Error('AI returned malformed narrative shape')
+      }
+      const bad = ungroundedTickers(data, snap)
+      if (bad.length === 0) return data
+      console.warn(
+        `[ai/narrative] attempt ${attempt}: fabricated ticker(s) ${bad.join(', ')} — not in the input snapshot`
       )
+      // Never cache or display a fabricated symbol: throwing leaves the card
+      // showing "引擎判断不可用" instead of a confident invented number.
+      if (attempt === 2) {
+        throw new Error(`AI named ticker(s) absent from the snapshot: ${bad.join(', ')}`)
+      }
+      correction =
+        `\n\n【上一次生成不合格】你点名了快照中不存在的标的：${bad.join('、')}。` +
+        '只能点名 watchlistTickers / board.setups / earningsUpcoming 中出现过的代码，' +
+        '且任何数字必须能在快照里逐字找到，不得推测或凭印象填写。请重写。'
     }
-    if (!data.heroLine1 || !data.deck || !data.enginePose || !Array.isArray(data.factors)) {
-      throw new Error('AI returned malformed narrative shape')
-    }
-    return data
+    throw new Error('unreachable')
   })
   return hydrateDashboardNarrative(raw, snap)
 }

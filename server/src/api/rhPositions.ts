@@ -60,6 +60,47 @@ export type RhPositions = {
 let cached: { at: number; mtimeMs: number; data: RhPositions | null } | null = null
 const TTL_MS = 60_000
 
+/**
+ * Leg-shape gate. The schema string alone is NOT enough: a writer that emits
+ * `type`/`avgPrice` instead of `optionType`/`avgCost` still stamps
+ * `rh-positions-v1`, still parses, and still passes the account-value check —
+ * and then EVERY consumer degrades to zeros in silence. That happened on
+ * 2026-08-25: all 50 legs missed the chain lookup (`keyOf(..., undefined)`),
+ * so net greeks read 0/0/0/0, marks and unrealized came back null, the
+ * structures list emptied (no management alerts on live positions), and
+ * wheelScanner saw zero short calls.
+ *
+ * A wrong number is worse than no number here, so a malformed file is REJECTED
+ * loudly rather than half-consumed. The log names the first offending leg —
+ * that is the line that would have caught it in seconds.
+ */
+export function validateOptionLegs(data: RhPositions): boolean {
+  const legs = data?.optionLegs
+  if (!Array.isArray(legs)) {
+    console.warn('[rhPositions] rejected: optionLegs is not an array')
+    return false
+  }
+  for (const [i, l] of legs.entries()) {
+    const why =
+      l?.optionType !== 'call' && l?.optionType !== 'put' ? `optionType=${JSON.stringify(l?.optionType)} (expected 'call'|'put')`
+      : !Number.isFinite(l?.avgCost) ? `avgCost=${JSON.stringify(l?.avgCost)} (per-CONTRACT dollars, side-signed)`
+      : !Number.isFinite(l?.strike) ? `strike=${JSON.stringify(l?.strike)}`
+      : !Number.isFinite(l?.qty) ? `qty=${JSON.stringify(l?.qty)}`
+      : typeof l?.expiration !== 'string' ? `expiration=${JSON.stringify(l?.expiration)}`
+      : l?.side !== 'long' && l?.side !== 'short' ? `side=${JSON.stringify(l?.side)}`
+      : typeof l?.sym !== 'string' ? `sym=${JSON.stringify(l?.sym)}`
+      : null
+    if (why) {
+      console.warn(
+        `[rhPositions] rejected bridge file: optionLegs[${i}] (${l?.sym ?? '?'}) bad ${why}. ` +
+        'Every consumer would silently read zeros; fix the writer rather than the reader.'
+      )
+      return false
+    }
+  }
+  return true
+}
+
 /** Parsed bridge file, or null when absent/invalid. 60s + mtime cache. */
 export function loadRhPositions(): RhPositions | null {
   const now = Date.now()
@@ -67,7 +108,10 @@ export function loadRhPositions(): RhPositions | null {
     const mtimeMs = statSync(FILE).mtimeMs
     if (cached && now - cached.at < TTL_MS && cached.mtimeMs === mtimeMs) return cached.data
     const data = JSON.parse(readFileSync(FILE, 'utf8')) as RhPositions
-    const ok = data?.schema?.startsWith('rh-positions') && Number.isFinite(data?.account?.totalValue)
+    const ok =
+      data?.schema?.startsWith('rh-positions') &&
+      Number.isFinite(data?.account?.totalValue) &&
+      validateOptionLegs(data)
     cached = { at: now, mtimeMs, data: ok ? data : null }
     return cached.data
   } catch {
