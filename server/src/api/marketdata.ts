@@ -147,7 +147,23 @@ async function mdGetQuote(symbol: string): Promise<Quote> {
 /** Spot quote with provider fallback. Quotes are cheap/ubiquitous, so this
  *  keeps the watchlist priced even when MarketData's daily cap is hit — and
  *  frees MarketData's budget for the chains only it can serve. */
+/**
+ * Spot quotes are ~15 minutes delayed at the source (see the CBOE note below),
+ * so re-fetching them every few minutes buys no freshness — it only burns rate
+ * limit. Without this the dashboard rebuild re-pulled all 36 CBOE payloads (each
+ * carrying every contract of every expiration) at concurrency 6, taking 15s
+ * cold and 50s once the provider started throttling the burst.
+ *
+ * Deliberately shorter than the delay itself: a quote can still go stale enough
+ * to matter for a fill, and the positions page re-marks from the chain anyway.
+ */
+const QUOTE_TTL_MS = (Number(process.env.QUOTE_TTL_SEC) || 180) * 1000
+
 export async function getQuote(symbol: string): Promise<Quote> {
+  return cached(`quote-${symbol.toUpperCase()}`, QUOTE_TTL_MS, () => getQuoteUncached(symbol))
+}
+
+async function getQuoteUncached(symbol: string): Promise<Quote> {
   return withFallback(
     [
       // CBOE leads: free, no cap, and its 60s raw-payload cache is shared with
