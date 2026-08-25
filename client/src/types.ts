@@ -416,6 +416,10 @@ export type DashboardData = {
   tickers: Ticker[]
   bookRisk?: BookRisk
   realBook?: RealBook | null
+  /** Server served a past-TTL board and is rebuilding it in the background. */
+  stale?: boolean
+  /** Age of the served payload in seconds (0 when fresh). */
+  ageSec?: number
   /** ISO timestamp when this snapshot was built (server wall clock). */
   fetchedAt: string
 }

@@ -202,12 +202,44 @@ const freshnessText = computed(() => {
 
 const isStale = computed(() => (staleMinutes.value ?? 0) > 30)
 
+// Last good payload, so a hard refresh paints the real page immediately instead
+// of a blank screen. The server may still take 15-50s on a cold build; that wait
+// is now a background revalidation behind visible content, not a white page.
+const LAST_GOOD_KEY = 'ose:dashboard:last-good'
+
+function readLastGood(): DashboardData | null {
+  try {
+    const raw = localStorage.getItem(LAST_GOOD_KEY)
+    if (!raw) return null
+    const { at, v } = JSON.parse(raw) as { at: number; v: DashboardData }
+    // A day-old board is not worth painting: strategy legs and levels would be
+    // from another session entirely.
+    if (!Number.isFinite(at) || Date.now() - at > 6 * 3600_000) return null
+    return v
+  } catch {
+    return null
+  }
+}
+
+function writeLastGood(v: DashboardData): void {
+  try {
+    localStorage.setItem(LAST_GOOD_KEY, JSON.stringify({ at: Date.now(), v }))
+  } catch { /* quota or private mode — the page just loses the instant paint */ }
+}
+
+/** True while refreshing on top of content the user can already see. */
+const refreshing = computed(() => loading.value && data.value != null)
+
 async function load() {
   loading.value = true
   error.value = null
   try {
-    data.value = await fetchDashboard([...syms.value])
+    const fresh = await fetchDashboard([...syms.value])
+    data.value = fresh
+    writeLastGood(fresh)
   } catch (e: any) {
+    // Keep whatever is on screen; an error banner beats replacing real numbers
+    // with an error page.
     error.value = e?.message ?? 'failed to load'
   } finally {
     loading.value = false
@@ -267,6 +299,9 @@ async function loadNarrative() {
 }
 
 onMounted(() => {
+  // Paint the cached board first, then revalidate. The user sees the real
+  // layout in ~0ms instead of a bare 「加载中…」 for the length of a cold build.
+  data.value = readLastGood()
   load()
   window.addEventListener('ose:watchlist-changed', handleWatchlistChanged)
 })
@@ -353,6 +388,15 @@ watch(data, (v) => {
             <span class="freshness-dot" :class="{ stale: isStale }" />
             {{ freshnessText }}
             <span v-if="isStale" class="freshness-warn">· 数据可能过期</span>
+            <!-- The server served a past-TTL board and is rebuilding behind it.
+                 Say so: silently showing old numbers as current is the failure
+                 mode worth designing against, not the staleness itself. -->
+            <span v-if="data.stale" class="pill-refresh" title="服务端返回的是上一次构建的结果，新数据正在后台生成">
+              <span class="spinner-dot" /> 后台更新中
+            </span>
+            <span v-else-if="refreshing" class="pill-refresh">
+              <span class="spinner-dot" /> 刷新中
+            </span>
           </div>
           <div style="margin-top: 6px">
             SPY <b>{{ data.market.spy.v.toFixed(2) }}</b>
@@ -789,8 +833,47 @@ watch(data, (v) => {
       </section>
     </template>
 
-    <div v-else-if="loading" class="loading mono">加载中…</div>
+    <!-- First-ever load (no cached board): show the SHAPE of the page, not a
+         bare line of text. A cold build takes 15-50s; a skeleton tells the
+         reader what is coming and that something is happening. -->
+    <div v-else-if="loading" class="dash-skeleton" aria-busy="true" aria-label="加载中">
+      <div class="sk-head">
+        <span class="skeleton skeleton-line" style="width: 34%" />
+        <span class="skeleton skeleton-line" style="width: 18%" />
+      </div>
+      <div class="sk-hero">
+        <div class="sk-hero-main">
+          <span class="skeleton skeleton-line" style="width: 76%; height: 22px" />
+          <span class="skeleton skeleton-line" style="width: 58%; height: 22px" />
+          <span class="skeleton skeleton-line" style="width: 92%" />
+          <span class="skeleton skeleton-line" style="width: 84%" />
+        </div>
+        <div class="sk-buckets">
+          <div v-for="i in 4" :key="i" class="sk-bucket">
+            <span class="skeleton skeleton-line" style="width: 40%; height: 26px" />
+            <span class="skeleton skeleton-line" style="width: 70%" />
+          </div>
+        </div>
+      </div>
+      <div class="sk-cards">
+        <div v-for="i in 3" :key="i" class="sk-card">
+          <span class="skeleton skeleton-line" style="width: 45%" />
+          <span class="skeleton skeleton-line" style="width: 88%" />
+          <span class="skeleton skeleton-line" style="width: 66%" />
+        </div>
+      </div>
+      <p class="sk-note mono">
+        正在拉取 36 只标的的报价与期权链 · 首次构建通常 15–50 秒，之后走缓存约 10 毫秒
+      </p>
+    </div>
     <div v-else-if="error" class="error">⚠ {{ error }}</div>
+
+    <!-- Refresh failed but the previous board is still on screen: warn in place
+         rather than throwing away numbers the reader was using. -->
+    <div v-if="data && error" class="error-inline">
+      ⚠ 刷新失败：{{ error }} · 下方仍是上一次成功拉取的数据
+      <button class="btn ghost tiny" @click="load" :disabled="loading">重试</button>
+    </div>
   </div>
 </template>
 
@@ -1530,6 +1613,45 @@ watch(data, (v) => {
   color: var(--ink-2);
   font-family: var(--sans);
   font-size: 12px;
+}
+
+/* ---- Loading skeleton (first load, no cached board) ---- */
+.dash-skeleton { padding: 8px 0 32px; display: flex; flex-direction: column; gap: 28px; }
+.sk-head { display: flex; justify-content: space-between; gap: 16px; }
+.sk-hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 32px; }
+.sk-hero-main { display: flex; flex-direction: column; gap: 12px; }
+.sk-buckets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.sk-bucket { display: flex; flex-direction: column; gap: 8px; }
+.sk-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.sk-card { display: flex; flex-direction: column; gap: 10px; }
+.sk-note { font-size: 12px; opacity: 0.55; margin: 0; }
+@media (max-width: 860px) {
+  .sk-hero { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- Background-refresh pill ---- */
+.pill-refresh {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; opacity: 0.75;
+  border: 1px solid currentColor;
+}
+.spinner-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; display: inline-block;
+  animation: pulse-dot 1.1s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%, 100% { opacity: 0.25 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner-dot { animation: none; opacity: 0.7 }
+}
+
+/* ---- Inline refresh error (keeps the previous board visible) ---- */
+.error-inline {
+  margin: 12px 0 0; padding: 8px 12px; border-radius: 6px;
+  font-size: 13px; display: flex; align-items: center; gap: 10px;
+  border: 1px solid rgba(200, 80, 60, 0.35);
+  background: rgba(200, 80, 60, 0.07);
 }
 
 /* loading / error */
