@@ -332,6 +332,13 @@ watch(data, (v) => {
 
 <template>
   <div class="page">
+    <!-- Refresh failed but the previous board is still on screen: warn ABOVE it
+         and keep the numbers the reader was using, rather than replacing the
+         page with an error. Placement matters — the copy says 「下方」. -->
+    <div v-if="data && error" class="error-inline">
+      ⚠ 刷新失败：{{ error }} · 下方仍是上一次成功拉取的数据
+      <button class="btn ghost tiny" @click="load" :disabled="loading">重试</button>
+    </div>
     <template v-if="data">
       <!-- Market session banner (outside RTH, live quotes are limited) -->
       <div v-if="marketClosed" class="market-banner mono">
@@ -877,12 +884,6 @@ watch(data, (v) => {
     </div>
     <div v-else-if="error" class="error">⚠ {{ error }}</div>
 
-    <!-- Refresh failed but the previous board is still on screen: warn in place
-         rather than throwing away numbers the reader was using. -->
-    <div v-if="data && error" class="error-inline">
-      ⚠ 刷新失败：{{ error }} · 下方仍是上一次成功拉取的数据
-      <button class="btn ghost tiny" @click="load" :disabled="loading">重试</button>
-    </div>
   </div>
 </template>
 
@@ -1657,7 +1658,7 @@ watch(data, (v) => {
 
 /* ---- Inline refresh error (keeps the previous board visible) ---- */
 .error-inline {
-  margin: 12px 0 0; padding: 8px 12px; border-radius: 6px;
+  margin: 0 0 16px; padding: 8px 12px; border-radius: 6px;
   font-size: 13px; display: flex; align-items: center; gap: 10px;
   border: 1px solid rgba(200, 80, 60, 0.35);
   background: rgba(200, 80, 60, 0.07);
