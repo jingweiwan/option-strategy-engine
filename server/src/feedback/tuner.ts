@@ -2,7 +2,7 @@
  * Online parameter tuner — Thompson sampling over strategy-construction knobs.
  *
  * Phase 2 of the self-optimization plan. Knob: the SHORT-LEG DELTA — for credit
- * spreads (bull_put / bear_call) arms {0.25, 0.30, 0.35}; for the iron condor
+ * spreads (bull_put / bear_call) arms {0.12, 0.16, 0.20, 0.25, 0.30}; for the iron condor
  * the PUT short arms {0.16, 0.20, 0.24} (the call short drifts off it; both long
  * wings are equal-$ via CONDOR_WING_PCT). Each dashboard recommendation picks an
  * arm by Thompson-sampling a Normal posterior over its mean per-trade P&L (per
@@ -30,7 +30,7 @@
  * symmetric/unequal wings, or variant-less history) do not match a live arm
  * and are skipped, so the current posteriors start uncontaminated.
  *
- * Disable with STRATEGY_TUNER=0 (falls back to the static 0.30 spec).
+ * Disable with STRATEGY_TUNER=0 (falls back to the static DEFAULT_SHORT_DELTA spec).
  */
 import type { StrategyType } from '../engine/types.js'
 import type { Regime } from '../engine/index.js'

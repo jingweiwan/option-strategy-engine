@@ -68,16 +68,20 @@ async function ensureDir() {
   }
 }
 
-async function readFs<T>(key: string): Promise<T | null> {
+/** L2 entry as written, expiry included, regardless of whether it is expired. */
+async function readFsEntry<T>(key: string): Promise<Entry<T> | null> {
   try {
     const path = join(CACHE_DIR, safeKey(key) + '.json')
-    const raw = await readFile(path, 'utf8')
-    const entry = JSON.parse(raw) as Entry<T>
-    if (entry.expiry > Date.now()) return entry.v
-    return null
+    return JSON.parse(await readFile(path, 'utf8')) as Entry<T>
   } catch {
     return null
   }
+}
+
+async function readFs<T>(key: string): Promise<T | null> {
+  const entry = await readFsEntry<T>(key)
+  if (entry != null && entry.expiry > Date.now()) return entry.v
+  return null
 }
 
 async function writeFs<T>(key: string, entry: Entry<T>): Promise<void> {
@@ -90,15 +94,26 @@ async function writeFs<T>(key: string, entry: Entry<T>): Promise<void> {
   }
 }
 
-/** L1 / L2 read only; does not run `produce`. */
+/**
+ * L1 / L2 read only; does not run `produce`.
+ *
+ * Promoting an L2 hit into L1 keeps the entry's ORIGINAL expiry. Re-stamping it
+ * as `now + ttl` silently extended every entry's life by up to a full TTL on
+ * each promotion, and — because `expiry - ttl` is how production time is
+ * recovered — it also made an old payload look freshly built, which would have
+ * reported a genuinely stale dashboard as `stale:false / ageSec:0`. That is the
+ * exact failure `cachedSWR` exists to prevent.
+ *
+ * `ttlMsForL1` is now only a floor for entries written without one.
+ */
 export async function getCachedIfValid<T>(key: string, ttlMsForL1: number): Promise<T | null> {
   const now = Date.now()
   const m = mem.get(key)
   if (m && m.expiry > now) return m.v as T
-  const f = await readFs<T>(key)
-  if (f != null) {
-    mem.set(key, { v: f, expiry: now + ttlMsForL1 })
-    return f
+  const e = await readFsEntry<T>(key)
+  if (e != null && e.expiry > now) {
+    mem.set(key, { v: e.v, expiry: Number.isFinite(e.expiry) ? e.expiry : now + ttlMsForL1 })
+    return e.v
   }
   return null
 }
@@ -169,12 +184,7 @@ async function readStale<T>(
   }
   const m = pick(mem.get(key) as Entry<T> | undefined)
   if (m) return m
-  try {
-    const path = join(CACHE_DIR, safeKey(key) + '.json')
-    return pick(JSON.parse(await readFile(path, 'utf8')) as Entry<T>)
-  } catch {
-    return null
-  }
+  return pick((await readFsEntry<T>(key)) ?? undefined)
 }
 
 /**

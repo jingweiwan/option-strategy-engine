@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { ungroundedTickers } from '../src/ai/marketNarrative.js'
 
 const SNAP: any = {
@@ -51,4 +52,27 @@ test('narrative: an unfed ticker is caught anywhere in the card, not just engine
   n.heroLine1 = 'NVDA 领涨'
   n.factors = [{ tone: 'ink', label: '能源', detail: 'XLE 走强' }]
   assert.deepEqual(ungroundedTickers(n, SNAP).sort(), ['NVDA', 'XLE'])
+})
+
+// A cached narrative is NOT exempt from the check. The day-cache short-circuit
+// returns before the producer runs, so a poisoned entry written by an older
+// build would keep shipping — and the 08-25 「ADBE 72」 card is sitting in day
+// caches right now. Both the read-path guard and the key bump are required;
+// either alone leaves the poisoned entry reachable.
+test('narrative: cache key is bumped past the pre-grounding generation', async () => {
+  const { narrativeCacheKey } = await import('../src/ai/marketNarrative.js')
+  const key = narrativeCacheKey(SNAP)
+  assert.ok(!key.includes('narrative-v2-'), `key must leave v2 behind: ${key}`)
+  assert.match(key, /^narrative-v3-/)
+})
+
+test('narrative: the cached read path validates too (source check)', () => {
+  const src = readFileSync(new URL('../src/ai/marketNarrative.js'.replace('.js', '.ts'), import.meta.url), 'utf8')
+  const i = src.indexOf('getCachedNarrativeDailyWithLegacy<DashboardNarrative>')
+  assert.ok(i > 0, 'expected the day-cache short-circuit to exist')
+  const after = src.slice(i, i + 700)
+  assert.match(
+    after, /ungroundedTickers\(pre, snap\)/,
+    'the cache hit must be validated before it is returned, not only at generation time'
+  )
 })

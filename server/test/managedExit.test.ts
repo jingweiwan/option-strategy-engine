@@ -277,3 +277,38 @@ test('outcome: convergeTo uses scan-time vol, never the realized window', () => 
     `convergeTo must not reference the post-hoc realized vol \`rv\`: ${line!.trim()}`
   )
 })
+
+// The settlement engine must walk the SAME management window the card walked.
+// Without maxSteps it defaulted to the bar count, and a calendar-day window
+// holds ~5/7 as many trading bars — so learning ran a shorter window than the
+// display AND, since `steps` drives the convergence schedule, decayed vol
+// faster, moving take-profit/stop timing away from what the card showed.
+test('outcome: passes the same managed horizon the card used', () => {
+  const src = readFileSync(new URL('../src/feedback/outcome.ts', import.meta.url), 'utf8')
+  const i = src.indexOf('runManagedExit(')
+  assert.ok(i > 0, 'expected outcome.ts to run the shared managed exit')
+  const call = src.slice(i, i + 2600)
+  assert.match(
+    call, /maxSteps:\s*managedHoldDays\(/,
+    'outcome must bound the walk with managedHoldDays, not the raw bar count'
+  )
+})
+
+test('managedExit: maxSteps shortens the walk and the convergence schedule', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 95, premium: 1, quantity: 1 }
+  ] as any)
+  const path = Array.from({ length: 30 }, () => 100)
+  const ctx = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.4, convergeTo: 0.2
+  }
+  const long = runManagedExit(legs, path, 2, ctx)
+  const short = runManagedExit(legs, path, 2, { ...ctx, maxSteps: 10 })
+  assert.ok(short.exitIndex <= 9, `capped walk must stop inside maxSteps, got ${short.exitIndex}`)
+  assert.notEqual(
+    long.pnl, short.pnl,
+    'a different horizon must actually change the result — otherwise the cap is inert'
+  )
+})

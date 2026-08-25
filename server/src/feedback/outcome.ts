@@ -1,6 +1,6 @@
 import { getDailyBars, type DailyBar } from '../api/marketdata.js'
 import { totalPnL } from '../engine/payoff.js'
-import { runManagedExit } from '../engine/managedExit.js'
+import { runManagedExit, managedHoldDays } from '../engine/managedExit.js'
 import { deriveSimSigma } from '../engine/index.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import { storedLegsToOptionLegs } from './legAdapter.js'
@@ -154,7 +154,14 @@ export async function computeOutcomeForSnapshot(
       // (An earlier revision did this and rationalized it as "the better
       // target" — for a settlement engine that reasoning is backwards.)
       // rvAtScan missing → deriveSimSigma returns iv → no-op.
-      convergeTo: deriveSimSigma(s.iv, s.rvAtScan ?? undefined)
+      convergeTo: deriveSimSigma(s.iv, s.rvAtScan ?? undefined),
+      // Same management horizon the card used. Without it `end` defaults to the
+      // bar count, and a calendar-day window holds ~5/7 as many trading bars —
+      // so the settlement engine ran a SHORTER window than the card AND, since
+      // `steps` drives the convergence schedule, decayed vol faster, shifting
+      // take-profit/stop timing away from what was displayed. Two halves of
+      // "display and learning share one managed exit" must share this too.
+      maxSteps: managedHoldDays(s.strategyId, s.dte, s.exitPolicy ?? 'managed')
     }, s.exitPolicy ?? 'managed')
     if (me.reason !== 'end_of_window') {
       managedPnl = me.pnl

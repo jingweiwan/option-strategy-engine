@@ -75,6 +75,15 @@ const TTL_MS = 60_000
  * that is the line that would have caught it in seconds.
  */
 export function validateOptionLegs(data: RhPositions): boolean {
+  // `fetchedAt` gates too: without it rhAgeHours() returns null and the whole
+  // staleness warning path goes quiet — a bridge file from three days ago then
+  // reads as current.
+  if (typeof data?.fetchedAt !== 'string' || !Number.isFinite(Date.parse(data.fetchedAt))) {
+    console.warn(
+      `[rhPositions] rejected: fetchedAt=${JSON.stringify(data?.fetchedAt)} — staleness warnings would be silently dead`
+    )
+    return false
+  }
   const legs = data?.optionLegs
   if (!Array.isArray(legs)) {
     console.warn('[rhPositions] rejected: optionLegs is not an array')
