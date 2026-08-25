@@ -203,7 +203,27 @@ export function runManagedExit(
     convTarget != null && ctx.sigma > 0 && convTarget > 0 && convTarget < ctx.sigma
       ? convTarget / ctx.sigma
       : 1
-  const steps = Math.max(1, end)
+  // Convergence denominator is the MANAGEMENT WINDOW, not however many price
+  // points happened to be supplied.
+  //
+  // `end` is the walk bound and must stay min(maxSteps, path.length) — you
+  // cannot walk bars you do not have. But using it as the denominator made
+  // `maxSteps` a dead parameter on the settlement side: outcome slices bars from
+  // a window of `managedHoldDays` CALENDAR days, so it always holds ~5/7 as many
+  // trading bars as that number, `min` never binds, and the schedule silently
+  // re-based onto the bar count — compressing the whole VRP decay into a shorter
+  // span than the card used.
+  //
+  // Live indexes trading steps (tauAt uses /252) and divides by maxSteps;
+  // settlement indexes real trading bars and now divides by maxSteps too, so the
+  // two schedules line up. A short bar series simply ends mid-schedule, still
+  // partly converged — which is the honest reading of a window that ended early.
+  //
+  // KNOWN, PRE-EXISTING: maxSteps itself is a calendar-day count
+  // (`dte - closeAtDte`) used as a trading-step count. That unit slip is
+  // identical on both sides, so the display/learning invariant holds; fixing it
+  // means moving live and settlement together, and is not this change.
+  const steps = Math.max(1, ctx.maxSteps ?? end)
   const ratioOf = (i: number) => {
     const crush = ctx.sigmaAt && ctx.sigma > 0 ? ctx.sigmaAt(i) / ctx.sigma : 1
     if (convFloor >= 1) return crush

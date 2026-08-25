@@ -312,3 +312,69 @@ test('managedExit: maxSteps shortens the walk and the convergence schedule', () 
     'a different horizon must actually change the result — otherwise the cap is inert'
   )
 })
+
+// A source-grep assertion cannot catch a DEAD parameter: outcome passed
+// `maxSteps` correctly and it changed nothing, because `end` (the walk bound)
+// was also the convergence denominator, and bars are always ~5/7 of the
+// calendar-day window that maxSteps is derived from — so `min` never bound.
+// These assertions are numeric on purpose.
+test('managedExit: maxSteps sets the convergence schedule even when bars < maxSteps', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  // 15 bars, but the position is managed over a 21-day window: the schedule must
+  // NOT complete. Flat path so only the vol schedule moves the mark.
+  const bars = Array.from({ length: 15 }, () => 100)
+  const base = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25
+  }
+
+  const onBarCount = runManagedExit(legs, bars, 2, { ...base, maxSteps: 15 })
+  const onWindow = runManagedExit(legs, bars, 2, { ...base, maxSteps: 21 })
+
+  assert.notEqual(
+    onWindow.pnl, onBarCount.pnl,
+    'maxSteps must drive the schedule; identical results mean the parameter is dead'
+  )
+  // Converging over 21 steps but stopping at bar 15 leaves vol still above the
+  // target, so less premium has decayed → the seller has booked LESS.
+  assert.ok(
+    onWindow.pnl < onBarCount.pnl,
+    `a window that ends mid-schedule must be less converged: ${onWindow.pnl} vs ${onBarCount.pnl}`
+  )
+})
+
+test('managedExit: the walk still stops at the bars available, not at maxSteps', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  const bars = Array.from({ length: 15 }, () => 100)
+  const r = runManagedExit(legs, bars, 2, {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25, maxSteps: 21
+  })
+  assert.ok(r.exitIndex <= 14, `cannot walk past the supplied bars, got ${r.exitIndex}`)
+})
+
+// Same fraction of the window → same convergence state, whichever side runs it.
+test('managedExit: live and settlement schedules agree at the same window fraction', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  const base = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25, maxSteps: 20
+  }
+  // Live walks the full 20-step window; settlement has only 10 bars of it, so it
+  // stops mid-schedule rather than re-basing the schedule onto its own length.
+  const live = runManagedExit(legs, Array.from({ length: 20 }, () => 100), 2, base)
+  const settle = runManagedExit(legs, Array.from({ length: 10 }, () => 100), 2, base)
+  assert.ok(
+    settle.pnl < live.pnl,
+    `half the window must be less converged than the whole: ${settle.pnl} vs ${live.pnl}`
+  )
+})
