@@ -79,27 +79,52 @@ const verdict = computed(() => {
 })
 
 // ---- Parameter experiment (tuner) — plain-language presentation ----
-// The engine A/B-tests how far out-of-the-money it sells. Arm sets differ by
-// strategy (live arms carry a structure epoch, e.g. sd0.30@w2). score is the
-// arm's MEAN per-trade P&L in $/share (the tuner ranks by absolute $/trade).
-const SPREAD_VARIANTS = ['sd0.25@w2', 'sd0.30@w2', 'sd0.35@w2'] as const
-const CONDOR_VARIANTS = ['sd0.16@w2', 'sd0.20@w2', 'sd0.24@w2'] as const
+// The engine A/B-tests how far out-of-the-money it sells. score is the arm's
+// MEAN per-trade P&L in $/share (the tuner ranks by absolute $/trade).
+//
+// The arm ladder is SERVED (`tunerLadder`), never mirrored here. A hardcoded
+// list used to go stale on every structure-epoch bump: live would write
+// `@w3` arms, this whitelist matched none of them, and the panel sat on
+// 「试验刚开始」forever while the experiment was actually running.
 function variantsForStrategy(strategy: string): readonly string[] {
-  return strategy === 'iron_condor' ? CONDOR_VARIANTS : SPREAD_VARIANTS
+  const ladder = data.value?.tunerLadder
+  const list = strategy === 'iron_condor' ? ladder?.iron_condor : ladder?.credit_spread
+  return (list ?? []).map((a) => a.variant)
 }
-// Human labels keyed by the delta part (epoch suffix stripped) so condor and
-// spread arms share the conservative/standard/aggressive framing.
-const VARIANT_HUMAN_BASE: Record<string, { name: string; hint: string }> = {
-  'sd0.25': { name: '保守卖法', hint: '卖得离现价更远:更安全,但收的权利金少' },
-  'sd0.30': { name: '标准卖法', hint: '原先的默认参数' },
-  'sd0.35': { name: '激进卖法', hint: '卖得离现价更近:权利金多,但更容易被打穿' },
-  'sd0.16': { name: '保守卖法', hint: '铁鹰卖得更远:更安全,权利金少' },
-  'sd0.20': { name: '标准卖法', hint: '铁鹰默认参数' },
-  'sd0.24': { name: '激进卖法', hint: '铁鹰卖得更近:权利金多,更易被打穿' }
+/** Delta of the ladder's current default, so 「标准卖法」 tracks the engine. */
+function defaultDeltaFor(strategy: string): number | null {
+  const ladder = data.value?.tunerLadder
+  const list = strategy === 'iron_condor' ? ladder?.iron_condor : ladder?.credit_spread
+  return list?.find((a) => a.isDefault)?.shortDelta ?? null
 }
-function variantHuman(variant: string): { name: string; hint: string } {
-  const base = variant.replace(/@.*$/, '')
-  return VARIANT_HUMAN_BASE[base] ?? { name: variant, hint: '' }
+// Labels are RELATIVE to the ladder: the default arm is 标准, anything selling
+// further OTM is 保守, closer is 激进. Keying them off literal deltas was the
+// same staleness bug in a second place — 0.30 is no longer 「标准」.
+function variantHuman(
+  variant: string,
+  strategy?: string
+): { name: string; hint: string } {
+  const m = /^sd([0-9.]+)/.exec(variant)
+  const d = m ? Number(m[1]) : NaN
+  const def = strategy ? defaultDeltaFor(strategy) : null
+  if (!Number.isFinite(d) || def == null) return { name: variant, hint: '' }
+  const kind = strategy === 'iron_condor' ? '铁鹰' : ''
+  const pct = `${(d * 100).toFixed(0)}Δ`
+  if (d === def) {
+    return { name: `标准卖法 ${pct}`, hint: `${kind}当前默认参数` }
+  }
+  if (d < def) {
+    // The delta is printed in the name, so a 5-arm ladder stays readable
+    // without inventing 更保守/最保守 tiers that shift as the ladder changes.
+    return {
+      name: `保守卖法 ${pct}`,
+      hint: `${kind}卖得离现价更远:更安全,但收的权利金少`
+    }
+  }
+  return {
+    name: `激进卖法 ${pct}`,
+    hint: `${kind}卖得离现价更近:权利金多,但更容易被打穿`
+  }
 }
 // A per-contract $ edge (best − runner-up) this large, with both arms sampled,
 // is treated as a credible verdict. 0.15 $/share = $15 per contract.
@@ -148,9 +173,9 @@ const tunerBuckets = computed(() => {
       tested.every((a) => a.n >= 15) &&
       best && runnerUp && best.score > 0 && best.score - runnerUp.score > CREDIBLE_EDGE_PER_SHARE
     ) {
-      status = `✅ 结论已可信:「${variantHuman(best.variant).name}」在这种环境下每张合约最赚钱`
+      status = `✅ 结论已可信:「${variantHuman(best.variant, strategy).name}」在这种环境下每张合约最赚钱`
     } else {
-      status = `⏳「${variantHuman(best!.variant).name}」暂时领先 — 数据还不够下结论,引擎仍在对比`
+      status = `⏳「${variantHuman(best!.variant, strategy).name}」暂时领先 — 数据还不够下结论,引擎仍在对比`
     }
     return { strategy, regime, arms: full, bestVariant: best?.variant, status }
   })
@@ -387,9 +412,9 @@ const curveZeroY = computed(() => {
               :key="a.variant"
               class="tb-arm"
               :class="{ lead: a.hasData && a.variant === b.bestVariant, nodata: !a.hasData }"
-              :title="variantHuman(a.variant).hint"
+              :title="variantHuman(a.variant, b.strategy).hint"
             >
-              <span class="tb-variant">{{ variantHuman(a.variant).name }}</span>
+              <span class="tb-variant">{{ variantHuman(a.variant, b.strategy).name }}</span>
               <template v-if="a.hasData">
                 <span class="tb-bar"><span :style="{ width: a.barPct.toFixed(0) + '%' }" /></span>
                 <span class="mono tb-score">{{ a.perContract >= 0 ? '+' : '' }}${{ a.perContract.toFixed(0) }}/张</span>

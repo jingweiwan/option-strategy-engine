@@ -23,7 +23,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { legsFromSpec, STRATEGY_SPECS, CREDIT_SPREAD_WING_PCT } from '../src/engine/liveStrategies.js'
-import { legsForShortDelta, variantId, CREDIT_SPREAD_STRUCT_EPOCH } from '../src/feedback/tuner.js'
+import { legsForShortDelta, variantId, CREDIT_SPREAD_STRUCT_EPOCH , DEFAULT_SHORT_DELTA} from '../src/feedback/tuner.js'
 import type { OptionContract } from '../src/api/types.js'
 
 /** Put-skewed chain: below spot the delta curve is stretched, so a given delta
@@ -89,14 +89,14 @@ test('tuned path and static specs build the SAME geometry (no "two spreads")', (
   // structure whenever the tuner path ran. Same trap here — assert both agree.
   const chain = skewedChain(304, 240, 340, 1)
   for (const strat of ['bull_put_spread', 'bear_call_spread'] as const) {
-    const tuned = legsForShortDelta(strat, 0.30)
+    const tuned = legsForShortDelta(strat, DEFAULT_SHORT_DELTA)
     assert.ok(tuned, `${strat} tuned specs must build`)
     const tunedLegs = legsFromSpec(tuned, chain)!
     const staticLegs = legsFromSpec(STRATEGY_SPECS.find((s) => s.type === strat)!.legs, chain)!
     assert.deepEqual(
       tunedLegs.map((l) => l.strike).sort((a, b) => a - b),
       staticLegs.map((l) => l.strike).sort((a, b) => a - b),
-      `${strat}: tuner arm 0.30 must reproduce the static default structure`
+      `${strat}: tuner arm DEFAULT_SHORT_DELTA must reproduce the static default structure`
     )
   }
 })

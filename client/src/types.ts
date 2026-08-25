@@ -744,4 +744,15 @@ export type PerformanceData = {
   dailyCurve: DailyCurvePoint[]
   recent: RecentSnapshot[]
   tunerArms?: TunerArm[]
+  /** Live arm ladder, served by the API so the UI never mirrors engine constants. */
+  tunerLadder?: {
+    credit_spread: TunerLadderArm[]
+    iron_condor: TunerLadderArm[]
+  }
+}
+
+export interface TunerLadderArm {
+  variant: string
+  shortDelta: number
+  isDefault: boolean
 }
