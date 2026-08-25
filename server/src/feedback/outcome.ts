@@ -1,6 +1,7 @@
 import { getDailyBars, type DailyBar } from '../api/marketdata.js'
 import { totalPnL } from '../engine/payoff.js'
 import { runManagedExit } from '../engine/managedExit.js'
+import { deriveSimSigma } from '../engine/index.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import { storedLegsToOptionLegs } from './legAdapter.js'
 
@@ -142,7 +143,18 @@ export async function computeOutcomeForSnapshot(
       // markPnL. This keeps the learning loop on the same vol surface as the
       // displayed card — otherwise calibration/tuner would train on take-profit
       // and stop touches that the card's own sim never produced.
-      sigma: s.iv
+      sigma: s.iv,
+      // Same VRP-harvest decay, aimed at the SAME target the live card aimed at:
+      // deriveSimSigma(iv, rvAtScan) — strictly the scan-time information set.
+      //
+      // It must NOT be the window's realized vol. `rv` is annualized over the
+      // whole holding window, so a mark on day 5 would already carry day 30's
+      // move; take-profit and stop TIMING is exactly what the tuner learns from,
+      // so peeking there teaches the bandit a game easier than the one it plays.
+      // (An earlier revision did this and rationalized it as "the better
+      // target" — for a settlement engine that reasoning is backwards.)
+      // rvAtScan missing → deriveSimSigma returns iv → no-op.
+      convergeTo: deriveSimSigma(s.iv, s.rvAtScan ?? undefined)
     }, s.exitPolicy ?? 'managed')
     if (me.reason !== 'end_of_window') {
       managedPnl = me.pnl

@@ -198,3 +198,82 @@ test('oppScanner builds every snapshot leg through toScannedLegs (no inlined cop
   const inlined = src.match(/legs:\s*\w+\.legs\.map\(/g) ?? []
   assert.deepEqual(inlined, [], `inlined leg mapping found: ${inlined.join(', ')}`)
 })
+
+/**
+ * VRP HARVEST: without `convergeTo` every leg stays marked at its ENTRY IV for
+ * the whole path, so a seller who collected 28.9% on a name realizing 22.8%
+ * never books the spread — at the close-out the residual time value is still
+ * priced at 28.9%. Measured on the 2026-08-24 chain, that inversion made the
+ * RICHEST name in the watchlist (XOM, +6.1pp of edge) score the WORST EV and
+ * the thinnest (TLT, +1.2pp) the only positive one.
+ */
+test('convergeTo: decaying IV toward realized vol pays the seller, and only the seller', () => {
+  const S = 297.67
+  const short = [iwmCondor[0], iwmCondor[2]] // the two SOLD legs
+  const ctxBase = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012 }
+  // Mark the short strangle mid-window, with and without convergence.
+  const mid = 20
+  const flat = markPnL(short, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 1)
+  const conv = markPnL(short, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 0.8)
+  assert.ok(conv > flat, `converged mark ${conv} should beat flat ${flat} for a seller`)
+
+  // The SAME ratio must hurt the long side by the same mechanism — otherwise
+  // convergence is inventing money rather than moving it.
+  const long = short.map((l) => ({ ...l, action: 'buy' as const }))
+  const flatL = markPnL(long, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 1)
+  const convL = markPnL(long, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 0.8)
+  assert.ok(convL < flatL, `converged mark ${convL} should hurt the buyer vs ${flatL}`)
+  assert.ok(Math.abs((conv - flat) + (convL - flatL)) < 1e-9, 'zero-sum across the trade')
+})
+
+test('convergeTo: no-op when the target is at or above the entry vol', () => {
+  const path = Array.from({ length: 20 }, () => IWM_S)
+  const base = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012,
+    sigma: IWM_ATM, maxSteps: 20 }
+  const none = runManagedExit(iwmCondor, path, 0.8575, base)
+  // target == sigma, and target > sigma: both must leave the result untouched.
+  for (const target of [IWM_ATM, IWM_ATM * 1.5]) {
+    const r = runManagedExit(iwmCondor, path, 0.8575, { ...base, convergeTo: target })
+    assert.equal(r.pnl, none.pnl, `convergeTo=${target} must be a no-op`)
+    assert.equal(r.reason, none.reason)
+  }
+})
+
+test('convergeTo: an earnings crush and convergence do not stack below the target', () => {
+  // Both mechanisms model the SAME collapse. Composed naively they would mark
+  // the position below the diffusion vol and pay the seller twice for it.
+  const path = Array.from({ length: 20 }, () => IWM_S)
+  const target = IWM_ATM * 0.6
+  const base = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012,
+    sigma: IWM_ATM, maxSteps: 20 }
+  const crushOnly = runManagedExit(iwmCondor, path, 0.8575,
+    { ...base, sigmaAt: (i) => (i >= 5 ? target : IWM_ATM) })
+  const both = runManagedExit(iwmCondor, path, 0.8575,
+    { ...base, sigmaAt: (i) => (i >= 5 ? target : IWM_ATM), convergeTo: target })
+  // Convergence may only ADD decay before the crush lands, never after it.
+  assert.ok(both.pnl >= crushOnly.pnl - 1e-9,
+    `combined ${both.pnl} must not fall below crush-only ${crushOnly.pnl}`)
+  const floored = markPnL(iwmCondor, IWM_S, base.tauAt(19), 0.04, 0.012, IWM_ATM, target / IWM_ATM)
+  const combined = markPnL(iwmCondor, IWM_S, base.tauAt(19), 0.04, 0.012, IWM_ATM,
+    Math.max((target / IWM_ATM) * (target / IWM_ATM), target / IWM_ATM))
+  assert.equal(combined, floored, 'the floor pins the combined ratio at the target')
+})
+
+// The settlement engine must mark on the SCAN-TIME information set. An earlier
+// revision aimed convergeTo at the holding window's realized vol, so a day-5
+// mark already carried day-30's move — and take-profit/stop TIMING is exactly
+// what the tuner learns from. A source check is the only way to catch it:
+// the bug produced perfectly plausible numbers.
+test('outcome: convergeTo uses scan-time vol, never the realized window', () => {
+  const src = readFileSync(new URL('../src/feedback/outcome.ts', import.meta.url), 'utf8')
+  const line = src.split('\n').find((l) => l.includes('convergeTo:'))
+  assert.ok(line, 'outcome.ts must pass convergeTo')
+  assert.ok(
+    /deriveSimSigma\(\s*s\.iv\s*,\s*s\.rvAtScan/.test(line!),
+    `convergeTo must be deriveSimSigma(s.iv, s.rvAtScan) — same target the card used; got: ${line!.trim()}`
+  )
+  assert.ok(
+    !/\brv\b(?!AtScan)/.test(line!),
+    `convergeTo must not reference the post-hoc realized vol \`rv\`: ${line!.trim()}`
+  )
+})

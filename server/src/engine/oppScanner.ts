@@ -1297,7 +1297,7 @@ export async function getScannedOpps(
   // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
   // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
   // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
-  const key = `opp-scan-v15-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v16-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

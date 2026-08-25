@@ -443,6 +443,9 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
       q,
       sigma: iv,
       sigmaAt: sigmaAtFor(),
+      // IV decays toward the diffusion vol across the hold — without this the
+      // position is marked at entry IV forever and the VRP is never harvested.
+      convergeTo: simSigma,
       maxSteps: managedHorizon(spec.type)
     }, policyFor(spec.type))
     results.push({

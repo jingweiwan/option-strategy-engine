@@ -127,14 +127,14 @@ const ALL_STRATEGY_SPECS: StrategySpec[] = [
     // the SAME rule produced a 3.7%-of-spot wing on TLT and a 6.6% one on IWM.
     type: 'bear_call_spread',
     legs: [
-      { type: 'call', action: 'sell', targetDelta: 0.30 },
+      { type: 'call', action: 'sell', targetDelta: 0.2 },
       { type: 'call', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   },
   {
     type: 'bull_put_spread',
     legs: [
-      { type: 'put', action: 'sell', targetDelta: 0.30 },
+      { type: 'put', action: 'sell', targetDelta: 0.2 },
       { type: 'put', action: 'buy', widthPctFromShort: CREDIT_SPREAD_WING_PCT }
     ]
   },

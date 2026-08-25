@@ -12,27 +12,27 @@
     {
       "strategy": "bear_call_spread",
       "tier": "primary",
-      "netPremium": 0.47,
-      "pop": 0.622,
-      "ev": 0,
-      "cvar95": -0.79,
-      "maxProfit": 0.47,
-      "maxLoss": -2.03,
+      "netPremium": 0.33,
+      "pop": 0.896,
+      "ev": 0.11,
+      "cvar95": -0.49,
+      "maxProfit": 0.33,
+      "maxLoss": -2.17,
       "breakevens": [
-        113
+        117.8
       ],
       "legs": [
         {
           "type": "call",
           "action": "sell",
-          "strike": 112.5,
-          "premium": 2.73
+          "strike": 117.5,
+          "premium": 1.79
         },
         {
           "type": "call",
           "action": "buy",
-          "strike": 115,
-          "premium": 2.26
+          "strike": 120,
+          "premium": 1.47
         }
       ]
     },
@@ -40,9 +40,9 @@
       "strategy": "bear_put_spread",
       "tier": "reference",
       "netPremium": -4.16,
-      "pop": 0.281,
-      "ev": -0.46,
-      "cvar95": -2.71,
+      "pop": 0.27,
+      "ev": -0.52,
+      "cvar95": -2.64,
       "maxProfit": 5.84,
       "maxLoss": -4.16,
       "breakevens": [
@@ -67,9 +67,9 @@
       "strategy": "bull_call_spread",
       "tier": "reference",
       "netPremium": -2.77,
-      "pop": 0.237,
-      "ev": -0.48,
-      "cvar95": -1.77,
+      "pop": 0.224,
+      "ev": -0.53,
+      "cvar95": -1.73,
       "maxProfit": 7.23,
       "maxLoss": -2.77,
       "breakevens": [
@@ -93,27 +93,27 @@
     {
       "strategy": "bull_put_spread",
       "tier": "primary",
-      "netPremium": 0.74,
-      "pop": 0.591,
-      "ev": 0.01,
-      "cvar95": -0.92,
-      "maxProfit": 0.74,
-      "maxLoss": -1.76,
+      "netPremium": 0.5,
+      "pop": 0.877,
+      "ev": 0.16,
+      "cvar95": -0.66,
+      "maxProfit": 0.5,
+      "maxLoss": -2.01,
       "breakevens": [
-        91.8
+        87
       ],
       "legs": [
         {
           "type": "put",
           "action": "sell",
-          "strike": 92.5,
-          "premium": 3.36
+          "strike": 87.5,
+          "premium": 1.91
         },
         {
           "type": "put",
           "action": "buy",
-          "strike": 90,
-          "premium": 2.62
+          "strike": 85,
+          "premium": 1.41
         }
       ]
     },
@@ -121,9 +121,9 @@
       "strategy": "iron_condor",
       "tier": "primary",
       "netPremium": 0.72,
-      "pop": 0.789,
-      "ev": 0.12,
-      "cvar95": -0.54,
+      "pop": 0.927,
+      "ev": 0.29,
+      "cvar95": -0.45,
       "maxProfit": 0.72,
       "maxLoss": -1.79,
       "breakevens": [
@@ -161,9 +161,9 @@
       "strategy": "long_straddle",
       "tier": "reference",
       "netPremium": -14.1,
-      "pop": 0.198,
-      "ev": -4.13,
-      "cvar95": -8.05,
+      "pop": 0.178,
+      "ev": -4.4,
+      "cvar95": -8.03,
       "maxProfit": "inf",
       "maxLoss": -14.1,
       "breakevens": [
