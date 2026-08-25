@@ -205,25 +205,33 @@ const isStale = computed(() => (staleMinutes.value ?? 0) > 30)
 // Last good payload, so a hard refresh paints the real page immediately instead
 // of a blank screen. The server may still take 15-50s on a cold build; that wait
 // is now a background revalidation behind visible content, not a white page.
-const LAST_GOOD_KEY = 'ose:dashboard:last-good'
+// Keyed BY WATCHLIST: the payload's legs, EV and levels are specific to the
+// symbols that were scanned, so painting one pool's board while another pool
+// loads would show numbers that never belonged to it.
+function lastGoodKey(symbols: string[]): string {
+  return `ose:dashboard:last-good:${[...symbols].map((s) => s.toUpperCase()).sort().join(',')}`
+}
 
-function readLastGood(): DashboardData | null {
+function readLastGood(symbols: string[]): DashboardData | null {
   try {
-    const raw = localStorage.getItem(LAST_GOOD_KEY)
+    const raw = localStorage.getItem(lastGoodKey(symbols))
     if (!raw) return null
     const { at, v } = JSON.parse(raw) as { at: number; v: DashboardData }
     // A day-old board is not worth painting: strategy legs and levels would be
     // from another session entirely.
     if (!Number.isFinite(at) || Date.now() - at > 6 * 3600_000) return null
-    return v
+    // `stale` describes the SERVER's cache state at write time, not this cached
+    // copy — persisting it would show 「后台更新中」 on a hard refresh when no
+    // server refresh is running. Age of this copy is shown by freshnessText.
+    return { ...v, stale: false }
   } catch {
     return null
   }
 }
 
-function writeLastGood(v: DashboardData): void {
+function writeLastGood(symbols: string[], v: DashboardData): void {
   try {
-    localStorage.setItem(LAST_GOOD_KEY, JSON.stringify({ at: Date.now(), v }))
+    localStorage.setItem(lastGoodKey(symbols), JSON.stringify({ at: Date.now(), v }))
   } catch { /* quota or private mode — the page just loses the instant paint */ }
 }
 
@@ -234,9 +242,10 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const fresh = await fetchDashboard([...syms.value])
+    const wl = [...syms.value]
+    const fresh = await fetchDashboard(wl)
     data.value = fresh
-    writeLastGood(fresh)
+    writeLastGood(wl, fresh)
   } catch (e: any) {
     // Keep whatever is on screen; an error banner beats replacing real numbers
     // with an error page.
@@ -301,7 +310,7 @@ async function loadNarrative() {
 onMounted(() => {
   // Paint the cached board first, then revalidate. The user sees the real
   // layout in ~0ms instead of a bare 「加载中…」 for the length of a cold build.
-  data.value = readLastGood()
+  data.value = readLastGood([...syms.value])
   load()
   window.addEventListener('ose:watchlist-changed', handleWatchlistChanged)
 })

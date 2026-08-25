@@ -6,7 +6,10 @@ const GOOD = {
   sym: 'MU', side: 'long', qty: 1, optionType: 'put',
   strike: 720, expiration: '2026-09-18', avgCost: 744
 }
-const wrap = (legs: any[]): any => ({ schema: 'rh-positions-v1', optionLegs: legs })
+// fetchedAt is part of the gate: without it rhAgeHours() is null and staleness
+// warnings go silently dead.
+const wrap = (legs: any[]): any =>
+  ({ schema: 'rh-positions-v1', fetchedAt: '2026-08-25T01:58:52.053Z', optionLegs: legs })
 
 test('rhPositions: accepts a conforming leg', () => {
   assert.equal(validateOptionLegs(wrap([GOOD])), true)
@@ -36,5 +39,15 @@ test('rhPositions: avgCost must be present — 0 is valid, undefined is not', ()
 })
 
 test('rhPositions: rejects a non-array optionLegs', () => {
-  assert.equal(validateOptionLegs({ schema: 'rh-positions-v1' } as any), false)
+  assert.equal(
+    validateOptionLegs({ schema: 'rh-positions-v1', fetchedAt: '2026-08-25T01:58:52.053Z' } as any),
+    false
+  )
+})
+
+test('rhPositions: rejects a file missing fetchedAt (staleness warnings would be dead)', () => {
+  const noStamp: any = wrap([GOOD])
+  delete noStamp.fetchedAt
+  assert.equal(validateOptionLegs(noStamp), false)
+  assert.equal(validateOptionLegs({ ...wrap([GOOD]), fetchedAt: 'not-a-date' }), false)
 })

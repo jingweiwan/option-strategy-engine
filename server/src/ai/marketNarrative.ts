@@ -3,7 +3,7 @@
  */
 
 import { chatJson, type AiMessage } from './client.js'
-import { cached, getCachedNarrativeDailyWithLegacy, etCalendarDay, HOUR } from './cache.js'
+import { cached, getCachedNarrativeDailyWithLegacy, bust, etCalendarDay, HOUR } from './cache.js'
 
 export type MarketSnapshot = {
   asof: string
@@ -113,7 +113,10 @@ export function narrativeCacheKey(snap?: MarketSnapshot): string {
   // v2: board-grounded prompt. Key on the actual board contents so a narrative
   // generated for one set of setups (e.g. "SPY") doesn't linger after the board
   // changes to another (e.g. "GOOGL, UNH") within the same day.
-  return `narrative-v2-${narrativeCacheDayKey()}-${boardSignature(snap)}`
+  // v3: ticker grounding enforced. MUST bump alongside it — the 2026-08-25
+  // 「ADBE 72」 narrative is sitting in day caches with a v2 key and would be
+  // served straight past the new check on deploy.
+  return `narrative-v3-${narrativeCacheDayKey()}-${boardSignature(snap)}`
 }
 
 export function fmtSignedPct(n: number, d = 2): string {
@@ -199,7 +202,18 @@ export function hydrateDashboardNarrative(n: DashboardNarrative, snap: MarketSna
 export async function getMarketNarrative(snap: MarketSnapshot): Promise<DashboardNarrative> {
   const key = narrativeCacheKey(snap)
   const pre = await getCachedNarrativeDailyWithLegacy<DashboardNarrative>(key, 12 * HOUR)
-  if (pre != null) return hydrateDashboardNarrative(pre, snap)
+  if (pre != null) {
+    // A cached narrative is NOT exempt. The generation-time check would be
+    // bypassed entirely by this short-circuit, so a poisoned entry written
+    // before the check existed (or by an older build) would keep shipping.
+    // Validate on read too, and drop the entry rather than display it.
+    const bad = ungroundedTickers(pre, snap)
+    if (bad.length === 0) return hydrateDashboardNarrative(pre, snap)
+    console.warn(
+      `[ai/narrative] discarding cached narrative: fabricated ticker(s) ${bad.join(', ')}`
+    )
+    bust(key)
+  }
 
   const raw = await cached<DashboardNarrative>(key, 12 * HOUR, async () => {
     // Two attempts: the retry names the fabricated tickers back at the model.
@@ -234,6 +248,11 @@ export async function getMarketNarrative(snap: MarketSnapshot): Promise<Dashboar
       if (attempt === 2) {
         throw new Error(`AI named ticker(s) absent from the snapshot: ${bad.join(', ')}`)
       }
+      // NOTE: only TICKERS are enforced. The instruction below also demands
+      // verbatim numbers, which nothing checks — a fabricated IVR on a real
+      // watchlist symbol still ships. Narrowing the instruction to match the
+      // check would be worse (it is a good instruction); the honest fix is
+      // numeric grounding, which needs the snapshot's own values threaded in.
       correction =
         `\n\n【上一次生成不合格】你点名了快照中不存在的标的：${bad.join('、')}。` +
         '只能点名 watchlistTickers / board.setups / earningsUpcoming 中出现过的代码，' +
