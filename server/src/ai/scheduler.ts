@@ -84,7 +84,14 @@ async function dailyRefresh(reason: string) {
   await warmAll(reason)
 
   if (process.env.FEEDBACK_AUTO_HYDRATE === '1') {
-    hydrateDueSnapshots({ stopLossFraction: 0.5, maxUpdates: 40 }).then(
+    // 40/run was sized when every settlement cost its own HTTP round-trip. Daily
+    // bars are now cached as ONE series per symbol (see getDailyOhlc), so a run
+    // that settles 500 snapshots across 30 symbols makes 30 fetches, not 500 —
+    // the old cap is pure latency. It matters: ~1900 August arm snapshots come
+    // due together in mid-September, and at 40/day the tuner would stay starved
+    // for seven weeks after its evidence actually exists.
+    const maxUpdates = Number(process.env.FEEDBACK_HYDRATE_MAX) || 500
+    hydrateDueSnapshots({ stopLossFraction: 0.5, maxUpdates }).then(
       (r) => console.log(`[feedback] auto-hydrate: updated=${r.updated} pendingHorizon=${r.pendingWithinHorizon}`),
       (e) => console.warn('[feedback] auto-hydrate failed:', (e as Error).message)
     )
