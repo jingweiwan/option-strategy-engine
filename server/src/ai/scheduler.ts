@@ -23,8 +23,8 @@
 
 import cron, { type ScheduledTask } from 'node-cron'
 import { buildLiveMarketSnapshot } from '../routes/dashboard.js'
-import { getMarketNarrative } from './marketNarrative.js'
-import { bust, etCalendarDay, getCachedIfValid, HOUR } from './cache.js'
+import { getMarketNarrative, narrativeDayPrefix } from './marketNarrative.js'
+import { bust, etCalendarDay, hasFreshEntry } from './cache.js'
 import { hydrateDueSnapshots } from '../feedback/hydrate.js'
 
 /**
@@ -61,12 +61,25 @@ async function warmAll(reason: string) {
 async function dailyRefresh(reason: string) {
   console.log(`[ai/warmer] daily refresh starting (${reason})`)
 
-  // Bust daily AI caches so warmAll() regenerates them
-  bust('narrative-')
-  bust('opps-')
-  bust('ticker-notes-')
-  bust('earnings-calendar')
-  bust('dashboard-live')
+  // Bust daily AI caches so warmAll() regenerates them.
+  //
+  // MUST be awaited. bust() clears L1 synchronously but unlinks L2
+  // asynchronously, so an un-awaited bust lets warmAll() read the files that
+  // are still on disk and warm the OLD entries straight back into L1 — the
+  // refresh silently re-serves what it was supposed to replace.
+  //
+  // This bites hardest on the ET-noon cron run, which refreshes WITHIN the same
+  // ET day: the keys are identical to the ones the pre-open run wrote and those
+  // entries are still inside their 12h TTL, so the mid-session refresh hands
+  // back the pre-market board for the rest of the day. (The ET-midnight run is
+  // unaffected — the new day's keys are new either way.)
+  await Promise.all([
+    bust('narrative-'),
+    bust('opps-'),
+    bust('ticker-notes-'),
+    bust('earnings-calendar'),
+    bust('dashboard-live')
+  ])
 
   await warmAll(reason)
 
@@ -125,19 +138,22 @@ async function heartbeat() {
     console.log(`[ai/warmer] sleep detected — gap ${(gap / 1000 / 60).toFixed(1)} min`)
   }
 
-  // Check if today's narrative cache exists (proxy for "has today been warmed?")
-  const narrativeKey = `narrative-${today}`
-  const hasToday = await getCachedIfValid<unknown>(narrativeKey, 12 * HOUR)
+  // Has today been warmed? Probe by PREFIX — narrative keys carry a version, a
+  // watchlist fingerprint and a board signature, so the old exact-key probe
+  // (`narrative-${today}`) matched nothing that is ever written and answered
+  // "no" every single time, leaving the in-memory lastWarmedDay as the only
+  // real signal and the update below as dead code.
+  const hasToday = await hasFreshEntry(narrativeDayPrefix(today))
 
   const needsRefresh =
     // Day changed and we haven't warmed today
-    (lastWarmedDay !== today && hasToday == null) ||
+    (lastWarmedDay !== today && !hasToday) ||
     // Or we just woke from sleep and today's cache is missing
-    (wasSleeping && hasToday == null)
+    (wasSleeping && !hasToday)
 
   if (!needsRefresh) {
     // Cache is still valid — update lastWarmedDay if needed
-    if (hasToday != null) lastWarmedDay = today
+    if (hasToday) lastWarmedDay = today
     return
   }
 
