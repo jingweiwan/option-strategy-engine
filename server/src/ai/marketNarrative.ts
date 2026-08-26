@@ -99,6 +99,15 @@ ${JSON.stringify(snap, null, 2)}
 
 export const narrativeCacheDayKey = etCalendarDay
 
+/**
+ * Prefix every narrative key for TODAY shares. The version string lives here
+ * and in `narrativeCacheKey` only — a caller that rebuilt it by hand (the
+ * warmer's heartbeat did, as `narrative-${day}`) can never match a real key.
+ */
+export function narrativeDayPrefix(day = narrativeCacheDayKey()): string {
+  return `narrative-v3-${day}-`
+}
+
 /** Signature of what the board actually holds — so the cached narrative refreshes
  *  when the setups change within a day (not just on empty↔active). */
 function boardSignature(snap?: MarketSnapshot): string {
