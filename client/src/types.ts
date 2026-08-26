@@ -401,7 +401,7 @@ export type RhStrategyPnl = {
 }
 
 export type FeedbackDegradation = {
-  what: 'calibration' | 'tuner'
+  what: 'calibration' | 'tuner' | 'settlement'
   message: string
   at: string
 }
@@ -741,6 +741,10 @@ export type PerformanceData = {
   totalSnapshots: number
   withOutcome: number
   pendingOutcome: number
+  /** Outcomes excluded because a superseded settlement regime produced them.
+   *  Counted inside `pendingOutcome` — they are awaiting re-settlement, not wrong. */
+  staleSettlements: number
+  settlementVersion: string
   overall: GroupStats
   strategies: GroupStats[]
   regimes: GroupStats[]

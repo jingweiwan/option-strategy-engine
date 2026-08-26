@@ -7,6 +7,7 @@
  *   3. Calibration ignores shadow rows (it measures the recommended book).
  */
 import { test } from 'node:test'
+import { SETTLEMENT_VERSION } from '../src/feedback/settlementVersion.js'
 import assert from 'node:assert/strict'
 import { buildArmStats, variantId } from '../src/feedback/tuner.js'
 
@@ -27,7 +28,7 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
     maxProfit: 1, maxLoss: -4, dte: 30, breakevens: [], legs: [],
     variant: V16,
     outcome: {
-      computedAt: '', horizonDays: 5, tradingDaysUsed: 5,
+      computedAt: '', settlementVersion: SETTLEMENT_VERSION, horizonDays: 5, tradingDaysUsed: 5,
       realizedVolAnnualized: null, spotMin: null, spotMax: null,
       pnlPathMin: null, pnlPathMax: null, pnlAtExpirationClose: null,
       stopHit: false, stopThresholdUsed: 0, nearBreakevenTouched: false,
