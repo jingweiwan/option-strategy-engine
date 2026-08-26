@@ -254,6 +254,33 @@ export async function cached<T>(
 }
 
 /**
+ * Is there ANY unexpired entry whose key starts with `prefix`?
+ *
+ * `getCachedIfValid` needs the exact key, which is useless for "has today been
+ * warmed?" checks against keys that carry a version, a pool fingerprint and a
+ * board signature. Probing an exact prefix as if it were a key silently answers
+ * "no" forever.
+ */
+export async function hasFreshEntry(prefix: string): Promise<boolean> {
+  const now = Date.now()
+  for (const [k, e] of mem) {
+    if (k.startsWith(prefix) && e.expiry > now) return true
+  }
+  const sp = safeKey(prefix)
+  try {
+    const names = await readdir(CACHE_DIR)
+    for (const f of names) {
+      if (!f.startsWith(sp) || !f.endsWith('.json')) continue
+      try {
+        const e = JSON.parse(await readFile(join(CACHE_DIR, f), 'utf8')) as Entry<unknown>
+        if (e.expiry > now) return true
+      } catch { /* unreadable entry — treat as absent */ }
+    }
+  } catch { /* no cache dir yet */ }
+  return false
+}
+
+/**
  * Drop cached entries by prefix. L1 clears synchronously; the RETURNED promise
  * settles once the L2 files are gone.
  *

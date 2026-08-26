@@ -16,6 +16,7 @@
  * exploration.
  */
 import { test } from 'node:test'
+import { SETTLEMENT_VERSION } from '../src/feedback/settlementVersion.js'
 import assert from 'node:assert/strict'
 import { buildArmStats, pickShortDelta, variantId } from '../src/feedback/tuner.js'
 import { shortDeltaFromVariant } from '../src/backtest/replay.js'
@@ -67,7 +68,7 @@ function condorTrade(variant: string, pnl: number, maxLoss: number, spot = 100):
     aiViewConfidence: null,
     exitPolicy: null,
     outcome: {
-      computedAt: '2026-07-20',
+      computedAt: '2026-07-20', settlementVersion: SETTLEMENT_VERSION,
       horizonDays: 5,
       tradingDaysUsed: 5,
       realizedVolAnnualized: null,

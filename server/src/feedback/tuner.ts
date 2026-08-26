@@ -33,6 +33,8 @@
  * Disable with STRATEGY_TUNER=0 (falls back to the static DEFAULT_SHORT_DELTA spec).
  */
 import type { StrategyType } from '../engine/types.js'
+import { isCurrentRegime, SETTLEMENT_VERSION } from './settlementVersion.js'
+import { noteStaleSettlements } from './health.js'
 import type { Regime } from '../engine/index.js'
 import type { LegSpec } from '../engine/liveStrategies.js'
 import { CREDIT_SPREAD_WING_PCT } from '../engine/liveStrategies.js'
@@ -116,6 +118,8 @@ export function armKey(strategy: StrategyType, regime: Regime, variant: string):
 }
 
 export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
+  let staleRegime = 0
+  let considered = 0
   const stats: ArmStats = new Map()
   // A surfaced (dashboard) row and its same-day shadow row describe the SAME
   // arm on the same underlying's path — count once, preferring the surfaced row.
@@ -128,6 +132,11 @@ export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
   for (const s of snaps) {
     if (!TUNED_STRATEGIES.includes(s.strategyId)) continue
     if (!s.outcome) continue
+    considered++
+    // Only outcomes from the CURRENT settlement regime are comparable. A number
+    // produced by since-replaced marking code looks identical to a fresh one, so
+    // mixing them is silent and unfalsifiable — skip, and report how many.
+    if (!isCurrentRegime(s.outcome)) { staleRegime++; continue }
     if (s.source === 'shadow' && surfaced.has(`${s.etDay}|${s.sym}|${s.strategyId}|${s.variant}`)) continue
     const pnl = outcomePnl(s.outcome)
     if (pnl == null) continue
@@ -152,6 +161,7 @@ export function buildArmStats(snaps: RecommendationSnapshot[]): ArmStats {
     cur.sumSq += r * r
     stats.set(k, cur)
   }
+  noteStaleSettlements('tuner', staleRegime, considered, SETTLEMENT_VERSION)
   return stats
 }
 

@@ -1,5 +1,6 @@
 import type { RecommendationSnapshot } from './types.js'
 import { computeOutcomeForSnapshot, type OutcomeOptions } from './outcome.js'
+import { SETTLEMENT_VERSION, isCurrentRegime } from './settlementVersion.js'
 import { assertLoadedHistoryMatchesFile, loadSnapshots, saveSnapshots } from './store.js'
 import { managedHoldDays } from '../engine/managedExit.js'
 
@@ -29,6 +30,12 @@ function snapshotPastHorizon(s: RecommendationSnapshot, horizonDays: number): bo
  * Attach outcomes to snapshots once past their (strategy-aware) horizon.
  * `force` recomputes existing outcomes too — used after the P&L marking method
  * changes, to migrate the whole book to the new definition.
+ *
+ * An outcome from a SUPERSEDED settlement regime counts as due even without
+ * `force`. Otherwise a regime bump leaves the book permanently stale unless a
+ * human remembers to run a one-off migration — and the learning layer, which
+ * correctly ignores stale outcomes, would just quietly starve. Self-healing is
+ * rate-limited by `maxUpdates` like any other backlog.
  */
 export async function hydrateDueSnapshots(
   options: { stopLossFraction?: number; maxUpdates?: number; force?: boolean }
@@ -45,7 +52,7 @@ export async function hydrateDueSnapshots(
   const next: RecommendationSnapshot[] = []
   for (const s of all) {
     const horizonDays = effectiveHorizon(s)
-    if (s.outcome != null && !options.force) {
+    if (s.outcome != null && !options.force && isCurrentRegime(s.outcome)) {
       next.push(s)
       continue
     }
@@ -67,6 +74,10 @@ export async function hydrateDueSnapshots(
         ...s,
         outcome: {
           computedAt: new Date().toISOString(),
+          // Stamped even though settlement FAILED: it is a current-regime
+          // result ("we tried and could not price it"). It carries no P&L, so
+          // learning skips it on the null check, not on the regime check.
+          settlementVersion: SETTLEMENT_VERSION,
           horizonDays,
           tradingDaysUsed: 0,
           realizedVolAnnualized: null,
