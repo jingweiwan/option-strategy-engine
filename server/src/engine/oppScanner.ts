@@ -455,6 +455,30 @@ export function boardTierDecision(
   )
 }
 
+/**
+ * Arm ranking for the BOARD: gate-passing first, score second.
+ *
+ * Ranking on scoreStrategy alone picks the arm the board gate is guaranteed to
+ * reject. scoreStrategy is EV/CVaR; a far-OTM 0.12Δ short has a small EV but a
+ * far smaller CVaR, so thin arms win the ratio — while CREDIT_WIDTH_FLOOR
+ * exists precisely to refuse thin credit/width. Two rules that disagree by
+ * construction, and the board loses: on 2026-08-26 IWM's 0.20/0.25/0.30 arms
+ * sat at credit/width 0.115/0.147/0.188 (all passing) while the scanner
+ * surfaced 0.12 at 0.066, demoted ITSELF to `reference`, and the board came up
+ * empty.
+ *
+ * When no arm passes, score still decides — the best near-miss belongs in the
+ * 参考位 tier rather than vanishing.
+ */
+export function armBeatsCurrent(
+  next: { score: number; boards: boolean },
+  current: { score: number; boards: boolean } | null
+): boolean {
+  if (current == null) return true
+  if (next.boards !== current.boards) return next.boards
+  return next.score > current.score
+}
+
 /** Thin wrapper — prefer boardTierDecision when reason is needed. */
 export function boardTierFor(
   strategy: StrategyType,
@@ -1027,6 +1051,18 @@ async function scanSymbol(
       const variantBy: Partial<Record<StrategyType, string>> = {}
       if (armStats && TUNER_ENABLED) {
         const bestArmScore: Partial<Record<StrategyType, number>> = {}
+        // Does the winning arm's geometry actually clear the board gate? Ranking
+        // on scoreStrategy ALONE picks the arm the gate is guaranteed to reject:
+        // scoreStrategy is EV/CVaR, and a far-OTM 0.12Δ short has a tiny EV but a
+        // far tinier CVaR, so thin arms win the ratio — while CREDIT_WIDTH_FLOOR
+        // exists precisely to refuse thin credit/width. Two selection rules that
+        // disagree by construction, and the board loses: 2026-08-26 IWM had
+        // 0.20/0.25/0.30 at credit/width 0.115/0.147/0.188 (all passing) and the
+        // scanner surfaced 0.12 at 0.066, demoted itself to `reference`, and the
+        // board came up empty. So gate-passing is the PRIMARY key and score is
+        // the tiebreak. If no arm passes, keep the old behaviour (best score) so
+        // the near-miss still shows up in the 参考位 tier rather than vanishing.
+        const bestArmBoards: Partial<Record<StrategyType, boolean>> = {}
         const armCount = Math.max(...TUNED_STRATEGIES.map((st) => armsFor(st).length))
         for (let k = 0; k < armCount; k++) {
           const pinned: Partial<Record<StrategyType, LegSpec[]>> = {}
@@ -1051,14 +1087,30 @@ async function scanSymbol(
             const r = probe.results.find((x) => x.strategy === st)
             if (!r || r.legs.length === 0) continue
             const sc = scoreStrategy(r, quote.last)
-            if (bestArmScore[st] == null || sc > (bestArmScore[st] as number)) {
+            const boards =
+              boardTierDecision(st, {
+                ivr: probe.state.ivRank,
+                iv: probe.state.iv,
+                ivSold: soldLegIv(r.legs),
+                rv: ivRankInfo?.currentRv ?? null,
+                spansEarnings: spansEarningsDate(earningsDate, exp),
+                recentlyReported,
+                creditWidth: creditWidthOf(r)
+              }).tier === 'qualified'
+            const cur = bestArmScore[st] == null
+              ? null
+              : { score: bestArmScore[st] as number, boards: bestArmBoards[st] === true }
+            if (armBeatsCurrent({ score: sc, boards }, cur)) {
               bestArmScore[st] = sc
+              bestArmBoards[st] = boards
               specOverrides = { ...(specOverrides ?? {}), [st]: specLegs }
               variantBy[st] = pinnedVariant[st]
             }
           }
         }
-        const picked = Object.entries(variantBy).map(([s, v]) => `${s}=${v}`).join(' ')
+        const picked = Object.entries(variantBy)
+          .map(([s, v]) => `${s}=${v}${bestArmBoards[s as StrategyType] ? '' : '(no-board)'}`)
+          .join(' ')
         if (picked) console.log(`[tuner] ${sym} ${exp} best-arm: ${picked}`)
       }
 
