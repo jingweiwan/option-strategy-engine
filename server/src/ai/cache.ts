@@ -253,16 +253,25 @@ export async function cached<T>(
   return p
 }
 
-export function bust(prefix?: string): void {
+/**
+ * Drop cached entries by prefix. L1 clears synchronously; the RETURNED promise
+ * settles once the L2 files are gone.
+ *
+ * Awaiting matters: a caller that busts a poisoned entry and immediately calls
+ * `cached()` on the same key would otherwise race the unlink — L1 is empty, the
+ * L2 file is still on disk, and `getCachedIfValid` hands the poisoned value
+ * straight back without ever running the producer. Legacy callers that ignore
+ * the return value behave exactly as before.
+ */
+export function bust(prefix?: string): Promise<void> {
   if (!prefix) {
     mem.clear()
-    bustFs().catch(() => {})
-    return
+    return bustFs().catch(() => {})
   }
   for (const k of mem.keys()) {
     if (k.startsWith(prefix)) mem.delete(k)
   }
-  bustFs(prefix).catch(() => {})
+  return bustFs(prefix).catch(() => {})
 }
 
 /** Remove L2 filesystem cache entries matching prefix. */

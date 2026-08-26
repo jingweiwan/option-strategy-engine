@@ -109,6 +109,20 @@ function boardSignature(snap?: MarketSnapshot): string {
   return `${b.qualifiedCount}-${syms || 'na'}`
 }
 
+/** Stable, order-independent fingerprint of the pool the narrative describes. */
+function watchlistSlug(snap?: MarketSnapshot): string {
+  const syms = (snap?.watchlistTickers ?? []).map((t) => t.sym.toUpperCase()).sort()
+  if (syms.length === 0) return 'wl0'
+  // Short non-cryptographic digest — the key is a cache key, not a security
+  // boundary, and a full symbol list would blow past the filename cap.
+  let h = 2166136261
+  for (const c of syms.join(',')) {
+    h ^= c.charCodeAt(0)
+    h = Math.imul(h, 16777619)
+  }
+  return `wl${syms.length}x${(h >>> 0).toString(36)}`
+}
+
 export function narrativeCacheKey(snap?: MarketSnapshot): string {
   // v2: board-grounded prompt. Key on the actual board contents so a narrative
   // generated for one set of setups (e.g. "SPY") doesn't linger after the board
@@ -116,7 +130,14 @@ export function narrativeCacheKey(snap?: MarketSnapshot): string {
   // v3: ticker grounding enforced. MUST bump alongside it — the 2026-08-25
   // 「ADBE 72」 narrative is sitting in day caches with a v2 key and would be
   // served straight past the new check on deploy.
-  return `narrative-v3-${narrativeCacheDayKey()}-${boardSignature(snap)}`
+  //
+  // The watchlist slug is part of the key because the board signature is not
+  // enough: two different pools can produce the same qualified setups (or both
+  // produce none) while the narrative also talks about IVR levels and near
+  // misses drawn from `watchlistTickers`. Sharing an entry across pools serves
+  // the wrong pool's commentary — and widens the blast radius of any poisoned
+  // entry from one pool to all of them.
+  return `narrative-v3-${narrativeCacheDayKey()}-${watchlistSlug(snap)}-${boardSignature(snap)}`
 }
 
 export function fmtSignedPct(n: number, d = 2): string {
@@ -212,7 +233,11 @@ export async function getMarketNarrative(snap: MarketSnapshot): Promise<Dashboar
     console.warn(
       `[ai/narrative] discarding cached narrative: fabricated ticker(s) ${bad.join(', ')}`
     )
-    bust(key)
+    // MUST await: bust clears L1 synchronously but unlinks L2 asynchronously.
+    // Without the await, the `cached()` call below finds an empty L1, reads the
+    // not-yet-deleted L2 file, and returns the poisoned entry — never running
+    // the producer, never re-validating. The bug survives its own fix.
+    await bust(key)
   }
 
   const raw = await cached<DashboardNarrative>(key, 12 * HOUR, async () => {
@@ -260,5 +285,19 @@ export async function getMarketNarrative(snap: MarketSnapshot): Promise<Dashboar
     }
     throw new Error('unreachable')
   })
+
+  // Validate what we are about to RETURN, whatever its provenance.
+  //
+  // `cached()` can hand back an L2 entry without ever running the producer —
+  // written by a concurrent request, by another process sharing the cache dir,
+  // or by a build that predates the grounding check. Guarding only the
+  // generation path leaves every one of those routes open, and awaiting the
+  // bust above narrows the race without closing it. This closes it: no value
+  // leaves this function unvalidated.
+  const badFinal = ungroundedTickers(raw, snap)
+  if (badFinal.length > 0) {
+    await bust(key)
+    throw new Error(`AI narrative named ticker(s) absent from the snapshot: ${badFinal.join(', ')}`)
+  }
   return hydrateDashboardNarrative(raw, snap)
 }

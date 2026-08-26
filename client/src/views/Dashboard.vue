@@ -212,28 +212,63 @@ function lastGoodKey(symbols: string[]): string {
   return `ose:dashboard:last-good:${[...symbols].map((s) => s.toUpperCase()).sort().join(',')}`
 }
 
-function readLastGood(symbols: string[]): DashboardData | null {
+type LastGood = { data: DashboardData; narrative: DashboardNarrative | null }
+
+function readLastGood(symbols: string[]): LastGood | null {
   try {
     const raw = localStorage.getItem(lastGoodKey(symbols))
     if (!raw) return null
-    const { at, v } = JSON.parse(raw) as { at: number; v: DashboardData }
+    const { at, v, n } = JSON.parse(raw) as {
+      at: number; v: DashboardData; n?: DashboardNarrative | null
+    }
     // A day-old board is not worth painting: strategy legs and levels would be
     // from another session entirely.
     if (!Number.isFinite(at) || Date.now() - at > 6 * 3600_000) return null
     // `stale` describes the SERVER's cache state at write time, not this cached
     // copy — persisting it would show 「后台更新中」 on a hard refresh when no
     // server refresh is running. Age of this copy is shown by freshnessText.
-    return { ...v, stale: false }
+    //
+    // The narrative is stored WITH the board it describes: painting the board
+    // without it would make the page fetch a narrative for the cached board,
+    // which then races the fetch for the fresh board.
+    return { data: { ...v, stale: false }, narrative: n ?? null }
   } catch {
     return null
   }
 }
 
-function writeLastGood(symbols: string[], v: DashboardData): void {
+function writeLastGood(
+  symbols: string[], v: DashboardData, n: DashboardNarrative | null
+): void {
   try {
-    localStorage.setItem(lastGoodKey(symbols), JSON.stringify({ at: Date.now(), v }))
+    localStorage.setItem(lastGoodKey(symbols), JSON.stringify({ at: Date.now(), v, n }))
   } catch { /* quota or private mode — the page just loses the instant paint */ }
 }
+
+/**
+ * Fingerprint of the board a narrative was written for — the same inputs the
+ * request sends as `board.setups`. Used to decide whether a narrative on screen
+ * still describes the board on screen.
+ */
+function boardSignature(d: DashboardData | null): string {
+  if (!d) return ''
+  const qualified = d.opps.filter((o) => (o.boardTier ?? 'qualified') === 'qualified')
+  return qualified.length === 0
+    ? 'standby'
+    : qualified.slice(0, 4).map((o) => `${o.sym}:${o.strategy}`).join('|')
+}
+
+/**
+ * Monotonic request token. `watch(data)` fires for the cached paint AND again
+ * for the fresh payload, so two narrative requests are in flight at once and
+ * whichever RESOLVES LAST wins — which is routinely the stale-board one (a
+ * cache miss there generates, while the fresh board may hit the day cache and
+ * return in milliseconds). The old board's commentary then overwrites the new
+ * board's. Only the newest request may publish.
+ */
+let narrativeSeq = 0
+/** Board signature the on-screen narrative was generated for. */
+const narrativeFor = ref('')
 
 /** True while refreshing on top of content the user can already see. */
 const refreshing = computed(() => loading.value && data.value != null)
@@ -245,7 +280,9 @@ async function load() {
     const wl = [...syms.value]
     const fresh = await fetchDashboard(wl)
     data.value = fresh
-    writeLastGood(wl, fresh)
+    // Narrative is written back once it lands (see loadNarrative); persist the
+    // board now so a refresh mid-generation still paints something real.
+    writeLastGood(wl, fresh, narrativeFor.value === boardSignature(fresh) ? narrative.value : null)
   } catch (e: any) {
     // Keep whatever is on screen; an error banner beats replacing real numbers
     // with an error page.
@@ -263,6 +300,8 @@ const handleWatchlistChanged = () => {
 
 async function loadNarrative() {
   if (!data.value) return
+  const seq = ++narrativeSeq
+  const sig = boardSignature(data.value)
   aiLoading.value = true
   aiError.value = null
   try {
@@ -278,7 +317,7 @@ async function loadNarrative() {
           : sorted[mid]
       )
     })()
-    narrative.value = await fetchAiDashboardNarrative({
+    const got = await fetchAiDashboardNarrative({
       asof: m.asof,
       spy: m.spy,
       vixy: m.vixy,
@@ -300,17 +339,28 @@ async function loadNarrative() {
         setups: boardOpps.value.slice(0, 4).map((o) => ({ sym: o.sym, strategy: o.strategy }))
       }
     })
+    if (seq !== narrativeSeq) return // superseded — a newer board is being described
+    narrative.value = got
+    narrativeFor.value = sig
+    if (data.value) writeLastGood([...syms.value], data.value, got)
   } catch (e: any) {
+    if (seq !== narrativeSeq) return
     aiError.value = e?.message ?? 'AI 暂不可用'
   } finally {
-    aiLoading.value = false
+    if (seq === narrativeSeq) aiLoading.value = false
   }
 }
 
 onMounted(() => {
-  // Paint the cached board first, then revalidate. The user sees the real
-  // layout in ~0ms instead of a bare 「加载中…」 for the length of a cold build.
-  data.value = readLastGood([...syms.value])
+  // Paint the cached board AND its own narrative, then revalidate. Painting the
+  // board alone would make the watcher below fire a narrative request for the
+  // cached board, racing the one for the fresh board.
+  const cachedGood = readLastGood([...syms.value])
+  if (cachedGood) {
+    data.value = cachedGood.data
+    narrative.value = cachedGood.narrative
+    narrativeFor.value = cachedGood.narrative ? boardSignature(cachedGood.data) : ''
+  }
   load()
   window.addEventListener('ose:watchlist-changed', handleWatchlistChanged)
 })
@@ -321,12 +371,23 @@ onUnmounted(() => {
   stopStaleTimer()
 })
 
-// Trigger AI narrative + staleness timer once dashboard data arrives
+// Trigger AI narrative + staleness timer once dashboard data arrives.
 watch(data, (v) => {
-  if (v) {
-    loadNarrative()
-    startStaleTimer()
+  if (!v) return
+  startStaleTimer()
+  const sig = boardSignature(v)
+  // Already have a narrative for exactly this board (the cached paint, or a
+  // revalidation that returned the same setups): nothing to regenerate. This is
+  // what stops the mount from firing two competing requests — and it halves the
+  // AI spend on an ordinary page load.
+  if (narrative.value && narrativeFor.value === sig) return
+  // The board changed under the narrative on screen: drop it rather than show
+  // last board's commentary beside this board's numbers while the new one loads.
+  if (narrative.value && narrativeFor.value !== sig) {
+    narrative.value = null
+    narrativeFor.value = ''
   }
+  loadNarrative()
 })
 </script>
 
