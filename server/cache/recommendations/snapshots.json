@@ -129350,9 +129350,9 @@
     "outcome": null
   },
   {
-    "id": "958b7c66-ef55-42c1-ba2f-a5ccc6db879e",
+    "id": "e2a02e3f-584d-4d2b-9baf-773c8155c57c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bull_put_spread",
@@ -129360,7 +129360,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4275999999999999,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129399,9 +129399,9 @@
     "outcome": null
   },
   {
-    "id": "ea16dca4-9fee-47e0-a4de-4b51a9897731",
+    "id": "5ae3f776-414b-4cb6-befb-9dcb46ab5ddf",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bear_call_spread",
@@ -129409,7 +129409,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4294,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129448,9 +129448,9 @@
     "outcome": null
   },
   {
-    "id": "598277cb-b4f0-4472-bfad-ca8864d8c1b6",
+    "id": "f839281b-06dc-4a80-945f-c16b07077d93",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "iron_condor",
@@ -129458,7 +129458,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.43906657458563536,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129514,9 +129514,9 @@
     "outcome": null
   },
   {
-    "id": "f6689c4e-442e-4bef-9c51-459028c4b16e",
+    "id": "f775c251-daf1-439f-930a-78c254de6126",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bull_put_spread",
@@ -129524,7 +129524,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4173,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129563,9 +129563,9 @@
     "outcome": null
   },
   {
-    "id": "7da4aed2-a832-414c-b8d9-538a75144769",
+    "id": "29f0fc3b-2416-423c-9a47-78c2af18870f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bear_call_spread",
@@ -129573,7 +129573,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4202,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129612,9 +129612,9 @@
     "outcome": null
   },
   {
-    "id": "890ce8e5-1cad-4a63-9bc3-a4665357f206",
+    "id": "95996165-11e3-4dfa-9a47-7dba054d679d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "iron_condor",
@@ -129622,7 +129622,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.42933672079622837,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129678,9 +129678,9 @@
     "outcome": null
   },
   {
-    "id": "918a75ac-071a-4076-9555-583bda482473",
+    "id": "480a8776-d6ad-4cfd-8b87-ba6e7bead767",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bull_put_spread",
@@ -129688,7 +129688,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.41400000000000003,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129727,9 +129727,9 @@
     "outcome": null
   },
   {
-    "id": "d2f4a854-2329-46c6-9806-f424699f852f",
+    "id": "0a0721fe-ee7a-4753-af23-f266bd2c37c4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bear_call_spread",
@@ -129737,7 +129737,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4162,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129776,9 +129776,9 @@
     "outcome": null
   },
   {
-    "id": "fce3f263-bef1-4171-b45c-feaf3d619170",
+    "id": "7af05eb0-9dfd-4188-90ad-a752e3a4961e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.133Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "iron_condor",
@@ -129786,7 +129786,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.42435951051953624,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129842,9 +129842,9 @@
     "outcome": null
   },
   {
-    "id": "d9b219d8-c51f-461a-beb4-6dc19b33a822",
+    "id": "82138c8a-75f1-4c47-8217-70ec044ad502",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bull_put_spread",
@@ -129852,7 +129852,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4103,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129891,9 +129891,9 @@
     "outcome": null
   },
   {
-    "id": "35563623-96ff-4208-858a-caab444d029d",
+    "id": "2b36e7a0-bfc5-4d25-9297-54ae340397f1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bear_call_spread",
@@ -129901,7 +129901,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4102,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -129940,9 +129940,9 @@
     "outcome": null
   },
   {
-    "id": "3519e736-0a5e-4f58-81e8-f0029d76b7b6",
+    "id": "9b9187d8-b330-476a-b4d6-112c166309d7",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "iron_condor",
@@ -129950,7 +129950,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4191213114754098,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -130006,9 +130006,9 @@
     "outcome": null
   },
   {
-    "id": "f6d86173-b698-4b95-b90b-4144430884fe",
+    "id": "0de055f8-6b91-4b39-9f02-89723506ad4e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bull_put_spread",
@@ -130016,7 +130016,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.4068,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -130055,9 +130055,9 @@
     "outcome": null
   },
   {
-    "id": "65c96654-3e41-4228-9fae-cc6777be4d53",
+    "id": "34947ed7-7717-49f3-bc98-af92edc979ce",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "bear_call_spread",
@@ -130065,7 +130065,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.406,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -130104,9 +130104,9 @@
     "outcome": null
   },
   {
-    "id": "d3475fe9-5875-4fd2-9645-5b2a43ecbb40",
+    "id": "4db4c118-8c68-4085-8b0a-aaeb37f6a743",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "TSLA",
     "strategyId": "iron_condor",
@@ -130114,7 +130114,7 @@
     "spot": 350.8,
     "iv": 0.40335,
     "ivSold": 0.41383203124999995,
-    "ivr": 11.60453216374269,
+    "ivr": 11.567982456140355,
     "rvAtScan": 0.4197403429573028,
     "ivRvGap": -0.016390342957302795,
     "regime": "mid",
@@ -130170,9 +130170,9 @@
     "outcome": null
   },
   {
-    "id": "52091781-1615-40d1-82a9-ed8673851367",
+    "id": "7c765319-637a-4fbb-bdef-223163b5e6a0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bull_put_spread",
@@ -130219,9 +130219,9 @@
     "outcome": null
   },
   {
-    "id": "be49d4de-f089-4440-94a7-d872a768beb3",
+    "id": "62080896-fbf7-49df-a72b-70f518fa549b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bear_call_spread",
@@ -130268,9 +130268,9 @@
     "outcome": null
   },
   {
-    "id": "40bf7e03-35a8-4cd3-abba-eb8c17615a5d",
+    "id": "67423a2c-c112-4bf0-b1a6-7c9da69249b0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "iron_condor",
@@ -130334,9 +130334,9 @@
     "outcome": null
   },
   {
-    "id": "73f77c0d-1cb3-4ba4-b600-c83d1aa52434",
+    "id": "784c6f21-5102-4d76-981d-ab199fd3b3c2",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bull_put_spread",
@@ -130383,9 +130383,9 @@
     "outcome": null
   },
   {
-    "id": "92a981ec-8bc2-45c3-8b98-2a7834a67c0a",
+    "id": "0713d9dc-4d1b-4dbb-9793-ea2ff13b1fcd",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bear_call_spread",
@@ -130432,9 +130432,9 @@
     "outcome": null
   },
   {
-    "id": "0f5b7ee6-3fdb-4580-b49a-e1d441d9d1b3",
+    "id": "967d54a8-87cd-4d34-8c7d-9bc496140a3c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "iron_condor",
@@ -130498,9 +130498,9 @@
     "outcome": null
   },
   {
-    "id": "c4dbae0b-5c8e-44fb-bc4f-2a262b3aeaa3",
+    "id": "c7fb1fd1-7bb2-4136-86af-bfc74d927bf0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bull_put_spread",
@@ -130547,9 +130547,9 @@
     "outcome": null
   },
   {
-    "id": "49a74cf8-6b93-41fa-81e0-03f97f99339e",
+    "id": "10753932-24d6-492e-8519-fb3d86067cc8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bear_call_spread",
@@ -130596,9 +130596,9 @@
     "outcome": null
   },
   {
-    "id": "bca065f5-497e-4a80-8fb4-5205c3f48161",
+    "id": "82ae243c-e8c9-45d3-a68f-3e70b017f3a3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "iron_condor",
@@ -130662,9 +130662,9 @@
     "outcome": null
   },
   {
-    "id": "ce08a7da-e359-4f25-9548-bcaf2123e119",
+    "id": "96760131-5391-40ac-80ff-ddd5a37f88eb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bull_put_spread",
@@ -130711,9 +130711,9 @@
     "outcome": null
   },
   {
-    "id": "87284076-c39e-44e8-87dc-da027dd45885",
+    "id": "c6a5ae49-e076-4b73-ab54-120bd477efb0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bear_call_spread",
@@ -130760,9 +130760,9 @@
     "outcome": null
   },
   {
-    "id": "805707fa-8057-42c8-b0f8-ad1a8e253957",
+    "id": "99c328dd-5220-4b2c-b0ab-6f331e44b82e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "iron_condor",
@@ -130826,9 +130826,9 @@
     "outcome": null
   },
   {
-    "id": "61621e3b-3a47-4dd7-8821-8feaf387c6cd",
+    "id": "55e7fe44-a399-499d-8a28-3149c2254754",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bull_put_spread",
@@ -130875,9 +130875,9 @@
     "outcome": null
   },
   {
-    "id": "31ab4972-dfcd-4cc2-8f7b-39d14b45ad86",
+    "id": "28c583eb-63ce-4f59-9c76-306711da60b6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "bear_call_spread",
@@ -130924,9 +130924,9 @@
     "outcome": null
   },
   {
-    "id": "29d288b9-5fe0-4336-bbfd-df68b9c2b143",
+    "id": "cf37746d-12fb-4294-be2d-1d7f5b09bac5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AAPL",
     "strategyId": "iron_condor",
@@ -130990,9 +130990,9 @@
     "outcome": null
   },
   {
-    "id": "4a4e5d47-f076-4537-be72-7d537920318c",
+    "id": "aa302be7-4289-458a-adb6-cba44b318f93",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bull_put_spread",
@@ -131039,9 +131039,9 @@
     "outcome": null
   },
   {
-    "id": "7399dccf-39b7-4984-934f-8929074f024d",
+    "id": "cc24979d-de58-424b-bff9-1d4f4dd9e99e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bear_call_spread",
@@ -131088,9 +131088,9 @@
     "outcome": null
   },
   {
-    "id": "dff29167-7692-4114-a172-468ba2f3aa63",
+    "id": "23f22462-e8ac-4055-9375-178eda482385",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "iron_condor",
@@ -131154,9 +131154,9 @@
     "outcome": null
   },
   {
-    "id": "98cbddfa-01bc-4f7d-9fe3-ec701b51cea1",
+    "id": "dedfccf7-5d37-4852-a027-3ac7bebb7bd0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bull_put_spread",
@@ -131203,9 +131203,9 @@
     "outcome": null
   },
   {
-    "id": "321cd2a4-3b06-4dec-84c0-16c77f3ec089",
+    "id": "c6596f9f-b5b5-405c-93ad-0de2b3109c8d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bear_call_spread",
@@ -131252,9 +131252,9 @@
     "outcome": null
   },
   {
-    "id": "6138b3e1-4a65-496b-907b-1ba14f257b1a",
+    "id": "56c5cec9-0978-4b8a-aba4-7fcac93f7b64",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "iron_condor",
@@ -131318,9 +131318,9 @@
     "outcome": null
   },
   {
-    "id": "4c491e31-e064-4bb6-a037-ce69e99c1de4",
+    "id": "ded32f16-7c82-4ccc-aa88-33f1e35b4566",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bull_put_spread",
@@ -131367,9 +131367,9 @@
     "outcome": null
   },
   {
-    "id": "a9362310-cc0c-4619-b739-ed06768c00be",
+    "id": "4025a0b5-83d1-4f9d-80cb-1666eec9ece8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bear_call_spread",
@@ -131416,9 +131416,9 @@
     "outcome": null
   },
   {
-    "id": "397d1a2e-236f-4767-8b50-01dd71bc0219",
+    "id": "1a7249d7-4797-40a2-a60f-c2c67354ce98",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "iron_condor",
@@ -131482,9 +131482,9 @@
     "outcome": null
   },
   {
-    "id": "f0a47222-1cb9-4e41-a787-5ded1bf63cfc",
+    "id": "5382149e-2aec-4409-9085-9a27276167a8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bull_put_spread",
@@ -131531,9 +131531,9 @@
     "outcome": null
   },
   {
-    "id": "aea0e39d-485f-4bbf-94c4-c2c24d33e9d2",
+    "id": "8e5a191d-99d9-4b4f-b080-41676c6de8a8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bear_call_spread",
@@ -131580,9 +131580,9 @@
     "outcome": null
   },
   {
-    "id": "2c085031-9d95-41b6-9277-ab4fcb9ad151",
+    "id": "533520ec-7b2a-4a33-99b9-efaac13ac330",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "iron_condor",
@@ -131646,9 +131646,9 @@
     "outcome": null
   },
   {
-    "id": "e2f6a15b-c7b0-4aa5-b8ed-e3a44d18cf89",
+    "id": "1c873da1-3ae9-469a-a8df-71617394800f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bull_put_spread",
@@ -131695,9 +131695,9 @@
     "outcome": null
   },
   {
-    "id": "d23313e0-78f0-4856-9231-fa20a1c0dac9",
+    "id": "9f8743bc-45b7-4188-b725-10b0e0e03e7b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "bear_call_spread",
@@ -131744,9 +131744,9 @@
     "outcome": null
   },
   {
-    "id": "9ce4fdda-efbb-4e0b-88af-65a4d0ea74b9",
+    "id": "8b51f4f9-8fcc-45d2-9831-7cc24b0c0e70",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "AMZN",
     "strategyId": "iron_condor",
@@ -131810,9 +131810,9 @@
     "outcome": null
   },
   {
-    "id": "4583c897-ac80-436c-8f07-10a7e9da4c3c",
+    "id": "aeccb1d5-6e4c-4674-b4ff-7a121a7080e1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bull_put_spread",
@@ -131820,7 +131820,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3661,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -131859,9 +131859,9 @@
     "outcome": null
   },
   {
-    "id": "10f909b5-8315-4260-8441-6db23447c429",
+    "id": "3baeca7a-40e4-4bc8-9b57-51c486ac43b4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bear_call_spread",
@@ -131869,7 +131869,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3716999999999999,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -131908,9 +131908,9 @@
     "outcome": null
   },
   {
-    "id": "c2fcd9c0-5dbf-42c1-83fa-6b6d5b1c2c5b",
+    "id": "ed2f00f9-6e70-4a90-a133-e25b7a35bb2d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "iron_condor",
@@ -131918,7 +131918,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.37297513340448235,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -131974,9 +131974,9 @@
     "outcome": null
   },
   {
-    "id": "55fd76de-710d-40ff-83be-3b2785221639",
+    "id": "aef99808-988b-4b04-86df-225ff0119989",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bull_put_spread",
@@ -131984,7 +131984,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3566,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132023,9 +132023,9 @@
     "outcome": null
   },
   {
-    "id": "89eb4dee-ead7-4757-87d8-8d20b711e41a",
+    "id": "50cc7f1a-1597-4aa6-870b-30793b7ef358",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bear_call_spread",
@@ -132033,7 +132033,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3645,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132072,9 +132072,9 @@
     "outcome": null
   },
   {
-    "id": "15cd33ca-b399-475f-a89c-22e045d4c4f4",
+    "id": "a2c9eb41-7fe3-4b10-99ee-359846b436b1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "iron_condor",
@@ -132082,7 +132082,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3683005130397606,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132138,9 +132138,9 @@
     "outcome": null
   },
   {
-    "id": "c5d58bf9-31e9-4718-876f-b307ef2e6469",
+    "id": "a9f04421-302c-4f9b-85a6-ff69f3ef7fcd",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bull_put_spread",
@@ -132148,7 +132148,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.356,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132187,9 +132187,9 @@
     "outcome": null
   },
   {
-    "id": "e9d65ab0-036a-4fcb-89ac-f65c83c8a965",
+    "id": "bd81263b-ffd5-4e80-9558-1e12640441c1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bear_call_spread",
@@ -132197,7 +132197,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3622,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132236,9 +132236,9 @@
     "outcome": null
   },
   {
-    "id": "867ca822-345c-4405-ba83-118551569a61",
+    "id": "b190f90a-772c-4683-bc06-e2bd4670b575",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "iron_condor",
@@ -132246,7 +132246,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3624822243049047,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132302,9 +132302,9 @@
     "outcome": null
   },
   {
-    "id": "88939f15-4390-4521-8a01-7e5d5eb5386a",
+    "id": "283994e8-1ae4-4c0e-8d58-b52f4377fed1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bull_put_spread",
@@ -132312,7 +132312,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3526,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132351,9 +132351,9 @@
     "outcome": null
   },
   {
-    "id": "406690df-a760-42c8-8ae4-8584615c27cf",
+    "id": "a248b663-60cf-4939-a298-983db6a6f4aa",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bear_call_spread",
@@ -132361,7 +132361,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3576,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132400,9 +132400,9 @@
     "outcome": null
   },
   {
-    "id": "176d74ee-5f7a-43c2-95c8-16f1bd6661d7",
+    "id": "99ca45fc-10ed-4ac5-9d4b-a4e0bbb69dab",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "iron_condor",
@@ -132410,7 +132410,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.360809405940594,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132466,9 +132466,9 @@
     "outcome": null
   },
   {
-    "id": "619ab767-f25f-469b-b2cf-b3a92b5f398c",
+    "id": "8de5b404-68cf-49cc-a246-6fd6f223b743",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bull_put_spread",
@@ -132476,7 +132476,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3511,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132515,9 +132515,9 @@
     "outcome": null
   },
   {
-    "id": "563725f4-432c-4498-b607-b0c290eef417",
+    "id": "14a04dcb-0208-4a00-974e-62c35c37cbe5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "bear_call_spread",
@@ -132525,7 +132525,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.3565,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132564,9 +132564,9 @@
     "outcome": null
   },
   {
-    "id": "b61646ea-12e8-42ac-a790-8aed11f38c9c",
+    "id": "f9eb9672-8401-4b1f-908e-a8506081886b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "META",
     "strategyId": "iron_condor",
@@ -132574,7 +132574,7 @@
     "spot": 567.76,
     "iv": 0.3497,
     "ivSold": 0.35614224598930483,
-    "ivr": 34.39557151406345,
+    "ivr": 34.41053261520049,
     "rvAtScan": 0.39975946783726657,
     "ivRvGap": -0.05005946783726656,
     "regime": "mid",
@@ -132630,9 +132630,9 @@
     "outcome": null
   },
   {
-    "id": "70d41f89-5832-46a0-a1db-601e98232870",
+    "id": "f34ffb4e-7dfd-4782-a1c3-67e0339b4273",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bull_put_spread",
@@ -132640,7 +132640,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.3004,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132679,9 +132679,9 @@
     "outcome": null
   },
   {
-    "id": "e7214915-5df8-4223-9941-788ccb0dcd59",
+    "id": "bfa65875-0c65-452f-a940-427c6dec495d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bear_call_spread",
@@ -132689,7 +132689,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2874,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132728,9 +132728,9 @@
     "outcome": null
   },
   {
-    "id": "72d72d51-c219-45b6-b86a-d6be897c8647",
+    "id": "9b9ec685-3c86-4733-b70d-629984ec4682",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "iron_condor",
@@ -132738,7 +132738,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.30299241466498106,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132794,9 +132794,9 @@
     "outcome": null
   },
   {
-    "id": "1ce5ede4-1f17-47bf-9509-8afa53567be7",
+    "id": "2ef8c715-676b-4ef6-9106-9d53c7397de5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bull_put_spread",
@@ -132804,7 +132804,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2927,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132843,9 +132843,9 @@
     "outcome": null
   },
   {
-    "id": "8d5118ed-9a39-4b49-8009-0542c197f267",
+    "id": "68bca1be-97d5-45bb-942f-87dd42289951",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bear_call_spread",
@@ -132853,7 +132853,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2894,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132892,9 +132892,9 @@
     "outcome": null
   },
   {
-    "id": "5a9c143e-6f1a-4dd3-8a21-0e775f07b1ee",
+    "id": "127030ac-446b-4d48-a673-162d92ef7913",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "iron_condor",
@@ -132902,7 +132902,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.3016572265625,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -132958,9 +132958,9 @@
     "outcome": null
   },
   {
-    "id": "ca1be355-7975-4e0c-875c-4018d5091741",
+    "id": "3619da4e-71f4-453b-9c39-32dafe169c6d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bull_put_spread",
@@ -132968,7 +132968,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.286,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133007,9 +133007,9 @@
     "outcome": null
   },
   {
-    "id": "891e768a-2570-4af1-91a4-7d7327941506",
+    "id": "145ee6bf-16d1-4bd6-8914-de254f4c0599",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.306Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bear_call_spread",
@@ -133017,7 +133017,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2878,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133056,9 +133056,9 @@
     "outcome": null
   },
   {
-    "id": "aad1005d-44ea-440f-9f1b-558a86ce3526",
+    "id": "859685dc-ec8e-4f98-b4b5-35277b221c60",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "iron_condor",
@@ -133066,7 +133066,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2913617647058824,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133122,9 +133122,9 @@
     "outcome": null
   },
   {
-    "id": "88c3eea6-6c26-4f60-9dd1-0b4745231c11",
+    "id": "6ca6be12-569e-4b90-a5ef-5d4c139bf3ba",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bull_put_spread",
@@ -133132,7 +133132,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2856,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133171,9 +133171,9 @@
     "outcome": null
   },
   {
-    "id": "5e77645b-f850-4258-a31a-6fb908d1260f",
+    "id": "797bc460-3d74-4a87-86f0-d7e22759eb91",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bear_call_spread",
@@ -133181,7 +133181,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2835,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133220,9 +133220,9 @@
     "outcome": null
   },
   {
-    "id": "ef03b8e9-a698-4e79-acbc-168d65cd7782",
+    "id": "1319a41a-c804-42a0-bebe-8cd62bda0fdc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "iron_condor",
@@ -133230,7 +133230,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2864740740740741,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133286,9 +133286,9 @@
     "outcome": null
   },
   {
-    "id": "33d3d4df-5aa4-4736-8801-ffdf214bb1a8",
+    "id": "d940ce3b-3a30-4e51-951b-ce8922ec247b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bull_put_spread",
@@ -133296,7 +133296,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.283,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133335,9 +133335,9 @@
     "outcome": null
   },
   {
-    "id": "ee1fd427-0866-4874-9ef8-e115246722e6",
+    "id": "90141d0e-a1f7-41e8-a320-a6f898f1bda9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "bear_call_spread",
@@ -133345,7 +133345,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.2774,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133384,9 +133384,9 @@
     "outcome": null
   },
   {
-    "id": "a7d15496-2039-408f-b062-3874fd977698",
+    "id": "fc9a32a8-76b2-4eec-bde9-c55a895e311a",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GOOGL",
     "strategyId": "iron_condor",
@@ -133394,7 +133394,7 @@
     "spot": 346.25,
     "iv": 0.27935,
     "ivSold": 0.28688496680983994,
-    "ivr": 12.294211364843335,
+    "ivr": 12.347318109399888,
     "rvAtScan": 0.37599454635472707,
     "ivRvGap": -0.09664454635472708,
     "regime": "buy",
@@ -133450,23 +133450,23 @@
     "outcome": null
   },
   {
-    "id": "e73e428f-67e5-4c35-bbf9-f889c6f970b4",
+    "id": "e3826d02-ad8a-4e24-bfcb-c46233573433",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bull_put_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2779,
+    "ivSold": 0.2782,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.12167949727252621,
-    "pop": 0.603,
-    "ev": -0.29781665354937154,
+    "score": -0.12211251026857643,
+    "pop": 0.602,
+    "ev": -0.29887647450785426,
     "netPremium": 0.6674999999999995,
     "maxProfit": 0.6674999999999995,
     "maxLoss": -9.3325,
@@ -133481,7 +133481,7 @@
         "strike": 450,
         "premium": 2.4299999999999997,
         "quantity": 1,
-        "iv": 0.2779
+        "iv": 0.2782
       },
       {
         "type": "put",
@@ -133489,7 +133489,7 @@
         "strike": 440,
         "premium": 1.7625000000000002,
         "quantity": 1,
-        "iv": 0.2934
+        "iv": 0.2937
       }
     ],
     "variant": "sd0.12@w3",
@@ -133499,23 +133499,23 @@
     "outcome": null
   },
   {
-    "id": "648fc759-bf91-4847-8213-e69a9d645516",
+    "id": "e7977f46-01ee-4075-bcb0-8862674df875",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bear_call_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2376,
+    "ivSold": 0.2374,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.08796726542765408,
-    "pop": 0.597,
-    "ev": -0.21530428049745476,
+    "score": -0.0882622828038277,
+    "pop": 0.596,
+    "ev": -0.21602635027650846,
     "netPremium": 0.35250000000000026,
     "maxProfit": 0.35250000000000026,
     "maxLoss": -9.647499999999999,
@@ -133530,7 +133530,7 @@
         "strike": 540,
         "premium": 1.455,
         "quantity": 1,
-        "iv": 0.2376
+        "iv": 0.2374
       },
       {
         "type": "call",
@@ -133538,7 +133538,7 @@
         "strike": 550,
         "premium": 1.1024999999999998,
         "quantity": 1,
-        "iv": 0.2455
+        "iv": 0.2452
       }
     ],
     "variant": "sd0.12@w3",
@@ -133548,89 +133548,23 @@
     "outcome": null
   },
   {
-    "id": "cb09e544-f413-430b-ba2f-22c694fa6b3d",
+    "id": "4045488d-3ce7-4355-95b8-653b599d300c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
-    "source": "shadow",
-    "sym": "MSFT",
-    "strategyId": "iron_condor",
-    "expiration": "2026-09-25",
-    "spot": 489.51,
-    "iv": 0.2541,
-    "ivSold": 0.2725186737804878,
-    "ivr": 26.32490474541046,
-    "rvAtScan": 0.29899401780357004,
-    "ivRvGap": -0.04489401780357005,
-    "regime": "buy",
-    "score": -0.18945289488812536,
-    "pop": 0.452,
-    "ev": -0.46369543288343124,
-    "netPremium": 0.7424999999999999,
-    "maxProfit": 0.7424999999999999,
-    "maxLoss": -9.257499999999999,
-    "dte": 31,
-    "breakevens": [
-      444.25750000000005,
-      545.7425000000001
-    ],
-    "legs": [
-      {
-        "type": "put",
-        "action": "sell",
-        "strike": 445,
-        "premium": 2.0324999999999998,
-        "quantity": 1,
-        "iv": 0.2899
-      },
-      {
-        "type": "put",
-        "action": "buy",
-        "strike": 435,
-        "premium": 1.435,
-        "quantity": 1,
-        "iv": 0.3015
-      },
-      {
-        "type": "call",
-        "action": "sell",
-        "strike": 545,
-        "premium": 1.2475,
-        "quantity": 1,
-        "iv": 0.2442
-      },
-      {
-        "type": "call",
-        "action": "buy",
-        "strike": 550,
-        "premium": 1.1024999999999998,
-        "quantity": 1,
-        "iv": 0.2455
-      }
-    ],
-    "variant": "sd0.10@w3",
-    "aiView": null,
-    "aiViewConfidence": null,
-    "exitPolicy": "managed",
-    "outcome": null
-  },
-  {
-    "id": "f1ece1e2-c625-492a-a916-7609012990a6",
-    "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bull_put_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2756,
+    "ivSold": 0.2758,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.1614195659235508,
-    "pop": 0.582,
-    "ev": -0.3950824585761868,
+    "score": -0.1604291250649617,
+    "pop": 0.583,
+    "ev": -0.392658305052747,
     "netPremium": 0.8224999999999998,
     "maxProfit": 0.8224999999999998,
     "maxLoss": -9.177500000000009,
@@ -133645,7 +133579,7 @@
         "strike": 455,
         "premium": 3.0599999999999996,
         "quantity": 1,
-        "iv": 0.2756
+        "iv": 0.2758
       },
       {
         "type": "put",
@@ -133653,7 +133587,7 @@
         "strike": 445,
         "premium": 2.2375,
         "quantity": 1,
-        "iv": 0.2899
+        "iv": 0.2902
       }
     ],
     "variant": "sd0.16@w3",
@@ -133663,23 +133597,23 @@
     "outcome": null
   },
   {
-    "id": "566a562f-c8a0-4844-8086-b185cf9684c0",
+    "id": "5f96022c-e84b-4372-a228-c2e3dcbd0a75",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bear_call_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2442,
+    "ivSold": 0.2441,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.09303827393601205,
+    "score": -0.09315704555949295,
     "pop": 0.683,
-    "ev": -0.2598805912032283,
+    "ev": -0.26037389198733724,
     "netPremium": 1.1424999999999996,
     "maxProfit": 1.1424999999999996,
     "maxLoss": -8.857500000000002,
@@ -133694,7 +133628,7 @@
         "strike": 530,
         "premium": 2.8874999999999997,
         "quantity": 1,
-        "iv": 0.2442
+        "iv": 0.2441
       },
       {
         "type": "call",
@@ -133702,7 +133636,7 @@
         "strike": 540,
         "premium": 1.745,
         "quantity": 1,
-        "iv": 0.2376
+        "iv": 0.2374
       }
     ],
     "variant": "sd0.16@w3",
@@ -133712,89 +133646,23 @@
     "outcome": null
   },
   {
-    "id": "6e2071de-ddc5-4375-a2d5-590bcfe3865f",
+    "id": "b888894c-a955-4d27-a04f-57dda6920e52",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
-    "source": "shadow",
-    "sym": "MSFT",
-    "strategyId": "iron_condor",
-    "expiration": "2026-09-25",
-    "spot": 489.51,
-    "iv": 0.2541,
-    "ivSold": 0.26646811692726036,
-    "ivr": 26.32490474541046,
-    "rvAtScan": 0.29899401780357004,
-    "ivRvGap": -0.04489401780357005,
-    "regime": "buy",
-    "score": -0.21047147591716384,
-    "pop": 0.449,
-    "ev": -0.5151394608810543,
-    "netPremium": 0.8124999999999998,
-    "maxProfit": 0.8124999999999998,
-    "maxLoss": -9.187499999999998,
-    "dte": 31,
-    "breakevens": [
-      449.1875,
-      545.8125
-    ],
-    "legs": [
-      {
-        "type": "put",
-        "action": "sell",
-        "strike": 450,
-        "premium": 2.4299999999999997,
-        "quantity": 1,
-        "iv": 0.2779
-      },
-      {
-        "type": "put",
-        "action": "buy",
-        "strike": 440,
-        "premium": 1.7625000000000002,
-        "quantity": 1,
-        "iv": 0.2934
-      },
-      {
-        "type": "call",
-        "action": "sell",
-        "strike": 545,
-        "premium": 1.2475,
-        "quantity": 1,
-        "iv": 0.2442
-      },
-      {
-        "type": "call",
-        "action": "buy",
-        "strike": 550,
-        "premium": 1.1024999999999998,
-        "quantity": 1,
-        "iv": 0.2455
-      }
-    ],
-    "variant": "sd0.13@w3",
-    "aiView": null,
-    "aiViewConfidence": null,
-    "exitPolicy": "managed",
-    "outcome": null
-  },
-  {
-    "id": "db31ca68-85a5-4eaf-943d-d16923417a54",
-    "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bull_put_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.268,
+    "ivSold": 0.2683,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.1597294300622528,
-    "pop": 0.582,
-    "ev": -0.5493025235248215,
+    "score": -0.16061103000631394,
+    "pop": 0.58,
+    "ev": -0.5518313741100753,
     "netPremium": 1.4925000000000006,
     "maxProfit": 1.4925000000000006,
     "maxLoss": -8.50750000000005,
@@ -133809,7 +133677,7 @@
         "strike": 465,
         "premium": 4.7125,
         "quantity": 1,
-        "iv": 0.268
+        "iv": 0.2683
       },
       {
         "type": "put",
@@ -133817,7 +133685,7 @@
         "strike": 455,
         "premium": 3.2199999999999998,
         "quantity": 1,
-        "iv": 0.2756
+        "iv": 0.2758
       }
     ],
     "variant": "sd0.20@w3",
@@ -133827,23 +133695,23 @@
     "outcome": null
   },
   {
-    "id": "1906ec5c-ebc7-468c-8568-efa6fb105d7b",
+    "id": "ba8dde7a-3344-459b-a96b-049cacab971a",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bear_call_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.24489999999999998,
+    "ivSold": 0.2448,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.07853835654306243,
-    "pop": 0.685,
-    "ev": -0.26406357117168144,
+    "score": -0.0773779979913962,
+    "pop": 0.686,
+    "ev": -0.2601688679144911,
     "netPremium": 1.4575,
     "maxProfit": 1.4575,
     "maxLoss": -8.5425,
@@ -133858,7 +133726,7 @@
         "strike": 525,
         "premium": 3.7375000000000003,
         "quantity": 1,
-        "iv": 0.2449
+        "iv": 0.2448
       },
       {
         "type": "call",
@@ -133866,7 +133734,7 @@
         "strike": 535,
         "premium": 2.2800000000000002,
         "quantity": 1,
-        "iv": 0.2394
+        "iv": 0.2393
       }
     ],
     "variant": "sd0.20@w3",
@@ -133876,23 +133744,23 @@
     "outcome": null
   },
   {
-    "id": "b4a9419b-0264-4d13-91da-ac31ff62292d",
+    "id": "3c1143f5-fb55-42b9-802d-4f037b675031",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "iron_condor",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.26650621009866515,
+    "ivSold": 0.26656140452698784,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.2543242848141943,
-    "pop": 0.439,
-    "ev": -0.6224714032969811,
+    "score": -0.25267068867216863,
+    "pop": 0.44,
+    "ev": -0.6184241440595664,
     "netPremium": 0.9675,
     "maxProfit": 0.9675,
     "maxLoss": -9.032500000000008,
@@ -133908,7 +133776,7 @@
         "strike": 455,
         "premium": 3.0599999999999996,
         "quantity": 1,
-        "iv": 0.2756
+        "iv": 0.2758
       },
       {
         "type": "put",
@@ -133916,7 +133784,7 @@
         "strike": 445,
         "premium": 2.2375,
         "quantity": 1,
-        "iv": 0.2899
+        "iv": 0.2902
       },
       {
         "type": "call",
@@ -133924,7 +133792,7 @@
         "strike": 545,
         "premium": 1.2475,
         "quantity": 1,
-        "iv": 0.2442
+        "iv": 0.2439
       },
       {
         "type": "call",
@@ -133932,7 +133800,7 @@
         "strike": 550,
         "premium": 1.1024999999999998,
         "quantity": 1,
-        "iv": 0.2455
+        "iv": 0.2452
       }
     ],
     "variant": "sd0.16@w3",
@@ -133942,23 +133810,23 @@
     "outcome": null
   },
   {
-    "id": "17269362-7864-4fba-b3b8-8e612246a585",
+    "id": "b322ba6a-27b4-41a6-80a0-0cd3ad834486",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bull_put_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2598,
+    "ivSold": 0.2602,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.25027315390977806,
+    "score": -0.2507007139814785,
     "pop": 0.506,
-    "ev": -0.841360943041102,
+    "ev": -0.8430611817271142,
     "netPremium": 1.4125000000000005,
     "maxProfit": 1.4125000000000005,
     "maxLoss": -8.587499999999999,
@@ -133973,7 +133841,7 @@
         "strike": 470,
         "premium": 5.4750000000000005,
         "quantity": 1,
-        "iv": 0.2598
+        "iv": 0.2602
       },
       {
         "type": "put",
@@ -133981,7 +133849,7 @@
         "strike": 460,
         "premium": 4.0625,
         "quantity": 1,
-        "iv": 0.2704
+        "iv": 0.2707
       }
     ],
     "variant": "sd0.25@w3",
@@ -133991,23 +133859,23 @@
     "outcome": null
   },
   {
-    "id": "e0ab1101-3ac4-4fd8-a9f0-dd3cfdfcf55c",
+    "id": "590fbf74-93f4-4582-819b-9d785088300f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bear_call_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2438,
+    "ivSold": 0.24340000000000003,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.08939000366251579,
-    "pop": 0.657,
-    "ev": -0.32578996844869174,
+    "score": -0.08552471885789964,
+    "pop": 0.662,
+    "ev": -0.31225447574368764,
     "netPremium": 1.600000000000001,
     "maxProfit": 1.600000000000001,
     "maxLoss": -8.399999999999999,
@@ -134022,7 +133890,7 @@
         "strike": 520,
         "premium": 4.6625000000000005,
         "quantity": 1,
-        "iv": 0.2438
+        "iv": 0.2434
       },
       {
         "type": "call",
@@ -134030,7 +133898,7 @@
         "strike": 530,
         "premium": 3.0624999999999996,
         "quantity": 1,
-        "iv": 0.2442
+        "iv": 0.2441
       }
     ],
     "variant": "sd0.25@w3",
@@ -134040,23 +133908,23 @@
     "outcome": null
   },
   {
-    "id": "87d4d6c5-5dc0-46c4-82fe-52756db55cab",
+    "id": "b36c149f-1433-4a65-8447-39b4df7b7f66",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "iron_condor",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.25935964457608296,
+    "ivSold": 0.2595388004442799,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.21550675738315136,
-    "pop": 0.43,
-    "ev": -0.9802607418909944,
+    "score": -0.21651312531582126,
+    "pop": 0.427,
+    "ev": -0.9851229926350951,
     "netPremium": 2.0900000000000007,
     "maxProfit": 2.0900000000000007,
     "maxLoss": -7.91000000000005,
@@ -134072,7 +133940,7 @@
         "strike": 465,
         "premium": 4.7125,
         "quantity": 1,
-        "iv": 0.268
+        "iv": 0.2683
       },
       {
         "type": "put",
@@ -134080,7 +133948,7 @@
         "strike": 455,
         "premium": 3.2199999999999998,
         "quantity": 1,
-        "iv": 0.2756
+        "iv": 0.2758
       },
       {
         "type": "call",
@@ -134088,7 +133956,7 @@
         "strike": 535,
         "premium": 2.04,
         "quantity": 1,
-        "iv": 0.2394
+        "iv": 0.2393
       },
       {
         "type": "call",
@@ -134096,7 +133964,7 @@
         "strike": 545,
         "premium": 1.4425,
         "quantity": 1,
-        "iv": 0.2442
+        "iv": 0.2439
       }
     ],
     "variant": "sd0.20@w3",
@@ -134106,23 +133974,23 @@
     "outcome": null
   },
   {
-    "id": "f0961530-0533-489f-865f-e8b4e83ca282",
+    "id": "46974f92-ecd2-4d5e-9ccd-ade76ac625ee",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bull_put_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2583,
+    "ivSold": 0.2587,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.2265020040267265,
+    "score": -0.22700180128264716,
     "pop": 0.512,
-    "ev": -0.9358590246419193,
+    "ev": -0.9377923440787777,
     "netPremium": 1.8250000000000002,
     "maxProfit": 1.8250000000000002,
     "maxLoss": -8.175000000000011,
@@ -134137,7 +134005,7 @@
         "strike": 475,
         "premium": 6.8625,
         "quantity": 1,
-        "iv": 0.2583
+        "iv": 0.2587
       },
       {
         "type": "put",
@@ -134145,7 +134013,7 @@
         "strike": 465,
         "premium": 5.0375,
         "quantity": 1,
-        "iv": 0.268
+        "iv": 0.2683
       }
     ],
     "variant": "sd0.30@w3",
@@ -134155,23 +134023,23 @@
     "outcome": null
   },
   {
-    "id": "320d4ce5-eb30-4385-bbed-65121ca27dc4",
+    "id": "193d8e0e-bfc5-4b6d-ae50-5fa9944b47db",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "bear_call_spread",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.2454,
+    "ivSold": 0.245,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.08308733922378808,
+    "score": -0.08229757661386135,
     "pop": 0.642,
-    "ev": -0.3675972111313072,
+    "ev": -0.36381859637278224,
     "netPremium": 1.9875000000000003,
     "maxProfit": 1.9875000000000003,
     "maxLoss": -8.0125,
@@ -134186,7 +134054,7 @@
         "strike": 515,
         "premium": 5.9,
         "quantity": 1,
-        "iv": 0.2454
+        "iv": 0.245
       },
       {
         "type": "call",
@@ -134194,7 +134062,7 @@
         "strike": 525,
         "premium": 3.9125,
         "quantity": 1,
-        "iv": 0.2449
+        "iv": 0.2448
       }
     ],
     "variant": "sd0.30@w3",
@@ -134204,23 +134072,23 @@
     "outcome": null
   },
   {
-    "id": "5810d0ed-52d2-49bb-a37b-8c579653598b",
+    "id": "65820c30-14d5-4abe-9a6a-8796b0b594d6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MSFT",
     "strategyId": "iron_condor",
     "expiration": "2026-09-25",
     "spot": 489.51,
     "iv": 0.2541,
-    "ivSold": 0.25441345291479817,
+    "ivSold": 0.25464080717488785,
     "ivr": 26.32490474541046,
     "rvAtScan": 0.29899401780357004,
     "ivRvGap": -0.04489401780357005,
     "regime": "buy",
-    "score": -0.23554605768901787,
-    "pop": 0.372,
-    "ev": -1.2637727794003069,
+    "score": -0.23632909345828643,
+    "pop": 0.371,
+    "ev": -1.268045954305191,
     "netPremium": 2.5550000000000006,
     "maxProfit": 2.5550000000000006,
     "maxLoss": -7.445,
@@ -134236,7 +134104,7 @@
         "strike": 470,
         "premium": 5.4750000000000005,
         "quantity": 1,
-        "iv": 0.2598
+        "iv": 0.2602
       },
       {
         "type": "put",
@@ -134244,7 +134112,7 @@
         "strike": 460,
         "premium": 4.0625,
         "quantity": 1,
-        "iv": 0.2704
+        "iv": 0.2707
       },
       {
         "type": "call",
@@ -134252,7 +134120,7 @@
         "strike": 530,
         "premium": 2.8874999999999997,
         "quantity": 1,
-        "iv": 0.2442
+        "iv": 0.2441
       },
       {
         "type": "call",
@@ -134260,7 +134128,7 @@
         "strike": 540,
         "premium": 1.745,
         "quantity": 1,
-        "iv": 0.2376
+        "iv": 0.2374
       }
     ],
     "variant": "sd0.24@w3",
@@ -134270,9 +134138,9 @@
     "outcome": null
   },
   {
-    "id": "6dcebdc0-8459-45e7-a8c4-dd9205bd2160",
+    "id": "e9ee8c96-b620-4d3c-86ec-a3c80a9d8a05",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bull_put_spread",
@@ -134319,9 +134187,9 @@
     "outcome": null
   },
   {
-    "id": "8a9d192f-987d-4025-b5b9-20611ec94bb7",
+    "id": "58775de9-3f75-466f-bab1-8f642d1502fd",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bear_call_spread",
@@ -134368,9 +134236,9 @@
     "outcome": null
   },
   {
-    "id": "09753878-3c67-4813-b948-06493ad70bad",
+    "id": "c8867b12-61bf-4bc6-bb24-ff8f9282cca2",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "iron_condor",
@@ -134434,9 +134302,9 @@
     "outcome": null
   },
   {
-    "id": "89c32329-f969-4dfe-9348-faeac8eeae89",
+    "id": "555687e4-f421-450d-9eed-82ba0308be81",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bull_put_spread",
@@ -134483,9 +134351,9 @@
     "outcome": null
   },
   {
-    "id": "b8acc2df-aa1f-4404-8564-eb253b6b267e",
+    "id": "080b0b24-cfe0-4440-bbd0-fbe80d018527",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bear_call_spread",
@@ -134532,9 +134400,9 @@
     "outcome": null
   },
   {
-    "id": "0a1bd2cb-67cb-4a3d-9cd5-bfa3d10e77e7",
+    "id": "6e6eae4a-6aeb-4416-8abe-ba94dd844daf",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "iron_condor",
@@ -134598,9 +134466,9 @@
     "outcome": null
   },
   {
-    "id": "63ae7762-8041-4935-a04f-fc9c47231949",
+    "id": "d7ae8dd1-c9b7-45bf-9d9a-330212c21b91",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bull_put_spread",
@@ -134647,9 +134515,9 @@
     "outcome": null
   },
   {
-    "id": "2980fcfa-3c44-4801-b808-472d43ff68ca",
+    "id": "cf243e58-fe78-4b2b-965e-e5bb9ed8548f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bear_call_spread",
@@ -134696,9 +134564,9 @@
     "outcome": null
   },
   {
-    "id": "ed08bfc0-1187-4ad6-bd01-cb3c37e00185",
+    "id": "7997df8d-472d-4727-aba8-66d24d2c0bf4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "iron_condor",
@@ -134762,9 +134630,9 @@
     "outcome": null
   },
   {
-    "id": "23fabe38-9b12-4340-84e2-24863c187352",
+    "id": "a2bbb521-9490-4416-baec-1cc9b1be20ea",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bull_put_spread",
@@ -134811,9 +134679,9 @@
     "outcome": null
   },
   {
-    "id": "ceafc49a-8583-4109-ab70-ed3ae780035e",
+    "id": "44e30279-0166-49b6-8d5a-272bccc30a4f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bear_call_spread",
@@ -134860,9 +134728,9 @@
     "outcome": null
   },
   {
-    "id": "3d25041b-3c3f-4815-abf7-3bf495d3a83f",
+    "id": "2b3c79de-6b16-4c36-8cc7-1b8ef6406e80",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "iron_condor",
@@ -134926,9 +134794,9 @@
     "outcome": null
   },
   {
-    "id": "d6009c2f-7559-4db3-9e09-ba8ccdd560bc",
+    "id": "6e6a501a-a05f-4e38-98de-949f59b663d6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bull_put_spread",
@@ -134975,9 +134843,9 @@
     "outcome": null
   },
   {
-    "id": "98883106-f320-40cc-af7e-d73a3f00b658",
+    "id": "6dc94762-38fd-4600-868d-f84b2a23d035",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "bear_call_spread",
@@ -135024,9 +134892,9 @@
     "outcome": null
   },
   {
-    "id": "1915844c-7a71-4c1d-9b39-dde8369592f4",
+    "id": "2f7eedaa-9e12-4712-a97f-17ccaaa591e2",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "AMD",
     "strategyId": "iron_condor",
@@ -135090,9 +134958,9 @@
     "outcome": null
   },
   {
-    "id": "103b78bf-dedf-40b9-abe4-7c26f57df597",
+    "id": "ee3384cb-ffbf-4edc-94f0-1a770310c937",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JPM",
     "strategyId": "bull_put_spread",
@@ -135139,9 +135007,9 @@
     "outcome": null
   },
   {
-    "id": "608e94c6-1586-4969-8f5e-80b34ec01f8f",
+    "id": "9dc57957-7a3a-40c1-a38e-89893305ef97",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JPM",
     "strategyId": "bull_put_spread",
@@ -135188,9 +135056,9 @@
     "outcome": null
   },
   {
-    "id": "422c055a-fdfd-4c6f-bbaa-eb38855d3a41",
+    "id": "680ceeaa-87fe-41d6-aae6-c13eccc64026",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JPM",
     "strategyId": "bull_put_spread",
@@ -135237,9 +135105,9 @@
     "outcome": null
   },
   {
-    "id": "e6700129-4ff5-4d37-a25b-4b03572db216",
+    "id": "29ed76a1-28eb-44c2-8c14-c8a79d4ad5df",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JPM",
     "strategyId": "bear_call_spread",
@@ -135286,9 +135154,9 @@
     "outcome": null
   },
   {
-    "id": "69acf75a-4442-48cc-9a9b-010048d8878c",
+    "id": "8f3a9779-9cf9-4963-a28e-891819fe3217",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bull_put_spread",
@@ -135335,9 +135203,9 @@
     "outcome": null
   },
   {
-    "id": "6d0d7137-cb01-4bc5-8c2f-2990a2147c26",
+    "id": "2026d8db-3575-4c81-89a6-894404ffe151",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bear_call_spread",
@@ -135384,9 +135252,9 @@
     "outcome": null
   },
   {
-    "id": "29e07bf1-271f-4d9b-960b-fa111e00dfa9",
+    "id": "eec5e6ec-7455-45c5-8815-0213d72ab16d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bull_put_spread",
@@ -135433,9 +135301,9 @@
     "outcome": null
   },
   {
-    "id": "40513f9a-cca0-42aa-9430-25393a11a211",
+    "id": "3786961e-b0d6-4e1d-8195-a01e2549cc80",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bear_call_spread",
@@ -135482,9 +135350,9 @@
     "outcome": null
   },
   {
-    "id": "9aced610-7636-45b7-85ed-48317e6e37a9",
+    "id": "7068e8c9-94cf-4a90-ba86-bbcb58053314",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bull_put_spread",
@@ -135531,9 +135399,9 @@
     "outcome": null
   },
   {
-    "id": "7acaac2e-c74e-4c28-8e99-42f2684a5174",
+    "id": "c0f3d90d-02dd-4623-a0ba-52a16f8d0936",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bear_call_spread",
@@ -135580,9 +135448,9 @@
     "outcome": null
   },
   {
-    "id": "9f1f266c-c523-4a10-9fba-97ee7f443e93",
+    "id": "7022dbcb-3a05-4f43-bc88-5a7bac9cf3a3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bull_put_spread",
@@ -135629,9 +135497,9 @@
     "outcome": null
   },
   {
-    "id": "a96538b8-d9b2-4bf9-9e57-353504e8def8",
+    "id": "8cf524d2-9e81-401a-adb7-3d2c8ab85d8a",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bear_call_spread",
@@ -135678,9 +135546,9 @@
     "outcome": null
   },
   {
-    "id": "64cd6919-2f67-4e89-a1d4-f76312c7fe2e",
+    "id": "5737505c-59ac-421e-8e69-0acdc9e9bc49",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "iron_condor",
@@ -135744,9 +135612,9 @@
     "outcome": null
   },
   {
-    "id": "ea265d84-d13c-4e42-a4db-fb9f5985e949",
+    "id": "46f701f1-c1d8-4980-a21c-cfd9c2f82d30",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bull_put_spread",
@@ -135793,9 +135661,9 @@
     "outcome": null
   },
   {
-    "id": "82efd99f-508b-4661-bd6b-6606e0065a23",
+    "id": "68744913-37eb-4611-be4e-eb27f0e9237c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "bear_call_spread",
@@ -135842,9 +135710,9 @@
     "outcome": null
   },
   {
-    "id": "4876794d-f47c-4152-8400-f8ff4fa47445",
+    "id": "8b0dc41d-05af-4c8a-ab80-792cdbe0f608",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "GS",
     "strategyId": "iron_condor",
@@ -135908,9 +135776,9 @@
     "outcome": null
   },
   {
-    "id": "7de6d6bd-d238-4412-8a0c-8ba981d2fc7c",
+    "id": "3a37bdad-7225-4eb2-a450-a3e6be9dec4b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bear_call_spread",
@@ -135957,9 +135825,9 @@
     "outcome": null
   },
   {
-    "id": "7ecf5bda-f303-4602-919a-1f65e8fc2441",
+    "id": "0aac1f5b-5fcc-4fed-9ae0-72f56b10f9a7",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bear_call_spread",
@@ -136006,9 +135874,9 @@
     "outcome": null
   },
   {
-    "id": "33b81006-98cb-442d-ae50-ea3786b5cac6",
+    "id": "90a4dd39-a0c3-4482-a30b-383af1865a04",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bull_put_spread",
@@ -136055,9 +135923,9 @@
     "outcome": null
   },
   {
-    "id": "e480f8fd-11d6-48cf-b372-53451402357b",
+    "id": "5704e9be-c35c-4e03-ad4a-bab84b5514e8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bear_call_spread",
@@ -136104,9 +135972,9 @@
     "outcome": null
   },
   {
-    "id": "b181e1e5-ed8e-4372-b7e2-f2c2c1b12bfd",
+    "id": "94303ed2-6e6c-4cfd-b50a-8d70f294f4bd",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.134Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bull_put_spread",
@@ -136153,9 +136021,9 @@
     "outcome": null
   },
   {
-    "id": "7c5e4de1-d450-4e10-960b-1dade779d5f3",
+    "id": "a3b99eb9-926d-451a-a123-47f9fb2e0d76",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bear_call_spread",
@@ -136202,9 +136070,9 @@
     "outcome": null
   },
   {
-    "id": "e4913e5d-0e29-4b65-b945-51906e85e51b",
+    "id": "07d56d13-4d99-4751-8ca5-28fad674fa4c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "iron_condor",
@@ -136268,9 +136136,9 @@
     "outcome": null
   },
   {
-    "id": "71c1484b-3de6-4df6-8f17-245fdf3f9c4b",
+    "id": "ac9bf15a-eaf4-4834-bded-1c5919b3f98d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bull_put_spread",
@@ -136317,9 +136185,9 @@
     "outcome": null
   },
   {
-    "id": "010b3aed-81d1-4610-8404-0ddb82fddd95",
+    "id": "03b29126-e305-4fed-99f1-81068c444600",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "bear_call_spread",
@@ -136366,9 +136234,9 @@
     "outcome": null
   },
   {
-    "id": "d4c6a8dc-4930-4b20-b059-b1c5935d464a",
+    "id": "cd430f49-e0c0-47fd-9434-478ff4c6d095",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "BAC",
     "strategyId": "iron_condor",
@@ -136432,9 +136300,9 @@
     "outcome": null
   },
   {
-    "id": "ef3bb0b8-752e-4883-80c7-e7e5cbda8a72",
+    "id": "57d80776-34d2-4511-81d4-d08155490b34",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "LLY",
     "strategyId": "bear_call_spread",
@@ -136481,9 +136349,9 @@
     "outcome": null
   },
   {
-    "id": "ba6246f5-da18-4a0a-abb6-66d0f2d70913",
+    "id": "82967fe1-4b15-40b3-b6f4-76d47ebe7857",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "LLY",
     "strategyId": "bull_put_spread",
@@ -136530,9 +136398,9 @@
     "outcome": null
   },
   {
-    "id": "4e1e07c7-4266-487f-a618-26f94874ca0a",
+    "id": "54a0afbf-207d-442f-9fc2-d4c980d5a6d7",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "LLY",
     "strategyId": "bear_call_spread",
@@ -136579,9 +136447,9 @@
     "outcome": null
   },
   {
-    "id": "cfe629f5-4677-4052-b625-b44ff8abc3d9",
+    "id": "6830354c-817c-4fb0-b0be-637c35b08c95",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JNJ",
     "strategyId": "bull_put_spread",
@@ -136628,9 +136496,9 @@
     "outcome": null
   },
   {
-    "id": "39475d3f-c3ee-4c69-8b27-a74bc526a121",
+    "id": "bc84e979-0a63-4661-88b8-612cfc2077c5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JNJ",
     "strategyId": "bull_put_spread",
@@ -136677,9 +136545,9 @@
     "outcome": null
   },
   {
-    "id": "6981766c-ce24-4503-a163-3ccc9fbe0100",
+    "id": "e95e72ea-9f92-4591-9a94-551aa6bef15b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JNJ",
     "strategyId": "bull_put_spread",
@@ -136726,9 +136594,9 @@
     "outcome": null
   },
   {
-    "id": "e4364fb6-271e-4b90-99d2-7a1c5d18c80e",
+    "id": "3067e6a7-df86-4206-b3d2-2db081014fee",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JNJ",
     "strategyId": "bull_put_spread",
@@ -136775,9 +136643,9 @@
     "outcome": null
   },
   {
-    "id": "59eee3f5-0d78-461f-b14e-e4b2f131aca6",
+    "id": "1e2a0973-41cf-4d27-a4bd-a69972f21f0b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "JNJ",
     "strategyId": "bull_put_spread",
@@ -136824,9 +136692,9 @@
     "outcome": null
   },
   {
-    "id": "afec8dd4-9159-4b35-ab95-08d598c783e8",
+    "id": "d83e0ee9-83ae-4558-b117-d52a509fad78",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "XOM",
     "strategyId": "bear_call_spread",
@@ -136873,9 +136741,9 @@
     "outcome": null
   },
   {
-    "id": "613b05d0-4886-43e0-be77-28bd9cdd1d07",
+    "id": "4ce2e605-ef5a-4e4a-b82d-862c5f9624fa",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "XOM",
     "strategyId": "bear_call_spread",
@@ -136920,9 +136788,9 @@
     "outcome": null
   },
   {
-    "id": "fbc9acaf-c58d-4151-80d5-47051ae9c7df",
+    "id": "8a5cc0f9-68dd-4b2e-be1b-9b1470230c56",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "XOM",
     "strategyId": "bear_call_spread",
@@ -136969,9 +136837,9 @@
     "outcome": null
   },
   {
-    "id": "e41fe790-064a-4f6e-90bd-91e78908dd67",
+    "id": "f21451c4-369a-4a7f-8146-de0fc9cd82e6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "XOM",
     "strategyId": "bear_call_spread",
@@ -137018,9 +136886,9 @@
     "outcome": null
   },
   {
-    "id": "bd5d0c09-a343-497d-a617-bfa9f10915c8",
+    "id": "ff4e5c4f-880c-4a6c-95ce-44d620f53783",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "CVX",
     "strategyId": "bear_call_spread",
@@ -137067,9 +136935,9 @@
     "outcome": null
   },
   {
-    "id": "bef6d79b-f1b6-457f-8bb9-d475e8fdaf62",
+    "id": "4aaf796c-6016-4536-b41a-34ba7a5491fb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "CVX",
     "strategyId": "bear_call_spread",
@@ -137116,9 +136984,9 @@
     "outcome": null
   },
   {
-    "id": "3f460057-cecc-44e1-aa31-23dbe803bce1",
+    "id": "781b3340-3e29-4a85-8d63-e920a7640778",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bear_call_spread",
@@ -137165,9 +137033,9 @@
     "outcome": null
   },
   {
-    "id": "3de6d60b-fea1-4e04-87a2-1847c34b75e9",
+    "id": "4c467465-7591-4427-8cba-593270451735",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bear_call_spread",
@@ -137214,9 +137082,9 @@
     "outcome": null
   },
   {
-    "id": "07630921-be53-42e3-927a-f5d435c765d2",
+    "id": "96a81fba-8406-4ca1-8eed-0e20322d453d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bull_put_spread",
@@ -137263,9 +137131,9 @@
     "outcome": null
   },
   {
-    "id": "bd7a031f-1c94-48ee-8090-2bae25ceec65",
+    "id": "c00697ee-b421-4d52-8617-b8ee338c6856",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bear_call_spread",
@@ -137312,9 +137180,9 @@
     "outcome": null
   },
   {
-    "id": "507574b1-f6a7-454f-a7e4-58913f2572d3",
+    "id": "9eec3128-1053-4101-bbbb-b1a21f7a638d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bull_put_spread",
@@ -137361,9 +137229,9 @@
     "outcome": null
   },
   {
-    "id": "4b303671-d945-4b9d-9cdc-a5ab5d244812",
+    "id": "1033910c-8cb0-4d8c-b5a8-e2db67c6dc14",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bear_call_spread",
@@ -137410,9 +137278,9 @@
     "outcome": null
   },
   {
-    "id": "0d653834-4a35-4f3e-88e8-4d0a729bfa59",
+    "id": "b3db014c-a5a0-40cb-a1c6-c4f5c8c96c4a",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "iron_condor",
@@ -137476,9 +137344,9 @@
     "outcome": null
   },
   {
-    "id": "ea98be07-ee8c-49d7-a640-30a47bd6486c",
+    "id": "532521cb-4b1a-45ff-95e6-c927ec80a7cc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bull_put_spread",
@@ -137525,9 +137393,9 @@
     "outcome": null
   },
   {
-    "id": "74b0361a-3e9f-4314-8a87-24bd9a553b41",
+    "id": "15b96b0b-0972-4e05-9e52-a662d1ff4d59",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "bear_call_spread",
@@ -137574,9 +137442,9 @@
     "outcome": null
   },
   {
-    "id": "602167c1-9f2a-4b8f-bf40-cf4e8aed7152",
+    "id": "725805b0-7c36-4026-a66b-828a877779c5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "WMT",
     "strategyId": "iron_condor",
@@ -137640,9 +137508,9 @@
     "outcome": null
   },
   {
-    "id": "a0af1d37-6c14-4588-85d1-33eeefa413ee",
+    "id": "4cc3cbdd-2a0a-4e01-9e73-31f32d14ca5c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bear_call_spread",
@@ -137689,9 +137557,9 @@
     "outcome": null
   },
   {
-    "id": "9305438e-a55a-449f-8868-a1e03bb3aca0",
+    "id": "377f3f3d-100f-4f63-81a2-c658acae9052",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bull_put_spread",
@@ -137738,9 +137606,9 @@
     "outcome": null
   },
   {
-    "id": "b989e555-52de-4b62-a2a4-66ec08b2a811",
+    "id": "8babe936-8b44-4aeb-ae44-263cc98d7600",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bear_call_spread",
@@ -137787,9 +137655,9 @@
     "outcome": null
   },
   {
-    "id": "5c64dd33-59f6-4dc5-a67a-bcbf5882ce52",
+    "id": "842014fe-51c7-494e-9aa2-3897453750c1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bull_put_spread",
@@ -137836,9 +137704,9 @@
     "outcome": null
   },
   {
-    "id": "d0657f04-af06-4543-b91b-04e6dead9a56",
+    "id": "cfc5fa54-1918-4515-8f9c-f77740e7cc93",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bear_call_spread",
@@ -137885,9 +137753,9 @@
     "outcome": null
   },
   {
-    "id": "b1e8d23e-53dc-4d1c-9a43-d0ef342e5baf",
+    "id": "3c3821c2-3766-4056-8b23-3564a6513c12",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bull_put_spread",
@@ -137934,9 +137802,9 @@
     "outcome": null
   },
   {
-    "id": "a88a74f1-60b1-4bda-bf8e-e27348a5e058",
+    "id": "a99921f3-86db-4f1b-8a88-3db3f6c0a056",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "bear_call_spread",
@@ -137983,9 +137851,9 @@
     "outcome": null
   },
   {
-    "id": "787bf785-e781-4026-a38c-e93d11d2941f",
+    "id": "b3bd1972-5a47-4649-9ddb-2f3127c7494f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "MCD",
     "strategyId": "iron_condor",
@@ -138049,9 +137917,9 @@
     "outcome": null
   },
   {
-    "id": "103e6b64-dd6f-404e-9c78-5c6babfbcd6d",
+    "id": "9626958f-2c52-464d-acca-f30776b49a4f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bull_put_spread",
@@ -138098,9 +137966,9 @@
     "outcome": null
   },
   {
-    "id": "de07f55c-8c7f-4247-8d9f-1a69f1a175dd",
+    "id": "e4de0459-8d08-4110-b9d2-79b8ce3bd2a9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bull_put_spread",
@@ -138147,9 +138015,9 @@
     "outcome": null
   },
   {
-    "id": "b9082416-a94c-4437-bb9a-e9faafd5186c",
+    "id": "5ae1c71b-b22a-4485-b563-b96b76c036e3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bull_put_spread",
@@ -138196,9 +138064,9 @@
     "outcome": null
   },
   {
-    "id": "4b047cc2-f2ea-406e-9d06-71ff63a3c165",
+    "id": "0aaab609-63f7-4ffd-965b-7ee4eca7b42c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bear_call_spread",
@@ -138245,9 +138113,9 @@
     "outcome": null
   },
   {
-    "id": "14161737-5c14-4704-a39f-35e5acf5faad",
+    "id": "855bfac9-4cc7-4b09-aeaa-f6105268db58",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bull_put_spread",
@@ -138294,9 +138162,9 @@
     "outcome": null
   },
   {
-    "id": "6e555dc4-7a4e-4a4d-a70a-2717d84e62f9",
+    "id": "66f92ff9-4136-4d63-9108-0c5660ea2019",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bear_call_spread",
@@ -138343,9 +138211,9 @@
     "outcome": null
   },
   {
-    "id": "7104d7f0-2469-4754-b079-68034fd40a04",
+    "id": "3ff9a2bd-1ca0-4aa6-bad2-8084f58de426",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bull_put_spread",
@@ -138392,9 +138260,9 @@
     "outcome": null
   },
   {
-    "id": "7ee4c320-02bf-4129-903b-2eb32172c6bf",
+    "id": "608c427c-564b-4e22-b651-af45d0d3487b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "bear_call_spread",
@@ -138441,9 +138309,9 @@
     "outcome": null
   },
   {
-    "id": "4203f1cc-45c7-4435-97aa-faeada28a4c3",
+    "id": "1634fbd3-6ea5-4303-aa94-f744eeb98c3d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "V",
     "strategyId": "iron_condor",
@@ -138507,9 +138375,9 @@
     "outcome": null
   },
   {
-    "id": "89c56076-e503-4133-abcf-25dcfb71f7d4",
+    "id": "e403be98-5b76-4d45-984a-4e9610ab88d0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bull_put_spread",
@@ -138556,9 +138424,9 @@
     "outcome": null
   },
   {
-    "id": "4ab61e95-56b5-47ea-ac01-4e9a43c45b89",
+    "id": "b701bea0-1565-49ce-983c-601469984887",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bear_call_spread",
@@ -138605,9 +138473,9 @@
     "outcome": null
   },
   {
-    "id": "90099153-77ad-4b6f-96e2-e5fec6fbc110",
+    "id": "e1a054ea-bc14-491e-8608-3c05ac736827",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "iron_condor",
@@ -138671,9 +138539,9 @@
     "outcome": null
   },
   {
-    "id": "43ba7ca7-8b64-4e0a-b9f7-1680dd38fc50",
+    "id": "f0aa4dd4-6398-45d2-b876-883dceca4fbb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bull_put_spread",
@@ -138720,9 +138588,9 @@
     "outcome": null
   },
   {
-    "id": "74f08d45-c374-4868-860d-6a6323ddb8b3",
+    "id": "cbb155f9-0a7d-4739-8be4-52de3d746f74",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bear_call_spread",
@@ -138769,9 +138637,9 @@
     "outcome": null
   },
   {
-    "id": "97d3b375-cec6-45b1-ba19-7171a46af018",
+    "id": "2da0dc53-449e-4989-8a1a-720afbbe348d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "iron_condor",
@@ -138835,9 +138703,9 @@
     "outcome": null
   },
   {
-    "id": "d7d3ed90-eb71-4b03-963a-efab272cd163",
+    "id": "22dae79c-28e9-43cf-8476-4d96f5d8dc72",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bull_put_spread",
@@ -138884,9 +138752,9 @@
     "outcome": null
   },
   {
-    "id": "1980ef97-c761-4d33-abd1-ce38991fc695",
+    "id": "c375bc8a-980f-4310-a61f-a786eee9632c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bear_call_spread",
@@ -138933,9 +138801,9 @@
     "outcome": null
   },
   {
-    "id": "dff7450f-2e50-445e-92dc-face7cd6b82b",
+    "id": "12cd0b50-56a8-401b-af92-d93789c9e2fa",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "iron_condor",
@@ -138999,9 +138867,9 @@
     "outcome": null
   },
   {
-    "id": "c9bb2369-19d6-4ca7-a5ea-e48d27eb6519",
+    "id": "7a485e1b-7326-4be3-b6bc-036ecfd591a5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bull_put_spread",
@@ -139048,9 +138916,9 @@
     "outcome": null
   },
   {
-    "id": "bda4a170-6a5f-4eb4-b767-3eb636527c4a",
+    "id": "40a3d536-7353-4b6f-80ab-d650efd7e970",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bear_call_spread",
@@ -139097,9 +138965,9 @@
     "outcome": null
   },
   {
-    "id": "92deacc3-8d42-4d20-8b6a-2838cb9958b2",
+    "id": "dba1c9b8-bccc-496e-a54f-b05b4acf60f1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "iron_condor",
@@ -139163,9 +139031,9 @@
     "outcome": null
   },
   {
-    "id": "a785f0fc-7a2d-4b62-b851-96eee9d9acf7",
+    "id": "0e2fadc5-7c62-48d5-a066-a0dc8b90a7f6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bull_put_spread",
@@ -139212,9 +139080,9 @@
     "outcome": null
   },
   {
-    "id": "29157e92-5b72-40f7-bc8f-56796e0005cf",
+    "id": "e1beca78-5095-40ec-bf0a-9fcf7d44d850",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "bear_call_spread",
@@ -139261,9 +139129,9 @@
     "outcome": null
   },
   {
-    "id": "bb253229-a805-4b19-baa1-95754096f948",
+    "id": "ac6a0a07-81e5-45d4-bbcc-26f4cb5b8c21",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "SPY",
     "strategyId": "iron_condor",
@@ -139327,9 +139195,9 @@
     "outcome": null
   },
   {
-    "id": "a63e00ec-e9de-4018-acc1-81188739a773",
+    "id": "f607ce6c-5047-4271-9f42-b43970af955d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bull_put_spread",
@@ -139337,7 +139205,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.2514,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139376,9 +139244,9 @@
     "outcome": null
   },
   {
-    "id": "8dc91dcf-a595-4e7b-9b38-050bd32d20be",
+    "id": "c98136cf-2e6e-488e-a9c3-d074b34c0ac8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bear_call_spread",
@@ -139386,7 +139254,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.1652,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139425,9 +139293,9 @@
     "outcome": null
   },
   {
-    "id": "3b1511fd-7cab-43b3-8755-b1cc30a73484",
+    "id": "9d8de66f-7a57-4df2-8b86-c03afe14bbcb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "iron_condor",
@@ -139435,7 +139303,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.2312738348868176,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139491,9 +139359,9 @@
     "outcome": null
   },
   {
-    "id": "412e3105-3b7b-420a-a419-f29d7d96930b",
+    "id": "b70ea304-ffe8-4645-9e05-8ea01d17d7eb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bull_put_spread",
@@ -139501,7 +139369,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.2364,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139540,9 +139408,9 @@
     "outcome": null
   },
   {
-    "id": "78499060-d7b9-4889-b878-c3f18882015a",
+    "id": "6ff266c9-3b2a-415b-a96e-b140f9ecdf68",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bear_call_spread",
@@ -139550,7 +139418,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.1665,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139589,9 +139457,9 @@
     "outcome": null
   },
   {
-    "id": "6244bf0f-5614-44e2-b91f-cc49bc89b6b0",
+    "id": "483ced24-5da6-4180-8fd2-cdd0ca68c118",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "iron_condor",
@@ -139599,7 +139467,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.22612553542009886,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139655,9 +139523,9 @@
     "outcome": null
   },
   {
-    "id": "101c0ce1-dcff-4ea3-885a-071a1ce9f87e",
+    "id": "57021a34-c527-4dad-b4f6-a2052008bab8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bull_put_spread",
@@ -139665,7 +139533,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.22720000000000004,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139704,9 +139572,9 @@
     "outcome": null
   },
   {
-    "id": "bfc03bd2-22c8-42bc-800e-bd11aef01b42",
+    "id": "efd530ad-a2e5-49dc-af8f-a150928a30a9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bear_call_spread",
@@ -139714,7 +139582,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.1684,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139753,9 +139621,9 @@
     "outcome": null
   },
   {
-    "id": "b53b3b2c-03cc-4fbf-9339-e57f642e0415",
+    "id": "b5d06546-b366-4b4b-967a-0330d0fd46f0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "iron_condor",
@@ -139763,7 +139631,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.21787248677248675,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139819,9 +139687,9 @@
     "outcome": null
   },
   {
-    "id": "a2dc9960-3468-40f9-857b-030775d6c156",
+    "id": "2b277357-da5b-4c7d-9801-a778ea3a97bc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bull_put_spread",
@@ -139829,7 +139697,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.2171,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139868,9 +139736,9 @@
     "outcome": null
   },
   {
-    "id": "e1627c73-cf92-4b37-b406-659efabd5620",
+    "id": "1a5e4a02-ae13-4b2d-afee-782fb528d4b5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bear_call_spread",
@@ -139878,7 +139746,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.1712,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139917,9 +139785,9 @@
     "outcome": null
   },
   {
-    "id": "bf7f0b0b-e663-4755-9d56-79128aa32f36",
+    "id": "40cdcf25-5090-4881-96fc-6d8535da68c7",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "iron_condor",
@@ -139927,7 +139795,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.20961378607809847,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -139983,9 +139851,9 @@
     "outcome": null
   },
   {
-    "id": "3bebaa21-e4eb-496a-bb95-f6acb8c157aa",
+    "id": "b38b212b-637b-4eb9-a044-15c38da55611",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bull_put_spread",
@@ -139993,7 +139861,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.21,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -140032,9 +139900,9 @@
     "outcome": null
   },
   {
-    "id": "563018e7-0041-4aac-9568-2248d0b8bbf7",
+    "id": "ae550982-d9f7-474f-b2ce-782587502a4a",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "bear_call_spread",
@@ -140042,7 +139910,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.1737,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -140081,9 +139949,9 @@
     "outcome": null
   },
   {
-    "id": "a4303a36-5b32-4fec-88d8-8adfbcf41e63",
+    "id": "98c28f7f-e609-4f0e-adbd-710f87d2759f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "QQQ",
     "strategyId": "iron_condor",
@@ -140091,7 +139959,7 @@
     "spot": 709.22,
     "iv": 0.19205,
     "ivSold": 0.20288213623111584,
-    "ivr": 38.39833875045143,
+    "ivr": 38.33814854941616,
     "rvAtScan": 0.21468240995079266,
     "ivRvGap": -0.02263240995079266,
     "regime": "mid",
@@ -140147,9 +140015,9 @@
     "outcome": null
   },
   {
-    "id": "69a7ba36-590e-430e-b6c2-6c9b03bab0bf",
+    "id": "1f63a4a0-2931-454e-9c20-7f90628f9ba0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bull_put_spread",
@@ -140196,9 +140064,9 @@
     "outcome": null
   },
   {
-    "id": "4e084be2-ce2d-4d37-8144-bc907873b203",
+    "id": "54999f97-08f8-45b8-aaeb-efed847a1975",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bear_call_spread",
@@ -140245,9 +140113,9 @@
     "outcome": null
   },
   {
-    "id": "1286fd1c-0855-4394-86a0-c0a4de0bfa5e",
+    "id": "fc366ee4-8df9-4510-9050-0ed24346cc4f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "iron_condor",
@@ -140311,9 +140179,9 @@
     "outcome": null
   },
   {
-    "id": "0f06542f-7905-4479-b62a-93a699724718",
+    "id": "6a881012-c626-48dd-9adb-c5f78099c978",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bull_put_spread",
@@ -140360,9 +140228,9 @@
     "outcome": null
   },
   {
-    "id": "818d0829-099b-46ce-8b2e-973bf909c0fd",
+    "id": "e82249c8-ecd6-435c-80aa-2fd21576de95",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bear_call_spread",
@@ -140409,9 +140277,9 @@
     "outcome": null
   },
   {
-    "id": "bce04e99-1b3d-4c55-b16a-574b71eb06be",
+    "id": "1b32ec33-97a4-4901-88b7-7c1443f5f8a5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "iron_condor",
@@ -140475,9 +140343,9 @@
     "outcome": null
   },
   {
-    "id": "e9530e40-b131-4f95-aeea-b969b958c4e1",
+    "id": "0cf28e2d-1fb7-4f0a-aeba-da1cc3ac7032",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bull_put_spread",
@@ -140524,9 +140392,9 @@
     "outcome": null
   },
   {
-    "id": "23153fd7-1dca-43d9-9d6e-34f2981a80dd",
+    "id": "5c85fd09-ae20-4b15-89bf-ba2efba7c09d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.307Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bear_call_spread",
@@ -140573,9 +140441,9 @@
     "outcome": null
   },
   {
-    "id": "431bbad0-0da4-4cc2-800c-17359ce75096",
+    "id": "f0dc67cf-fb72-4931-9bb6-9f11c6c545db",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "iron_condor",
@@ -140639,9 +140507,9 @@
     "outcome": null
   },
   {
-    "id": "e0f53522-303d-4b8d-a68b-97f68f86fd65",
+    "id": "a82933e1-5b7c-4fee-81b6-32962cb7a8f5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bull_put_spread",
@@ -140688,9 +140556,9 @@
     "outcome": null
   },
   {
-    "id": "f02bc93d-f793-4e0d-943d-e99ad3e7eaa8",
+    "id": "68f8ebad-1613-4d76-9573-22711a596da4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bear_call_spread",
@@ -140737,9 +140605,9 @@
     "outcome": null
   },
   {
-    "id": "ce303085-782b-471e-a4c2-cecd4a4b1bbb",
+    "id": "86c33de7-442b-4e73-a7c0-54d5d04389fa",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "iron_condor",
@@ -140803,9 +140671,9 @@
     "outcome": null
   },
   {
-    "id": "38572864-5905-4533-ba70-30b84fba9b5c",
+    "id": "b2f538bd-bda0-4df0-a6f9-0218e6d8ab80",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bull_put_spread",
@@ -140852,9 +140720,9 @@
     "outcome": null
   },
   {
-    "id": "f6eb36e5-f06b-4c24-8306-0e6cc231fbc7",
+    "id": "0c329626-472c-436d-85ce-f9d3222d2f49",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "bear_call_spread",
@@ -140901,9 +140769,9 @@
     "outcome": null
   },
   {
-    "id": "2382ef34-1bbe-4365-9033-b5171817ebde",
+    "id": "ee506f17-ccf3-45c7-b07d-c6b6c37a2c68",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "IWM",
     "strategyId": "iron_condor",
@@ -140967,9 +140835,9 @@
     "outcome": null
   },
   {
-    "id": "22d9a4e9-2c32-41b8-85f6-ed786f590800",
+    "id": "f33a92cf-716e-49ce-a03f-478f76f2578f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bull_put_spread",
@@ -141016,9 +140884,9 @@
     "outcome": null
   },
   {
-    "id": "5ffce283-8af2-450c-9ad3-4a4cf3c3e47c",
+    "id": "529055f0-e135-4c81-a374-1b5772f6ef13",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bear_call_spread",
@@ -141065,9 +140933,9 @@
     "outcome": null
   },
   {
-    "id": "8f8d54f3-8439-48f9-870b-c139df14b29d",
+    "id": "d5ef76ad-f1f0-4bee-bbbf-2af0fb4aba6d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "iron_condor",
@@ -141131,9 +140999,9 @@
     "outcome": null
   },
   {
-    "id": "9fc83fda-31c0-4cb7-9ac9-adb864f10b86",
+    "id": "f8a25958-6c4d-4a00-a5b0-df5e162ae76c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bull_put_spread",
@@ -141180,9 +141048,9 @@
     "outcome": null
   },
   {
-    "id": "0e8bbe90-a958-46fe-8d35-3bbb10f83434",
+    "id": "123d8c94-7548-4b3b-96a8-32c33b813890",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bear_call_spread",
@@ -141229,9 +141097,9 @@
     "outcome": null
   },
   {
-    "id": "8089338c-ccfa-4593-9694-1c133b6e50fd",
+    "id": "8bf73e4d-146f-4588-8b26-4a522c7e5617",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "iron_condor",
@@ -141295,9 +141163,9 @@
     "outcome": null
   },
   {
-    "id": "4d042417-29aa-407e-af4a-77b07544273a",
+    "id": "7fc627e4-11b6-4dd9-8ea3-74f36fdae916",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bull_put_spread",
@@ -141344,9 +141212,9 @@
     "outcome": null
   },
   {
-    "id": "8995c477-6c3d-408c-a875-f565ce1b360e",
+    "id": "fd0f8918-6c9f-4660-8fbc-45c98cadae72",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bear_call_spread",
@@ -141393,9 +141261,9 @@
     "outcome": null
   },
   {
-    "id": "9e5692db-01b8-4ed8-9d2a-14ceed3e3c76",
+    "id": "75e4c351-c769-4948-85bf-ab5e0755cb86",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "iron_condor",
@@ -141459,9 +141327,9 @@
     "outcome": null
   },
   {
-    "id": "507c11fc-84c8-49cb-8dad-14be1d8f4198",
+    "id": "51e7d31d-4293-4e22-b07b-ebeda4fe8a66",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bull_put_spread",
@@ -141508,9 +141376,9 @@
     "outcome": null
   },
   {
-    "id": "959991fa-2772-46c5-a4e4-024ffe3378c0",
+    "id": "81c19fbc-dd47-4db9-87ff-411cdb12bf52",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bear_call_spread",
@@ -141557,9 +141425,9 @@
     "outcome": null
   },
   {
-    "id": "c66f0371-ccab-457b-a45b-887a9127d722",
+    "id": "eb6db32e-c429-48f5-8620-64e462822a4d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "iron_condor",
@@ -141623,9 +141491,9 @@
     "outcome": null
   },
   {
-    "id": "d5734dc0-5c0b-456b-abc7-8a858acc6851",
+    "id": "4fec3bed-2cff-4435-b741-8fecb91489e1",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bull_put_spread",
@@ -141672,9 +141540,9 @@
     "outcome": null
   },
   {
-    "id": "012a97ed-3dac-4a05-b646-8fd3013e527d",
+    "id": "af095dc2-5d64-4409-8f98-d2f9abd175f3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "bear_call_spread",
@@ -141721,9 +141589,9 @@
     "outcome": null
   },
   {
-    "id": "7a3432ac-da01-474f-856e-be57fc0b1dfd",
+    "id": "a2da9dff-3a7b-486f-aa58-21e04057cf7b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "DIA",
     "strategyId": "iron_condor",
@@ -141787,9 +141655,9 @@
     "outcome": null
   },
   {
-    "id": "e956b5a4-4567-4faf-b1c8-ff862d51aab2",
+    "id": "576232ee-1abc-4574-9d01-a274fa3419ff",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bull_put_spread",
@@ -141797,7 +141665,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.26,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "sell",
@@ -141836,9 +141704,9 @@
     "outcome": null
   },
   {
-    "id": "8eb2a65e-2479-4cba-8e15-bcbdc6fea819",
+    "id": "61cdec30-57b5-48be-8abb-2e4fe239a1af",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bear_call_spread",
@@ -141846,7 +141714,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2861,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "sell",
@@ -141885,9 +141753,9 @@
     "outcome": null
   },
   {
-    "id": "0da25e76-3ecf-44de-a08b-a47c5b828d01",
+    "id": "68b5c913-7138-49c6-a33a-f6a9a15e0d9f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "iron_condor",
@@ -141895,7 +141763,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.27978748841519924,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "sell",
@@ -141951,9 +141819,9 @@
     "outcome": null
   },
   {
-    "id": "4fa12f98-2d68-48a4-a2b1-3bdd5725b6e6",
+    "id": "d945bd5d-3ae0-4402-b8b6-6bf200471b67",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bull_put_spread",
@@ -141961,7 +141829,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2565,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142000,9 +141868,9 @@
     "outcome": null
   },
   {
-    "id": "ef91fbf7-904f-43b1-846e-be9015878fa1",
+    "id": "25d871a3-5305-4db8-90d9-cb3aad5591fb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bear_call_spread",
@@ -142010,7 +141878,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2771,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142049,9 +141917,9 @@
     "outcome": null
   },
   {
-    "id": "1959701d-bb76-4cba-9477-58da4018abf3",
+    "id": "6c13f0b0-dacd-4133-bdb2-a69607dcd5fb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "iron_condor",
@@ -142059,7 +141927,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.27437764887857696,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142115,9 +141983,9 @@
     "outcome": null
   },
   {
-    "id": "3eca05ac-4698-4ac2-96cc-4a955e9ac307",
+    "id": "3041add4-659e-4a9d-adbf-81e19dc7bc71",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bull_put_spread",
@@ -142125,7 +141993,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2537,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142164,9 +142032,9 @@
     "outcome": null
   },
   {
-    "id": "ba748ca7-7213-43f1-81ab-fbf14d61ecf5",
+    "id": "132767b9-8540-47e7-9025-a28215677cbe",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bear_call_spread",
@@ -142174,7 +142042,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2744,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142213,9 +142081,9 @@
     "outcome": null
   },
   {
-    "id": "a687c9e7-ce3f-42c4-9c45-5d9f0edb6815",
+    "id": "beb470fd-9c5d-40e9-bd55-e55cf7a84df0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "iron_condor",
@@ -142223,7 +142091,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2686474069898534,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142279,9 +142147,9 @@
     "outcome": null
   },
   {
-    "id": "9fb0f53b-1312-4542-8e18-4c412a5dc943",
+    "id": "42503b4e-8c48-44d8-a6d8-d373f0d5a68e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bull_put_spread",
@@ -142289,7 +142157,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2524,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142328,9 +142196,9 @@
     "outcome": null
   },
   {
-    "id": "22a49dc1-5985-43a7-bd6a-17284ea0edd6",
+    "id": "508a226f-56ef-4a4c-9f85-b807ced20087",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bear_call_spread",
@@ -142338,7 +142206,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2701,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142377,9 +142245,9 @@
     "outcome": null
   },
   {
-    "id": "0960be10-8e27-461e-9c49-8719ebe28548",
+    "id": "96083ff8-8cdb-4cbe-8ec2-474b3c6fa9fd",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "iron_condor",
@@ -142387,7 +142255,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2656669077757685,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142443,9 +142311,9 @@
     "outcome": null
   },
   {
-    "id": "947d0946-1207-4540-859f-b6d7b055a553",
+    "id": "b7a761ed-6c93-478c-a0b4-8f1dec345a04",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bull_put_spread",
@@ -142453,7 +142321,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2513,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142492,9 +142360,9 @@
     "outcome": null
   },
   {
-    "id": "0d9bb119-783d-4e40-9272-4ae531f0822e",
+    "id": "423d8242-aafa-43b0-8fdf-9d88dc952947",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "bear_call_spread",
@@ -142502,7 +142370,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.267,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142541,9 +142409,9 @@
     "outcome": null
   },
   {
-    "id": "a09c903b-16f8-4abf-a6ea-1b70a2c930ee",
+    "id": "6889c6bb-d1d9-4e45-8327-d875b7c55989",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GLD",
     "strategyId": "iron_condor",
@@ -142551,7 +142419,7 @@
     "spot": 428.07,
     "iv": 0.25495,
     "ivSold": 0.2620510603588907,
-    "ivr": 58.73015873015873,
+    "ivr": 58.71183730575126,
     "rvAtScan": 0.23556039161603373,
     "ivRvGap": 0.019389608383966278,
     "regime": "mid",
@@ -142607,9 +142475,9 @@
     "outcome": null
   },
   {
-    "id": "34993354-09e0-4f1b-95a0-8d1028e4930f",
+    "id": "df080a43-a7b6-494b-b82c-ececd81eca5d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bull_put_spread",
@@ -142656,9 +142524,9 @@
     "outcome": null
   },
   {
-    "id": "164bbf81-604f-46fd-b578-ad61315f2e77",
+    "id": "00de90b1-50ec-43c9-b66e-d3c5f576f3b9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bear_call_spread",
@@ -142705,9 +142573,9 @@
     "outcome": null
   },
   {
-    "id": "449b7781-5518-4dc3-9f56-f92ba92d90cb",
+    "id": "cf5720a7-ab81-4743-b11f-e31c79f57e20",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "iron_condor",
@@ -142771,9 +142639,9 @@
     "outcome": null
   },
   {
-    "id": "8358cb1b-25ca-482b-bbf4-f8026de067fc",
+    "id": "4e587fe7-d674-4d4c-a51f-a845d8646965",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bull_put_spread",
@@ -142820,9 +142688,9 @@
     "outcome": null
   },
   {
-    "id": "15d4acda-5e16-4c34-b833-f8f29b1c40a8",
+    "id": "f6bfc56c-8944-46ae-a5d4-fa45a9a78e3d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bear_call_spread",
@@ -142869,9 +142737,9 @@
     "outcome": null
   },
   {
-    "id": "1f4f467f-8e21-4548-ae08-4bee52509bf5",
+    "id": "dbf28663-f380-4d9d-9f2a-2e28d97c7913",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "iron_condor",
@@ -142935,9 +142803,9 @@
     "outcome": null
   },
   {
-    "id": "ee0a58de-0864-4dfb-8f31-ac9351f0b743",
+    "id": "a9c580c0-843c-42c3-8335-ca8e981db572",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bull_put_spread",
@@ -142984,9 +142852,9 @@
     "outcome": null
   },
   {
-    "id": "476dbc18-d0be-4227-9b7b-0cbfcf8563ad",
+    "id": "33eb1f13-645f-4a3b-9a0f-ee6ed0bff339",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bear_call_spread",
@@ -143033,9 +142901,9 @@
     "outcome": null
   },
   {
-    "id": "ddc8e362-bd46-4092-9854-995bbb62eeb9",
+    "id": "55ded4e7-b3c2-4120-86fe-1b8a0ba61391",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "iron_condor",
@@ -143099,9 +142967,9 @@
     "outcome": null
   },
   {
-    "id": "4d728ed4-4c53-4f64-87c8-4247bb633d02",
+    "id": "b2ec3883-7269-44f0-aa43-8453ea0980d4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bull_put_spread",
@@ -143148,9 +143016,9 @@
     "outcome": null
   },
   {
-    "id": "8b4326ec-3dd9-4427-8b13-2a02ca759df4",
+    "id": "2c11ac94-3059-443d-bc32-b0bfdbaa7b68",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bear_call_spread",
@@ -143197,9 +143065,9 @@
     "outcome": null
   },
   {
-    "id": "3174f3db-b364-4293-b488-bd42445332d6",
+    "id": "a0bfabc5-d832-48e2-ad3b-b872ee26dc1f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "iron_condor",
@@ -143263,9 +143131,9 @@
     "outcome": null
   },
   {
-    "id": "41b8f767-ac5e-4426-8014-87764dc2fbc0",
+    "id": "b1791dcc-9dca-4dd9-9657-e684da8989d4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bull_put_spread",
@@ -143312,9 +143180,9 @@
     "outcome": null
   },
   {
-    "id": "3dc61b89-95b6-4947-a844-3025b68ed100",
+    "id": "7ecd7cfe-61b6-453b-a5f5-7ff479af761e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "bear_call_spread",
@@ -143361,9 +143229,9 @@
     "outcome": null
   },
   {
-    "id": "d808ae2e-28a0-45a4-a3cc-07578118698d",
+    "id": "10e31c29-8198-441e-a87c-b5ed48e00305",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "TLT",
     "strategyId": "iron_condor",
@@ -143427,9 +143295,9 @@
     "outcome": null
   },
   {
-    "id": "1d55d945-bca9-4dbd-9379-4d867271fe4b",
+    "id": "ab6be7ed-cf5d-4b64-87f9-f5df08e31756",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "XLF",
     "strategyId": "bull_put_spread",
@@ -143476,9 +143344,9 @@
     "outcome": null
   },
   {
-    "id": "468fed4a-6883-4a68-9a2c-e32d725d890b",
+    "id": "bbafec57-d038-4a52-b733-ee2e060b4dc2",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "EEM",
     "strategyId": "bull_put_spread",
@@ -143523,9 +143391,9 @@
     "outcome": null
   },
   {
-    "id": "531dd62f-32a7-4090-a14f-81febfa3ee34",
+    "id": "c3fea612-e298-4a22-8912-990eded7a65e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "EEM",
     "strategyId": "bull_put_spread",
@@ -143572,9 +143440,9 @@
     "outcome": null
   },
   {
-    "id": "df1b9dd7-714a-4c26-b3e0-2f77553d2721",
+    "id": "ff8520c4-4202-48e8-8222-c63ab45d76cf",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "EEM",
     "strategyId": "bull_put_spread",
@@ -143621,9 +143489,9 @@
     "outcome": null
   },
   {
-    "id": "01b1c029-86e0-4e38-b64d-24862f57aaf1",
+    "id": "9477e3f4-d573-4d60-a09f-dfc7e78dd9e0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "EEM",
     "strategyId": "bull_put_spread",
@@ -143670,9 +143538,9 @@
     "outcome": null
   },
   {
-    "id": "2486cdfb-720e-44d0-afd6-acd0ae64518a",
+    "id": "9ff6b60d-6e28-4c9e-a14b-69faa8a7da67",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "EEM",
     "strategyId": "bear_call_spread",
@@ -143719,9 +143587,9 @@
     "outcome": null
   },
   {
-    "id": "885e2f89-03da-4ae0-8bc5-b03c8e9d902d",
+    "id": "3b01c987-6edd-46ba-b28a-95014639475d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bull_put_spread",
@@ -143768,9 +143636,9 @@
     "outcome": null
   },
   {
-    "id": "d34a8d13-d54e-4f51-9c25-eec50d5833a0",
+    "id": "b875c1f0-9259-4ba1-b0d6-8250bfd8f5a3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bear_call_spread",
@@ -143817,9 +143685,9 @@
     "outcome": null
   },
   {
-    "id": "e51d153f-afec-4455-87ee-cf9cc4aa1c1d",
+    "id": "a6cba4de-ff1f-400c-87c5-da3199d03e3e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bull_put_spread",
@@ -143866,9 +143734,9 @@
     "outcome": null
   },
   {
-    "id": "ec3c032a-fce9-43aa-a1ce-809bad543860",
+    "id": "fbb5b1fb-041b-4f02-a1c9-649f923b3662",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bear_call_spread",
@@ -143915,9 +143783,9 @@
     "outcome": null
   },
   {
-    "id": "418c1a28-dc8f-4d13-af48-c0eb02f850de",
+    "id": "9ed0f9c6-708f-4b3a-b21d-7b3308fc50eb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bull_put_spread",
@@ -143964,9 +143832,9 @@
     "outcome": null
   },
   {
-    "id": "be3df528-b44c-40b5-97c7-0535099daf8d",
+    "id": "2c5b3032-8414-4251-97a7-cb5cd17fc7c9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bear_call_spread",
@@ -144013,9 +143881,9 @@
     "outcome": null
   },
   {
-    "id": "e3cfd721-2e9e-4704-aabc-69428e9c5db8",
+    "id": "79898b82-7823-4eae-a43a-3d560a9beae6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bull_put_spread",
@@ -144062,9 +143930,9 @@
     "outcome": null
   },
   {
-    "id": "65ace974-644a-433f-9b31-e105dde44f4d",
+    "id": "4480021a-92f8-436d-b250-2ee03ab4d7dc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bear_call_spread",
@@ -144111,9 +143979,9 @@
     "outcome": null
   },
   {
-    "id": "5f025835-3eab-44a6-8fdf-fe516b7eb81c",
+    "id": "b608f8b5-4ad4-4a51-8f27-40ff51762515",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "iron_condor",
@@ -144177,9 +144045,9 @@
     "outcome": null
   },
   {
-    "id": "e19eda2f-6397-4613-b5df-6f95c42e9226",
+    "id": "575707c6-2ecd-4df7-804a-77f4ec4250da",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bull_put_spread",
@@ -144226,9 +144094,9 @@
     "outcome": null
   },
   {
-    "id": "770acf11-f3dd-47ee-b1c2-94ad6d9b453f",
+    "id": "c908957b-8d68-4de3-be67-a42ba7c865dc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "bear_call_spread",
@@ -144275,9 +144143,9 @@
     "outcome": null
   },
   {
-    "id": "34da24a3-f4cb-4cde-9f7b-665323454bd8",
+    "id": "b1ca97bf-40d8-4c70-85eb-d276140a2012",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "UNH",
     "strategyId": "iron_condor",
@@ -144341,9 +144209,9 @@
     "outcome": null
   },
   {
-    "id": "e908ef42-72d0-4f2a-a0d1-c3d74e8af779",
+    "id": "5a7ec0d1-04a3-47f5-a2c3-8b0f69571335",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "VST",
     "strategyId": "bull_put_spread",
@@ -144390,9 +144258,9 @@
     "outcome": null
   },
   {
-    "id": "7d319f1c-f585-40e5-bb4d-1cd7c6fc07bf",
+    "id": "80a49632-1192-4254-a455-d184f65c7e5c",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "VST",
     "strategyId": "bull_put_spread",
@@ -144439,9 +144307,9 @@
     "outcome": null
   },
   {
-    "id": "99f9d09f-2a5e-44d9-9fca-0ca52f5115d2",
+    "id": "1018b4b5-b2e2-4100-a1b6-763f4a4bf0af",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "VST",
     "strategyId": "bull_put_spread",
@@ -144488,9 +144356,9 @@
     "outcome": null
   },
   {
-    "id": "9d0f4eb8-68a3-4376-b745-fd7947627364",
+    "id": "0f14f4a4-0665-4ae0-a39c-fd6705ebe818",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "VST",
     "strategyId": "bull_put_spread",
@@ -144537,9 +144405,9 @@
     "outcome": null
   },
   {
-    "id": "3f821bbe-b725-4f1c-a622-75c544f93d1a",
+    "id": "7f13f852-625d-44b0-83c3-6d6a562c52db",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "VST",
     "strategyId": "bear_call_spread",
@@ -144586,9 +144454,9 @@
     "outcome": null
   },
   {
-    "id": "0fb76677-77ea-47ad-9b1e-03e9c05faf1f",
+    "id": "771639fe-912e-40f4-80a7-c4c0c8f8b0e5",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bull_put_spread",
@@ -144635,9 +144503,9 @@
     "outcome": null
   },
   {
-    "id": "a7585c63-9260-481b-a7f4-9bd660595e81",
+    "id": "7f9ab53d-9962-4733-9db3-2ea277fce25e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bear_call_spread",
@@ -144684,9 +144552,9 @@
     "outcome": null
   },
   {
-    "id": "dc8f2b1d-ba63-49f1-9694-af9834db886c",
+    "id": "5fd57b8c-e266-4afd-be0a-cdcd551cb30f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "iron_condor",
@@ -144750,9 +144618,9 @@
     "outcome": null
   },
   {
-    "id": "341f9aac-f1bd-4b40-bb74-286a9754ee9d",
+    "id": "14ea106e-c57a-40e7-8548-2a88f0e6d3c6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bull_put_spread",
@@ -144799,9 +144667,9 @@
     "outcome": null
   },
   {
-    "id": "0bf1c94c-77be-483a-be24-aa4cf9333eb9",
+    "id": "96754a6e-2190-46dc-bf5f-4d81273642b4",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bear_call_spread",
@@ -144848,9 +144716,9 @@
     "outcome": null
   },
   {
-    "id": "8462e337-83ef-470a-808c-489331ed5191",
+    "id": "33ec703a-66c8-442a-ac51-9683c765bd2b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "iron_condor",
@@ -144914,9 +144782,9 @@
     "outcome": null
   },
   {
-    "id": "7542d2fe-809b-4cee-ab72-1993b01265fb",
+    "id": "f664b89c-f181-4969-842b-5998e8c699dc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bull_put_spread",
@@ -144963,9 +144831,9 @@
     "outcome": null
   },
   {
-    "id": "89297d45-7c21-4f3e-987d-4a589dedcac3",
+    "id": "6ca52dab-24fb-4ed5-a242-8b32f4eeaba8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bear_call_spread",
@@ -145012,9 +144880,9 @@
     "outcome": null
   },
   {
-    "id": "2fd1046a-512a-474b-aced-d46cd06e11b4",
+    "id": "6b626e30-8782-4b2e-af5e-ac60af0dd252",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "iron_condor",
@@ -145078,9 +144946,9 @@
     "outcome": null
   },
   {
-    "id": "9a062fb4-f574-476b-8f63-68c56276c1de",
+    "id": "b2bd4d33-251a-4bca-9a55-5396d2053cd8",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bull_put_spread",
@@ -145127,9 +144995,9 @@
     "outcome": null
   },
   {
-    "id": "cb94a509-c94a-48e4-a4fa-50e9fcef8540",
+    "id": "ceb6b727-cfdc-4ea8-8f8a-6bfce3e9e208",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bear_call_spread",
@@ -145176,9 +145044,9 @@
     "outcome": null
   },
   {
-    "id": "7bac8518-6b9c-41d9-bea1-5cad35367701",
+    "id": "399b56c6-7326-4e28-a33b-10ebf03e099f",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "iron_condor",
@@ -145242,9 +145110,9 @@
     "outcome": null
   },
   {
-    "id": "3abe65c2-f5f6-4287-8719-fc7447eaa140",
+    "id": "9f9fa74e-b285-4579-827c-0692e9b3373e",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bull_put_spread",
@@ -145291,9 +145159,9 @@
     "outcome": null
   },
   {
-    "id": "afb7f150-a85c-4891-9833-c78725274da5",
+    "id": "e06f8a97-c844-4156-a984-e8b9344e4de3",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "bear_call_spread",
@@ -145340,9 +145208,9 @@
     "outcome": null
   },
   {
-    "id": "a11cf9ce-8d60-4da6-aa41-711cf390c0df",
+    "id": "eb0ad36b-aced-47c6-a3bb-db88000dcb51",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "GOOG",
     "strategyId": "iron_condor",
@@ -145406,9 +145274,9 @@
     "outcome": null
   },
   {
-    "id": "7d249771-3d22-4e59-9cff-77bd09d7cb45",
+    "id": "b4210f54-0276-47e5-9bb0-a51aa924a283",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "FIG",
     "strategyId": "bull_put_spread",
@@ -145455,9 +145323,9 @@
     "outcome": null
   },
   {
-    "id": "270d71bc-b50e-4a45-b9f7-3af1f17a0b1e",
+    "id": "2db08fda-589a-426e-b2c6-7557438b5adc",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "FIG",
     "strategyId": "bull_put_spread",
@@ -145504,9 +145372,9 @@
     "outcome": null
   },
   {
-    "id": "d4cfc7de-36ef-4c8d-8150-b6e4316ab3ff",
+    "id": "0ee41042-e432-45d3-997b-bf078076e2e9",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "FIG",
     "strategyId": "bear_call_spread",
@@ -145553,9 +145421,9 @@
     "outcome": null
   },
   {
-    "id": "2e92bd0f-72a9-49cf-87dd-d12e26df99e9",
+    "id": "5c8127be-5906-4e6d-b905-8350a64dfdfb",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bull_put_spread",
@@ -145602,9 +145470,9 @@
     "outcome": null
   },
   {
-    "id": "8aa07856-8ffe-4519-8eb1-c8d3979a42c2",
+    "id": "15e94dfe-cd5c-4400-97e8-ada24eee54d6",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bull_put_spread",
@@ -145651,9 +145519,9 @@
     "outcome": null
   },
   {
-    "id": "2374b7ec-c9be-4d5d-9953-6aeae99228af",
+    "id": "805fb29e-1d8f-4f73-953c-b4e6e527342d",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bull_put_spread",
@@ -145700,9 +145568,9 @@
     "outcome": null
   },
   {
-    "id": "3c79c0fe-45b3-471d-8c1e-02fd9c7acfe0",
+    "id": "31d248b0-d86c-4f37-bb76-b420844b83d0",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bear_call_spread",
@@ -145749,9 +145617,9 @@
     "outcome": null
   },
   {
-    "id": "857dc7d0-65ad-48b7-80e1-bb87ac28f2f4",
+    "id": "241d8fd2-124f-4e5c-904d-2b4f0bcafc12",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bull_put_spread",
@@ -145798,9 +145666,9 @@
     "outcome": null
   },
   {
-    "id": "0cb8b4fe-6668-47c1-93b1-67c60bffd22d",
+    "id": "909b0017-e9c9-48ca-ba13-dcaa6447541b",
     "etDay": "2026-08-26",
-    "capturedAt": "2026-08-26T04:02:33.135Z",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
     "source": "shadow",
     "sym": "CRCL",
     "strategyId": "bear_call_spread",
@@ -145843,6 +145711,875 @@
     "variant": "sd0.30@w3",
     "aiView": null,
     "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "08e7bdb7-9081-4eac-ad8a-a0940f5eda64",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.5057,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.10220968738852021,
+    "pop": 0.55,
+    "ev": -0.0879519470462586,
+    "netPremium": 0.15000000000000013,
+    "maxProfit": 0.15000000000000013,
+    "maxLoss": -1.8500000000000227,
+    "dte": 31,
+    "breakevens": [
+      146.84999999999997
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 147,
+        "premium": 1.5150000000000001,
+        "quantity": 1,
+        "iv": 0.5057
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 145,
+        "premium": 1.365,
+        "quantity": 1,
+        "iv": 0.512
+      }
+    ],
+    "variant": "sd0.12@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "16226110-d786-4c82-86e1-f262a07e6cf4",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bear_call_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4732,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.08473395303919465,
+    "pop": 0.696,
+    "ev": -0.07295572970653301,
+    "netPremium": 0.33999999999999986,
+    "maxProfit": 0.33999999999999986,
+    "maxLoss": -4.66,
+    "dte": 31,
+    "breakevens": [
+      205.34
+    ],
+    "legs": [
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 205,
+        "premium": 1.3725,
+        "quantity": 1,
+        "iv": 0.4732
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 210,
+        "premium": 1.0325000000000002,
+        "quantity": 1,
+        "iv": 0.4781
+      }
+    ],
+    "variant": "sd0.12@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "fa334e5d-c0d1-414a-875a-060d530de11c",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "iron_condor",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.5032898408812729,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.18093637968982393,
+    "pop": 0.523,
+    "ev": -0.20855207452477462,
+    "netPremium": 0.4724999999999999,
+    "maxProfit": 0.4724999999999999,
+    "maxLoss": -4.52750000000002,
+    "dte": 31,
+    "breakevens": [
+      144.5275,
+      215.4725
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 145,
+        "premium": 1.2950000000000002,
+        "quantity": 1,
+        "iv": 0.512
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 140,
+        "premium": 0.96,
+        "quantity": 1,
+        "iv": 0.5344
+      },
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 215,
+        "premium": 0.7474999999999999,
+        "quantity": 1,
+        "iv": 0.4882
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 220,
+        "premium": 0.6100000000000001,
+        "quantity": 1,
+        "iv": 0.4979
+      }
+    ],
+    "variant": "sd0.10@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": "managed",
+    "outcome": null
+  },
+  {
+    "id": "228c2f7c-b57b-4062-b9ed-695867f6b10b",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4921,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.1401675550823365,
+    "pop": 0.603,
+    "ev": -0.15917713985996246,
+    "netPremium": 0.48999999999999977,
+    "maxProfit": 0.48999999999999977,
+    "maxLoss": -3.0100000000000002,
+    "dte": 31,
+    "breakevens": [
+      152.01
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 152.5,
+        "premium": 2.34,
+        "quantity": 1,
+        "iv": 0.4921
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 149,
+        "premium": 1.85,
+        "quantity": 1,
+        "iv": 0.4985
+      }
+    ],
+    "variant": "sd0.16@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "33e8e748-7df9-4c31-898b-39052af078f4",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bear_call_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4668,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.09966817937803663,
+    "pop": 0.678,
+    "ev": -0.10912851042678727,
+    "netPremium": 0.43999999999999995,
+    "maxProfit": 0.43999999999999995,
+    "maxLoss": -4.5600000000000005,
+    "dte": 31,
+    "breakevens": [
+      200.43999999999997
+    ],
+    "legs": [
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 200,
+        "premium": 1.8775,
+        "quantity": 1,
+        "iv": 0.4668
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 205,
+        "premium": 1.4375,
+        "quantity": 1,
+        "iv": 0.4732
+      }
+    ],
+    "variant": "sd0.16@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "41d5e8cd-66f5-4466-b25b-150634412dfc",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "iron_condor",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.49902027027027035,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.18336812185342705,
+    "pop": 0.499,
+    "ev": -0.18689917985727092,
+    "netPremium": 0.42999999999999994,
+    "maxProfit": 0.42999999999999994,
+    "maxLoss": -4.57,
+    "dte": 31,
+    "breakevens": [
+      147.57,
+      215.43000000000004
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 148,
+        "premium": 1.6575,
+        "quantity": 1,
+        "iv": 0.5039
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 145,
+        "premium": 1.365,
+        "quantity": 1,
+        "iv": 0.512
+      },
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 215,
+        "premium": 0.7474999999999999,
+        "quantity": 1,
+        "iv": 0.4882
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 220,
+        "premium": 0.6100000000000001,
+        "quantity": 1,
+        "iv": 0.4979
+      }
+    ],
+    "variant": "sd0.13@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": "managed",
+    "outcome": null
+  },
+  {
+    "id": "1b2f43c7-0bf8-491d-8f74-0f5291ef29f1",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4864,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.13810653026279232,
+    "pop": 0.59,
+    "ev": -0.13001753874674102,
+    "netPremium": 0.41999999999999993,
+    "maxProfit": 0.41999999999999993,
+    "maxLoss": -2.0800000000000125,
+    "dte": 31,
+    "breakevens": [
+      154.58
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 155,
+        "premium": 2.8200000000000003,
+        "quantity": 1,
+        "iv": 0.4864
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 152.5,
+        "premium": 2.4000000000000004,
+        "quantity": 1,
+        "iv": 0.4921
+      }
+    ],
+    "variant": "sd0.20@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "33155b54-1a1e-4d79-aa89-810209ae1327",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bear_call_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.464,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.08908362070676189,
+    "pop": 0.664,
+    "ev": -0.13489952513706388,
+    "netPremium": 0.6524999999999999,
+    "maxProfit": 0.6524999999999999,
+    "maxLoss": -4.3475,
+    "dte": 31,
+    "breakevens": [
+      195.6525
+    ],
+    "legs": [
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 195,
+        "premium": 2.585,
+        "quantity": 1,
+        "iv": 0.464
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 200,
+        "premium": 1.9325,
+        "quantity": 1,
+        "iv": 0.4668
+      }
+    ],
+    "variant": "sd0.20@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "837e0e2b-b76c-4eca-93aa-b70f6c060c2c",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "iron_condor",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4879157303370787,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.170783875293982,
+    "pop": 0.501,
+    "ev": -0.2621579898054315,
+    "netPremium": 0.6849999999999999,
+    "maxProfit": 0.6849999999999999,
+    "maxLoss": -4.3149999999999995,
+    "dte": 31,
+    "breakevens": [
+      151.815,
+      210.68499999999997
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 152.5,
+        "premium": 2.34,
+        "quantity": 1,
+        "iv": 0.4921
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 149,
+        "premium": 1.85,
+        "quantity": 1,
+        "iv": 0.4985
+      },
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 210,
+        "premium": 0.9975,
+        "quantity": 1,
+        "iv": 0.4781
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 215,
+        "premium": 0.8024999999999999,
+        "quantity": 1,
+        "iv": 0.4882
+      }
+    ],
+    "variant": "sd0.16@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": "managed",
+    "outcome": null
+  },
+  {
+    "id": "2416c90a-2d29-499b-997f-cbd66d713d58",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4777,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.13920270871908585,
+    "pop": 0.558,
+    "ev": -0.1718942341347222,
+    "netPremium": 0.5749999999999997,
+    "maxProfit": 0.5749999999999997,
+    "maxLoss": -1.9250000000000114,
+    "dte": 31,
+    "breakevens": [
+      159.425
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 160,
+        "premium": 4.0375,
+        "quantity": 1,
+        "iv": 0.4777
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 157.5,
+        "premium": 3.4625,
+        "quantity": 1,
+        "iv": 0.4823
+      }
+    ],
+    "variant": "sd0.25@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "e5dc567d-7e16-4279-a926-9683ab98a1f0",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bear_call_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.463,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.09016918753211185,
+    "pop": 0.65,
+    "ev": -0.15355635180910548,
+    "netPremium": 0.7475,
+    "maxProfit": 0.7475,
+    "maxLoss": -4.2524999999999995,
+    "dte": 31,
+    "breakevens": [
+      193.2475
+    ],
+    "legs": [
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 192.5,
+        "premium": 3.0300000000000002,
+        "quantity": 1,
+        "iv": 0.463
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 197.5,
+        "premium": 2.2825,
+        "quantity": 1,
+        "iv": 0.4662
+      }
+    ],
+    "variant": "sd0.25@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "9f2d312f-cd32-45c1-a8af-040f62e3f4d2",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "iron_condor",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.48207871198568863,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.13746318275649283,
+    "pop": 0.49,
+    "ev": -0.22636809042451655,
+    "netPremium": 0.7599999999999998,
+    "maxProfit": 0.7599999999999998,
+    "maxLoss": -4.24,
+    "dte": 31,
+    "breakevens": [
+      154.24,
+      205.76000000000002
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 155,
+        "premium": 2.8200000000000003,
+        "quantity": 1,
+        "iv": 0.4864
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 152.5,
+        "premium": 2.4000000000000004,
+        "quantity": 1,
+        "iv": 0.4921
+      },
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 205,
+        "premium": 1.3725,
+        "quantity": 1,
+        "iv": 0.4732
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 210,
+        "premium": 1.0325000000000002,
+        "quantity": 1,
+        "iv": 0.4781
+      }
+    ],
+    "variant": "sd0.20@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": "managed",
+    "outcome": null
+  },
+  {
+    "id": "7ba9e359-24a6-4738-9b7c-59f18c776a9b",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4738,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.1462441661784961,
+    "pop": 0.535,
+    "ev": -0.19956523355006084,
+    "netPremium": 0.6499999999999995,
+    "maxProfit": 0.6499999999999995,
+    "maxLoss": -1.8500000000000227,
+    "dte": 31,
+    "breakevens": [
+      161.85000000000002
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 162.5,
+        "premium": 4.7625,
+        "quantity": 1,
+        "iv": 0.4738
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 160,
+        "premium": 4.112500000000001,
+        "quantity": 1,
+        "iv": 0.4777
+      }
+    ],
+    "variant": "sd0.30@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "9665ccd8-f87e-46bb-9e36-25023994efe8",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "bear_call_spread",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.4627,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.10118267483809976,
+    "pop": 0.613,
+    "ev": -0.1164401012065453,
+    "netPremium": 0.5249999999999999,
+    "maxProfit": 0.5249999999999999,
+    "maxLoss": -1.975,
+    "dte": 31,
+    "breakevens": [
+      188.025
+    ],
+    "legs": [
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 187.5,
+        "premium": 4.1499999999999995,
+        "quantity": 1,
+        "iv": 0.4627
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 190,
+        "premium": 3.6249999999999996,
+        "quantity": 1,
+        "iv": 0.463
+      }
+    ],
+    "variant": "sd0.30@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": null,
+    "outcome": null
+  },
+  {
+    "id": "5b948e1e-fb0d-4413-bde9-c8cc6986b716",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T07:02:11.308Z",
+    "source": "shadow",
+    "sym": "PLTR",
+    "strategyId": "iron_condor",
+    "expiration": "2026-09-25",
+    "spot": 172.101,
+    "iv": 0.4647,
+    "ivSold": 0.47677269705603037,
+    "ivr": 16.52354160497483,
+    "rvAtScan": 0.5265759935027808,
+    "ivRvGap": -0.061875993502780835,
+    "regime": "mid",
+    "score": -0.13521227162710162,
+    "pop": 0.464,
+    "ev": -0.26915418510851347,
+    "netPremium": 0.9474999999999998,
+    "maxProfit": 0.9474999999999998,
+    "maxLoss": -4.0525,
+    "dte": 31,
+    "breakevens": [
+      156.55249999999998,
+      200.9475
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 157.5,
+        "premium": 3.3874999999999997,
+        "quantity": 1,
+        "iv": 0.4823
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 155,
+        "premium": 2.88,
+        "quantity": 1,
+        "iv": 0.4864
+      },
+      {
+        "type": "call",
+        "action": "sell",
+        "strike": 200,
+        "premium": 1.8775,
+        "quantity": 1,
+        "iv": 0.4668
+      },
+      {
+        "type": "call",
+        "action": "buy",
+        "strike": 205,
+        "premium": 1.4375,
+        "quantity": 1,
+        "iv": 0.4732
+      }
+    ],
+    "variant": "sd0.24@w3",
+    "aiView": null,
+    "aiViewConfidence": null,
+    "exitPolicy": "managed",
+    "outcome": null
+  },
+  {
+    "id": "8b2a9f89-061e-4988-ab24-b9b4157bb24b",
+    "etDay": "2026-08-26",
+    "capturedAt": "2026-08-26T08:01:51.635Z",
+    "source": "dashboard",
+    "sym": "IWM",
+    "strategyId": "bull_put_spread",
+    "expiration": "2026-09-25",
+    "spot": 299.23,
+    "iv": 0.17165,
+    "ivSold": 0.2054,
+    "ivr": 45.25005775005775,
+    "rvAtScan": 0.1431400021573184,
+    "ivRvGap": 0.0285099978426816,
+    "regime": "sell",
+    "score": 0.06780450251813674,
+    "pop": 0.7555,
+    "ev": 0.06902663549707543,
+    "netPremium": 0.6899999999999995,
+    "maxProfit": 0.6899999999999995,
+    "maxLoss": -5.310000000000002,
+    "dte": 31,
+    "breakevens": [
+      284.30999999999995
+    ],
+    "legs": [
+      {
+        "type": "put",
+        "action": "sell",
+        "strike": 285,
+        "premium": 2.0349999999999997,
+        "quantity": 1,
+        "iv": 0.2054
+      },
+      {
+        "type": "put",
+        "action": "buy",
+        "strike": 279,
+        "premium": 1.3450000000000002,
+        "quantity": 1,
+        "iv": 0.2223
+      }
+    ],
+    "variant": "sd0.20@w3",
+    "aiView": null,
+    "aiViewConfidence": 0.4,
     "exitPolicy": null,
     "outcome": null
   }
