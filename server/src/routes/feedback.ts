@@ -6,7 +6,14 @@ import {
   loadSnapshots
 } from '../feedback/index.js'
 import type { RecommendationSnapshot, RecommendationOutcome } from '../feedback/types.js'
-import { buildArmStats } from '../feedback/tuner.js'
+import {
+  buildArmStats,
+  variantId,
+  SHORT_DELTA_ARMS,
+  CONDOR_ARMS,
+  DEFAULT_SHORT_DELTA,
+  DEFAULT_CONDOR_PUT_DELTA
+} from '../feedback/tuner.js'
 import { outcomePnl } from '../feedback/calibration.js'
 
 // ---------- Performance aggregation ----------
@@ -220,6 +227,23 @@ export async function feedbackRoutes(app: FastifyInstance) {
       withOutcome: all.filter(s => s.outcome != null).length,
       pendingOutcome: all.filter(s => s.outcome == null).length,
       overall,
+      // The live arm ladder, SERVED rather than mirrored. The client used to
+      // hardcode the variant ids so it could also render arms with no data yet
+      // ("试验刚开始"); that whitelist silently went stale on every structure
+      // epoch bump and the panel would then show an empty experiment forever.
+      // Ship the ladder with the stats and the drift cannot happen again.
+      tunerLadder: {
+        credit_spread: SHORT_DELTA_ARMS.map((d) => ({
+          variant: variantId(d, 'bull_put_spread'),
+          shortDelta: d,
+          isDefault: d === DEFAULT_SHORT_DELTA
+        })),
+        iron_condor: CONDOR_ARMS.map((d) => ({
+          variant: variantId(d, 'iron_condor'),
+          shortDelta: d,
+          isDefault: d === DEFAULT_CONDOR_PUT_DELTA
+        }))
+      },
       strategies,
       regimes,
       symbols,

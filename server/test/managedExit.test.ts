@@ -198,3 +198,183 @@ test('oppScanner builds every snapshot leg through toScannedLegs (no inlined cop
   const inlined = src.match(/legs:\s*\w+\.legs\.map\(/g) ?? []
   assert.deepEqual(inlined, [], `inlined leg mapping found: ${inlined.join(', ')}`)
 })
+
+/**
+ * VRP HARVEST: without `convergeTo` every leg stays marked at its ENTRY IV for
+ * the whole path, so a seller who collected 28.9% on a name realizing 22.8%
+ * never books the spread — at the close-out the residual time value is still
+ * priced at 28.9%. Measured on the 2026-08-24 chain, that inversion made the
+ * RICHEST name in the watchlist (XOM, +6.1pp of edge) score the WORST EV and
+ * the thinnest (TLT, +1.2pp) the only positive one.
+ */
+test('convergeTo: decaying IV toward realized vol pays the seller, and only the seller', () => {
+  const S = 297.67
+  const short = [iwmCondor[0], iwmCondor[2]] // the two SOLD legs
+  const ctxBase = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012 }
+  // Mark the short strangle mid-window, with and without convergence.
+  const mid = 20
+  const flat = markPnL(short, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 1)
+  const conv = markPnL(short, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 0.8)
+  assert.ok(conv > flat, `converged mark ${conv} should beat flat ${flat} for a seller`)
+
+  // The SAME ratio must hurt the long side by the same mechanism — otherwise
+  // convergence is inventing money rather than moving it.
+  const long = short.map((l) => ({ ...l, action: 'buy' as const }))
+  const flatL = markPnL(long, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 1)
+  const convL = markPnL(long, S, ctxBase.tauAt(mid), 0.04, 0.012, IWM_ATM, 0.8)
+  assert.ok(convL < flatL, `converged mark ${convL} should hurt the buyer vs ${flatL}`)
+  assert.ok(Math.abs((conv - flat) + (convL - flatL)) < 1e-9, 'zero-sum across the trade')
+})
+
+test('convergeTo: no-op when the target is at or above the entry vol', () => {
+  const path = Array.from({ length: 20 }, () => IWM_S)
+  const base = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012,
+    sigma: IWM_ATM, maxSteps: 20 }
+  const none = runManagedExit(iwmCondor, path, 0.8575, base)
+  // target == sigma, and target > sigma: both must leave the result untouched.
+  for (const target of [IWM_ATM, IWM_ATM * 1.5]) {
+    const r = runManagedExit(iwmCondor, path, 0.8575, { ...base, convergeTo: target })
+    assert.equal(r.pnl, none.pnl, `convergeTo=${target} must be a no-op`)
+    assert.equal(r.reason, none.reason)
+  }
+})
+
+test('convergeTo: an earnings crush and convergence do not stack below the target', () => {
+  // Both mechanisms model the SAME collapse. Composed naively they would mark
+  // the position below the diffusion vol and pay the seller twice for it.
+  const path = Array.from({ length: 20 }, () => IWM_S)
+  const target = IWM_ATM * 0.6
+  const base = { tauAt: (i: number) => Math.max(0, (43 - i) / 365), r: 0.04, q: 0.012,
+    sigma: IWM_ATM, maxSteps: 20 }
+  const crushOnly = runManagedExit(iwmCondor, path, 0.8575,
+    { ...base, sigmaAt: (i) => (i >= 5 ? target : IWM_ATM) })
+  const both = runManagedExit(iwmCondor, path, 0.8575,
+    { ...base, sigmaAt: (i) => (i >= 5 ? target : IWM_ATM), convergeTo: target })
+  // Convergence may only ADD decay before the crush lands, never after it.
+  assert.ok(both.pnl >= crushOnly.pnl - 1e-9,
+    `combined ${both.pnl} must not fall below crush-only ${crushOnly.pnl}`)
+  const floored = markPnL(iwmCondor, IWM_S, base.tauAt(19), 0.04, 0.012, IWM_ATM, target / IWM_ATM)
+  const combined = markPnL(iwmCondor, IWM_S, base.tauAt(19), 0.04, 0.012, IWM_ATM,
+    Math.max((target / IWM_ATM) * (target / IWM_ATM), target / IWM_ATM))
+  assert.equal(combined, floored, 'the floor pins the combined ratio at the target')
+})
+
+// The settlement engine must mark on the SCAN-TIME information set. An earlier
+// revision aimed convergeTo at the holding window's realized vol, so a day-5
+// mark already carried day-30's move — and take-profit/stop TIMING is exactly
+// what the tuner learns from. A source check is the only way to catch it:
+// the bug produced perfectly plausible numbers.
+test('outcome: convergeTo uses scan-time vol, never the realized window', () => {
+  const src = readFileSync(new URL('../src/feedback/outcome.ts', import.meta.url), 'utf8')
+  const line = src.split('\n').find((l) => l.includes('convergeTo:'))
+  assert.ok(line, 'outcome.ts must pass convergeTo')
+  assert.ok(
+    /deriveSimSigma\(\s*s\.iv\s*,\s*s\.rvAtScan/.test(line!),
+    `convergeTo must be deriveSimSigma(s.iv, s.rvAtScan) — same target the card used; got: ${line!.trim()}`
+  )
+  assert.ok(
+    !/\brv\b(?!AtScan)/.test(line!),
+    `convergeTo must not reference the post-hoc realized vol \`rv\`: ${line!.trim()}`
+  )
+})
+
+// The settlement engine must walk the SAME management window the card walked.
+// Without maxSteps it defaulted to the bar count, and a calendar-day window
+// holds ~5/7 as many trading bars — so learning ran a shorter window than the
+// display AND, since `steps` drives the convergence schedule, decayed vol
+// faster, moving take-profit/stop timing away from what the card showed.
+test('outcome: passes the same managed horizon the card used', () => {
+  const src = readFileSync(new URL('../src/feedback/outcome.ts', import.meta.url), 'utf8')
+  const i = src.indexOf('runManagedExit(')
+  assert.ok(i > 0, 'expected outcome.ts to run the shared managed exit')
+  const call = src.slice(i, i + 2600)
+  assert.match(
+    call, /maxSteps:\s*managedHoldDays\(/,
+    'outcome must bound the walk with managedHoldDays, not the raw bar count'
+  )
+})
+
+test('managedExit: maxSteps shortens the walk and the convergence schedule', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 95, premium: 1, quantity: 1 }
+  ] as any)
+  const path = Array.from({ length: 30 }, () => 100)
+  const ctx = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.4, convergeTo: 0.2
+  }
+  const long = runManagedExit(legs, path, 2, ctx)
+  const short = runManagedExit(legs, path, 2, { ...ctx, maxSteps: 10 })
+  assert.ok(short.exitIndex <= 9, `capped walk must stop inside maxSteps, got ${short.exitIndex}`)
+  assert.notEqual(
+    long.pnl, short.pnl,
+    'a different horizon must actually change the result — otherwise the cap is inert'
+  )
+})
+
+// A source-grep assertion cannot catch a DEAD parameter: outcome passed
+// `maxSteps` correctly and it changed nothing, because `end` (the walk bound)
+// was also the convergence denominator, and bars are always ~5/7 of the
+// calendar-day window that maxSteps is derived from — so `min` never bound.
+// These assertions are numeric on purpose.
+test('managedExit: maxSteps sets the convergence schedule even when bars < maxSteps', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  // 15 bars, but the position is managed over a 21-day window: the schedule must
+  // NOT complete. Flat path so only the vol schedule moves the mark.
+  const bars = Array.from({ length: 15 }, () => 100)
+  const base = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25
+  }
+
+  const onBarCount = runManagedExit(legs, bars, 2, { ...base, maxSteps: 15 })
+  const onWindow = runManagedExit(legs, bars, 2, { ...base, maxSteps: 21 })
+
+  assert.notEqual(
+    onWindow.pnl, onBarCount.pnl,
+    'maxSteps must drive the schedule; identical results mean the parameter is dead'
+  )
+  // Converging over 21 steps but stopping at bar 15 leaves vol still above the
+  // target, so less premium has decayed → the seller has booked LESS.
+  assert.ok(
+    onWindow.pnl < onBarCount.pnl,
+    `a window that ends mid-schedule must be less converged: ${onWindow.pnl} vs ${onBarCount.pnl}`
+  )
+})
+
+test('managedExit: the walk still stops at the bars available, not at maxSteps', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  const bars = Array.from({ length: 15 }, () => 100)
+  const r = runManagedExit(legs, bars, 2, {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25, maxSteps: 21
+  })
+  assert.ok(r.exitIndex <= 14, `cannot walk past the supplied bars, got ${r.exitIndex}`)
+})
+
+// Same fraction of the window → same convergence state, whichever side runs it.
+test('managedExit: live and settlement schedules agree at the same window fraction', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 90, premium: 1, quantity: 1 }
+  ] as any)
+  const base = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25, maxSteps: 20
+  }
+  // Live walks the full 20-step window; settlement has only 10 bars of it, so it
+  // stops mid-schedule rather than re-basing the schedule onto its own length.
+  const live = runManagedExit(legs, Array.from({ length: 20 }, () => 100), 2, base)
+  const settle = runManagedExit(legs, Array.from({ length: 10 }, () => 100), 2, base)
+  assert.ok(
+    settle.pnl < live.pnl,
+    `half the window must be less converged than the whole: ${settle.pnl} vs ${live.pnl}`
+  )
+})

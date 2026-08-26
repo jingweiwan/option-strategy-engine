@@ -2,7 +2,7 @@
  * Online parameter tuner — Thompson sampling over strategy-construction knobs.
  *
  * Phase 2 of the self-optimization plan. Knob: the SHORT-LEG DELTA — for credit
- * spreads (bull_put / bear_call) arms {0.25, 0.30, 0.35}; for the iron condor
+ * spreads (bull_put / bear_call) arms {0.12, 0.16, 0.20, 0.25, 0.30}; for the iron condor
  * the PUT short arms {0.16, 0.20, 0.24} (the call short drifts off it; both long
  * wings are equal-$ via CONDOR_WING_PCT). Each dashboard recommendation picks an
  * arm by Thompson-sampling a Normal posterior over its mean per-trade P&L (per
@@ -30,7 +30,7 @@
  * symmetric/unequal wings, or variant-less history) do not match a live arm
  * and are skipped, so the current posteriors start uncontaminated.
  *
- * Disable with STRATEGY_TUNER=0 (falls back to the static 0.30 spec).
+ * Disable with STRATEGY_TUNER=0 (falls back to the static DEFAULT_SHORT_DELTA spec).
  */
 import type { StrategyType } from '../engine/types.js'
 import type { Regime } from '../engine/index.js'
@@ -42,13 +42,23 @@ import { outcomePnl } from './calibration.js'
 export const TUNER_ENABLED = process.env.STRATEGY_TUNER !== '0'
 
 // Credit spreads sell one leg near the money; arms tune that short delta.
-export const SHORT_DELTA_ARMS = [0.25, 0.3, 0.35] as const
-export const DEFAULT_SHORT_DELTA = 0.3
+// The ladder must SPAN the optimum, because the optimum is per-symbol — it is
+// wherever that name's managed-exit win rate crosses the ~80% the TP/stop
+// asymmetry demands. Measured on the 2026-08-24 chain (EV of the 39-DTE bull
+// put spread): TLT peaks at 0.30 (POP is already 87% there, so collect more),
+// IWM at 0.16, SPY at 0.12. The old [0.25,0.30,0.35] ladder could not reach
+// two of those three — the tuner was searching a range that excluded the answer.
+export const SHORT_DELTA_ARMS = [0.12, 0.16, 0.2, 0.25, 0.3] as const
+// Applies only until the tuner has evidence for a symbol. 0.20 is the arm that
+// cleared BOTH gates on the most names at once (EV>0 and credit/width≥floor);
+// 0.30 left IWM at EV +0.002 and SPY at −0.119, 0.16 collected too little
+// credit for the fixed-% wing and tripped `reward_too_thin`.
+export const DEFAULT_SHORT_DELTA = 0.2
 // The iron condor arm tunes the PUT short delta; the call short drifts off it
 // (CONDOR_CALL_DRIFT, keeping the put-skew) and both long wings are placed an
 // EQUAL dollar width from their short (CONDOR_WING_PCT). Condors sell further
 // OTM than one-sided credit spreads, hence their own, lower arm set.
-export const CONDOR_ARMS = [0.16, 0.2, 0.24] as const
+export const CONDOR_ARMS = [0.1, 0.13, 0.16, 0.2, 0.24] as const
 export const DEFAULT_CONDOR_PUT_DELTA = 0.2
 const CONDOR_CALL_DRIFT = 0.07 // call short sits this many Δ further OTM than the put short
 const CONDOR_MIN_CALL_SHORT = 0.08 // don't let the tightest arm collapse the call short
@@ -60,8 +70,8 @@ const CONDOR_WING_PCT = 0.02
 // Structure epoch: bump when leg geometry changes so legacy snapshots
 // (recorded under the old structure) map to a DIFFERENT variant id and cannot
 // pollute the new arms' posteriors. 'w2' = equal-$ wings (k × short strike).
-export const CONDOR_STRUCT_EPOCH = 'w2'
-export const CREDIT_SPREAD_STRUCT_EPOCH = 'w2'
+export const CONDOR_STRUCT_EPOCH = 'w3'
+export const CREDIT_SPREAD_STRUCT_EPOCH = 'w3'
 
 export const TUNED_STRATEGIES: ReadonlyArray<StrategyType> = [
   'bull_put_spread',

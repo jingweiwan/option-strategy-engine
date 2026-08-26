@@ -3,7 +3,7 @@
  */
 
 import { chatJson, type AiMessage } from './client.js'
-import { cached, getCachedNarrativeDailyWithLegacy, etCalendarDay, HOUR } from './cache.js'
+import { cached, getCachedNarrativeDailyWithLegacy, bust, etCalendarDay, HOUR } from './cache.js'
 
 export type MarketSnapshot = {
   asof: string
@@ -109,11 +109,35 @@ function boardSignature(snap?: MarketSnapshot): string {
   return `${b.qualifiedCount}-${syms || 'na'}`
 }
 
+/** Stable, order-independent fingerprint of the pool the narrative describes. */
+function watchlistSlug(snap?: MarketSnapshot): string {
+  const syms = (snap?.watchlistTickers ?? []).map((t) => t.sym.toUpperCase()).sort()
+  if (syms.length === 0) return 'wl0'
+  // Short non-cryptographic digest — the key is a cache key, not a security
+  // boundary, and a full symbol list would blow past the filename cap.
+  let h = 2166136261
+  for (const c of syms.join(',')) {
+    h ^= c.charCodeAt(0)
+    h = Math.imul(h, 16777619)
+  }
+  return `wl${syms.length}x${(h >>> 0).toString(36)}`
+}
+
 export function narrativeCacheKey(snap?: MarketSnapshot): string {
   // v2: board-grounded prompt. Key on the actual board contents so a narrative
   // generated for one set of setups (e.g. "SPY") doesn't linger after the board
   // changes to another (e.g. "GOOGL, UNH") within the same day.
-  return `narrative-v2-${narrativeCacheDayKey()}-${boardSignature(snap)}`
+  // v3: ticker grounding enforced. MUST bump alongside it — the 2026-08-25
+  // 「ADBE 72」 narrative is sitting in day caches with a v2 key and would be
+  // served straight past the new check on deploy.
+  //
+  // The watchlist slug is part of the key because the board signature is not
+  // enough: two different pools can produce the same qualified setups (or both
+  // produce none) while the narrative also talks about IVR levels and near
+  // misses drawn from `watchlistTickers`. Sharing an entry across pools serves
+  // the wrong pool's commentary — and widens the blast radius of any poisoned
+  // entry from one pool to all of them.
+  return `narrative-v3-${narrativeCacheDayKey()}-${watchlistSlug(snap)}-${boardSignature(snap)}`
 }
 
 export function fmtSignedPct(n: number, d = 2): string {
@@ -134,6 +158,61 @@ function stripAiMacroPrefixFromDeck(deck: string): string {
   return t
 }
 
+/**
+ * Uppercase runs that are NOT tickers — jargon the prompt explicitly allows,
+ * plus common macro/technical abbreviations the writer reaches for.
+ */
+const NON_TICKER_TOKENS = new Set([
+  'IV', 'IVR', 'RV', 'EV', 'POP', 'DTE', 'ATM', 'OTM', 'ITM', 'VRP',
+  'FOMC', 'CPI', 'PPI', 'PCE', 'PMI', 'GDP', 'ISM', 'NFP', 'QT', 'QE',
+  'AI', 'ETF', 'ETFS', 'US', 'USD', 'EPS', 'PE', 'ROE', 'IPO', 'MA',
+  'SMA', 'EMA', 'RSI', 'MACD', 'BOLL', 'EM', 'TP', 'SL', 'PNL', 'YTD',
+  'Q1', 'Q2', 'Q3', 'Q4', 'H1', 'H2', 'FY', 'OK', 'ID', 'API'
+])
+
+/**
+ * Every ticker the model is ALLOWED to name — strictly what it was fed.
+ *
+ * SPY/VIXY are always in: they are handed over as the macro line.
+ */
+function groundedTickers(snap: MarketSnapshot): Set<string> {
+  const set = new Set<string>(['SPY', 'VIXY'])
+  for (const t of snap.watchlistTickers ?? []) set.add(t.sym.toUpperCase())
+  for (const e of snap.earningsUpcoming ?? []) set.add(e.sym.toUpperCase())
+  for (const b of snap.board?.setups ?? []) set.add(b.sym.toUpperCase())
+  return set
+}
+
+/**
+ * Tickers the narrative names that were never in its input.
+ *
+ * The prompt already forbids this ("不要点名不在 setups 里的标的"), and the model
+ * still did it: on 2026-08-25 the engine card read "其余标的 IVR 虽有个别偏高
+ * (如 ADBE 72)" — ADBE was not in `watchlistTickers` (it is a HOLDING, and the
+ * narrative is not even given the book), and no symbol anywhere had an IVR of
+ * 72; the only 72 in the payload was VST's earnings `daysUntil`. The advice
+ * happened to land somewhere reasonable, which is precisely the danger: the
+ * next fabrication can point the other way and the reader has no way to tell.
+ *
+ * An instruction the model can ignore is not a control. This is the control.
+ */
+export function ungroundedTickers(n: DashboardNarrative, snap: MarketSnapshot): string[] {
+  const allowed = groundedTickers(snap)
+  const text = [
+    n.heroLine1, n.heroLine2, n.deck, n.enginePose,
+    ...(n.factors ?? []).flatMap((f) => [f.label, f.detail])
+  ].filter((x) => typeof x === 'string').join(' ')
+
+  const bad = new Set<string>()
+  for (const m of text.matchAll(/\b[A-Z]{2,5}\b/g)) {
+    const tok = m[0]
+    if (NON_TICKER_TOKENS.has(tok)) continue
+    if (allowed.has(tok)) continue
+    bad.add(tok)
+  }
+  return [...bad]
+}
+
 export function hydrateDashboardNarrative(n: DashboardNarrative, snap: MarketSnapshot): DashboardNarrative {
   const line = macroDeckLine(snap)
   const rest = stripAiMacroPrefixFromDeck(n.deck)
@@ -144,28 +223,81 @@ export function hydrateDashboardNarrative(n: DashboardNarrative, snap: MarketSna
 export async function getMarketNarrative(snap: MarketSnapshot): Promise<DashboardNarrative> {
   const key = narrativeCacheKey(snap)
   const pre = await getCachedNarrativeDailyWithLegacy<DashboardNarrative>(key, 12 * HOUR)
-  if (pre != null) return hydrateDashboardNarrative(pre, snap)
+  if (pre != null) {
+    // A cached narrative is NOT exempt. The generation-time check would be
+    // bypassed entirely by this short-circuit, so a poisoned entry written
+    // before the check existed (or by an older build) would keep shipping.
+    // Validate on read too, and drop the entry rather than display it.
+    const bad = ungroundedTickers(pre, snap)
+    if (bad.length === 0) return hydrateDashboardNarrative(pre, snap)
+    console.warn(
+      `[ai/narrative] discarding cached narrative: fabricated ticker(s) ${bad.join(', ')}`
+    )
+    // MUST await: bust clears L1 synchronously but unlinks L2 asynchronously.
+    // Without the await, the `cached()` call below finds an empty L1, reads the
+    // not-yet-deleted L2 file, and returns the poisoned entry — never running
+    // the producer, never re-validating. The bug survives its own fix.
+    await bust(key)
+  }
 
   const raw = await cached<DashboardNarrative>(key, 12 * HOUR, async () => {
-    const messages: AiMessage[] = [
-      { role: 'system', content: SYSTEM },
-      { role: 'user', content: USER_TEMPLATE(snap) }
-    ]
-    const { data, usage } = await chatJson<DashboardNarrative>(messages, {
-      model: 'deepseek-chat',
-      temperature: 0.5,
-      maxTokens: 2000
-    })
-    if (usage) {
-      console.log(
-        `[ai/narrative] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
-          (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
+    // Two attempts: the retry names the fabricated tickers back at the model.
+    // A third attempt is not worth the latency — by then the run is unusable.
+    let correction = ''
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const messages: AiMessage[] = [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: USER_TEMPLATE(snap) + correction }
+      ]
+      const { data, usage } = await chatJson<DashboardNarrative>(messages, {
+        model: 'deepseek-chat',
+        temperature: 0.5,
+        maxTokens: 2000
+      })
+      if (usage) {
+        console.log(
+          `[ai/narrative] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
+            (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
+        )
+      }
+      if (!data.heroLine1 || !data.deck || !data.enginePose || !Array.isArray(data.factors)) {
+        throw new Error('AI returned malformed narrative shape')
+      }
+      const bad = ungroundedTickers(data, snap)
+      if (bad.length === 0) return data
+      console.warn(
+        `[ai/narrative] attempt ${attempt}: fabricated ticker(s) ${bad.join(', ')} — not in the input snapshot`
       )
+      // Never cache or display a fabricated symbol: throwing leaves the card
+      // showing "引擎判断不可用" instead of a confident invented number.
+      if (attempt === 2) {
+        throw new Error(`AI named ticker(s) absent from the snapshot: ${bad.join(', ')}`)
+      }
+      // NOTE: only TICKERS are enforced. The instruction below also demands
+      // verbatim numbers, which nothing checks — a fabricated IVR on a real
+      // watchlist symbol still ships. Narrowing the instruction to match the
+      // check would be worse (it is a good instruction); the honest fix is
+      // numeric grounding, which needs the snapshot's own values threaded in.
+      correction =
+        `\n\n【上一次生成不合格】你点名了快照中不存在的标的：${bad.join('、')}。` +
+        '只能点名 watchlistTickers / board.setups / earningsUpcoming 中出现过的代码，' +
+        '且任何数字必须能在快照里逐字找到，不得推测或凭印象填写。请重写。'
     }
-    if (!data.heroLine1 || !data.deck || !data.enginePose || !Array.isArray(data.factors)) {
-      throw new Error('AI returned malformed narrative shape')
-    }
-    return data
+    throw new Error('unreachable')
   })
+
+  // Validate what we are about to RETURN, whatever its provenance.
+  //
+  // `cached()` can hand back an L2 entry without ever running the producer —
+  // written by a concurrent request, by another process sharing the cache dir,
+  // or by a build that predates the grounding check. Guarding only the
+  // generation path leaves every one of those routes open, and awaiting the
+  // bust above narrows the race without closing it. This closes it: no value
+  // leaves this function unvalidated.
+  const badFinal = ungroundedTickers(raw, snap)
+  if (badFinal.length > 0) {
+    await bust(key)
+    throw new Error(`AI narrative named ticker(s) absent from the snapshot: ${badFinal.join(', ')}`)
+  }
   return hydrateDashboardNarrative(raw, snap)
 }

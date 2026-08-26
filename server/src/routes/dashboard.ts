@@ -14,7 +14,7 @@ import {
   partitionEarningsForScan,
   EARNINGS_RECENCY_DAYS
 } from '../api/finnhub.js'
-import { cached, etCalendarDay, DAY } from '../ai/cache.js'
+import { cached, cachedSWR, etCalendarDay, DAY } from '../ai/cache.js'
 import { recordDashboardScanSnapshots } from '../feedback/index.js'
 import { feedbackDegradations, type FeedbackDegradation } from '../feedback/health.js'
 import {
@@ -102,6 +102,10 @@ export type DashboardData = {
   bookRisk?: BookRisk
   /** Net greeks of the user's REAL RH option book (bridge file; null when absent). */
   realBook?: RealBook | null
+  /** True when this payload is past its TTL and a refresh is running behind it. */
+  stale?: boolean
+  /** Age of the served payload in seconds (0 when fresh). */
+  ageSec?: number
   /** ISO timestamp when this snapshot was built (server wall clock). */
   fetchedAt: string
 }
@@ -318,10 +322,30 @@ export function dashboardSeedToMarketSnapshot(data: DashboardData): MarketSnapsh
 // are ~15-min delayed anyway), so rebuilding every minute was pure churn.
 const DASHBOARD_TTL_MS = (Number(process.env.DASHBOARD_TTL_MIN) || 5) * 60 * 1000
 
+/**
+ * How far past the TTL a build may still be SERVED while a refresh runs behind
+ * it. Generous on purpose: the inputs are ~15-min delayed quotes and 15-min
+ * chains, so a 20-minute-old board is materially the same board — whereas a
+ * 15-50s blank screen is not materially anything.
+ */
+const DASHBOARD_GRACE_MS = (Number(process.env.DASHBOARD_GRACE_MIN) || 20) * 60 * 1000
+
 /** Shared entry point — routes pass custom watchlist; warmer uses default only. */
 export function getCachedDashboard(entries: WatchlistEntry[]): Promise<DashboardData> {
+  return getCachedDashboardSWR(entries).then((r) => r.v)
+}
+
+/** Same build, but reports whether the payload served is a stale one. */
+export function getCachedDashboardSWR(
+  entries: WatchlistEntry[]
+): Promise<{ v: DashboardData; stale: boolean; ageMs: number }> {
   const slug = watchlistCacheSlug(entries)
-  return cached(`dashboard-live-${slug}`, DASHBOARD_TTL_MS, () => buildLiveDashboard(entries))
+  return cachedSWR(
+    `dashboard-live-${slug}`,
+    DASHBOARD_TTL_MS,
+    DASHBOARD_GRACE_MS,
+    () => buildLiveDashboard(entries)
+  )
 }
 
 /**
@@ -618,7 +642,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
     try {
       const raw = req.query as { symbols?: string | string[] }
       const wl = parseWatchlistSymbolsQuery(raw.symbols)
-      return await getCachedDashboard(wl)
+      const { v, stale, ageMs } = await getCachedDashboardSWR(wl)
+      // Stale payloads are served instantly with a refresh already running.
+      // Say so in the body AND in cache headers rather than passing old numbers
+      // off as current.
+      reply.header('X-Dashboard-Stale', stale ? '1' : '0')
+      return { ...v, stale, ageSec: Math.round(ageMs / 1000) }
     } catch (e) {
       const msg = (e as Error).message
       app.log.warn({ err: msg }, '[dashboard] live build failed')

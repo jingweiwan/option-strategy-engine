@@ -284,7 +284,7 @@ export async function buildOppsFromScan(
   // v10: (superseded) Plan A print-day → reference — reversed to spans hard-null;
   // v11: IV/RV richness gate (vol_not_rich); v12: that gate's numerator became
   // the SOLD legs' IV, key levels gained `side`, POP/EV mark per-leg.
-  const key = `opps-copy-v12-${etCalendarDay()}-${symKey}`
+  const key = `opps-copy-v13-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

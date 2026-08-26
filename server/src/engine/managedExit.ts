@@ -28,7 +28,9 @@
  * the marking model. Per-leg marking removes that residual (−0.105 → −0.012).
  *
  * The vol is NOT constant through the window: `sigmaAt` lets the caller drop
- * mark vol after an earnings step (IV crush). The crush is applied to per-leg
+ * mark vol after an earnings step (IV crush), and `convergeTo` decays the whole
+ * surface toward the realized/diffusion vol across the window so the variance
+ * risk premium the seller collected actually shows up in the P&L. The crush is applied to per-leg
  * vols as a RATIO (sigmaAt(i)/sigma), so a 30% ATM crush crushes every strike
  * by 30% and the skew shape survives the event.
  */
@@ -96,6 +98,23 @@ export type MarkContext = {
   /** Optional step-dependent mark vol (overrides `sigma` at index i) — used to
    *  drop IV after an earnings step (crush). Falls back to `sigma` when absent. */
   sigmaAt?: (i: number) => number
+  /**
+   * Vol level the whole surface decays TOWARD across the holding window — the
+   * diffusion (realized) vol. Without it every leg stays marked at its ENTRY IV
+   * for the entire path, so a seller who collected 28.9% on a name realizing
+   * 22.8% never books that spread: at the 21-DTE close-out the remaining time
+   * value is still priced at 28.9%. The variance risk premium — the entire
+   * reason to sell — is invisible to the sim, and the richer the IV the larger
+   * the understatement (measured on the 2026-08-24 chain: XOM +6.1pp of edge
+   * scored the WORST EV of the watchlist, TLT +1.2pp the only positive one).
+   *
+   * Applied as a RATIO on `sigma`, linearly over the window, so per-leg IVs
+   * scale proportionally and the skew shape survives (same reason `sigmaAt` is
+   * a ratio). DOWNWARD ONLY: when convergeTo ≥ sigma this is a no-op. Modeling
+   * upward convergence would hand long-vol structures a gain the seller-focused
+   * evidence base has never validated — that stays out until a backtest earns it.
+   */
+  convergeTo?: number
   /** Cap how far into the path to walk (the strategy-aware management window). */
   maxSteps?: number
 }
@@ -171,8 +190,47 @@ export function runManagedExit(
   // RATIO so the same crush scales each leg's own IV and the skew shape
   // survives the event (a flat override would erase it exactly when the
   // structure's wings matter most).
-  const ratioOf = (i: number) =>
-    ctx.sigmaAt && ctx.sigma > 0 ? ctx.sigmaAt(i) / ctx.sigma : 1
+  //
+  // Two independent effects scale the mark vol, both as ratios on ctx.sigma:
+  //   crush      — the earnings step (sigmaAt), a discrete drop
+  //   convergence— IV decaying toward realized vol across the window (VRP harvest)
+  // They compose multiplicatively but are FLOORED at the convergence target:
+  // an earnings crush already collapses the surface, so stacking a full
+  // convergence on top would mark below the diffusion vol and pay the seller
+  // twice for the same collapse.
+  const convTarget = ctx.convergeTo
+  const convFloor =
+    convTarget != null && ctx.sigma > 0 && convTarget > 0 && convTarget < ctx.sigma
+      ? convTarget / ctx.sigma
+      : 1
+  // Convergence denominator is the MANAGEMENT WINDOW, not however many price
+  // points happened to be supplied.
+  //
+  // `end` is the walk bound and must stay min(maxSteps, path.length) — you
+  // cannot walk bars you do not have. But using it as the denominator made
+  // `maxSteps` a dead parameter on the settlement side: outcome slices bars from
+  // a window of `managedHoldDays` CALENDAR days, so it always holds ~5/7 as many
+  // trading bars as that number, `min` never binds, and the schedule silently
+  // re-based onto the bar count — compressing the whole VRP decay into a shorter
+  // span than the card used.
+  //
+  // Live indexes trading steps (tauAt uses /252) and divides by maxSteps;
+  // settlement indexes real trading bars and now divides by maxSteps too, so the
+  // two schedules line up. A short bar series simply ends mid-schedule, still
+  // partly converged — which is the honest reading of a window that ended early.
+  //
+  // KNOWN, PRE-EXISTING: maxSteps itself is a calendar-day count
+  // (`dte - closeAtDte`) used as a trading-step count. That unit slip is
+  // identical on both sides, so the display/learning invariant holds; fixing it
+  // means moving live and settlement together, and is not this change.
+  const steps = Math.max(1, ctx.maxSteps ?? end)
+  const ratioOf = (i: number) => {
+    const crush = ctx.sigmaAt && ctx.sigma > 0 ? ctx.sigmaAt(i) / ctx.sigma : 1
+    if (convFloor >= 1) return crush
+    const progress = Math.min(1, (i + 1) / steps)
+    const converge = 1 + (convFloor - 1) * progress
+    return Math.max(crush * converge, convFloor)
+  }
 
   for (let i = 0; i < end; i++) {
     const v = markPnL(legs, pricePath[i], ctx.tauAt(i), ctx.r, ctx.q, ctx.sigma, ratioOf(i))

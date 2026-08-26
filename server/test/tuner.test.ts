@@ -1,6 +1,6 @@
 /**
  * Online tuner (Thompson sampling) — invariants:
- *   1. Legacy snapshots (no variant / unepoched id) do not seed @w2 arms.
+ *   1. Legacy snapshots (no variant / unepoched id) do not seed epoched arms.
  *   2. With strong evidence, sampling overwhelmingly picks the winning arm,
  *      while never fully abandoning exploration.
  *   3. specOverrides actually moves the engine's chosen strikes.
@@ -13,6 +13,8 @@ import {
   variantId,
   SHORT_DELTA_ARMS,
   CONDOR_ARMS,
+  CREDIT_SPREAD_STRUCT_EPOCH,
+  DEFAULT_SHORT_DELTA,
   legsForShortDelta
 } from '../src/feedback/tuner.js'
 import { normalizedReward } from '../src/feedback/calibration.js'
@@ -60,7 +62,7 @@ test('tuner: legacy snapshots (no variant, old 10Δ wings) do not seed @w2 arms'
   }
 })
 
-test('tuner: unepoched sd0.30 (old geometry) does not match live @w2 arm', () => {
+test('tuner: an unepoched legacy id (old geometry) does not match a live epoched arm', () => {
   const stats = buildArmStats([
     snap({ variant: 'sd0.30' }, true),
     snap({ variant: 'sd0.25' }, true),
@@ -78,7 +80,7 @@ test('tuner: unepoched sd0.30 (old geometry) does not match live @w2 arm', () =>
   // Orphan keys still exist in the map; pickShortDelta must not read them.
   assert.equal(stats.get('bull_put_spread|sell|sd0.30')?.n, 1)
   const pick = pickShortDelta('bull_put_spread', 'sell', stats, () => 0.5)
-  assert.ok(pick!.variant.endsWith('@w2'))
+  assert.ok(pick!.variant.endsWith(`@${CREDIT_SPREAD_STRUCT_EPOCH}`))
   assert.notEqual(pick!.variant, 'sd0.30')
 })
 
@@ -94,11 +96,14 @@ test('tuner: normalizedReward = return on capital-at-risk', () => {
 
 test('tuner: rejects the win-rate trap — picks the high-EV arm over the high-POP arm', () => {
   // Bounds ±1 → r = (pnl+1)/2.
-  // sd0.25@w2: 80% win rate but tiny wins / big losses → per-trade EV −0.10
-  // sd0.35@w2: 60% win rate but big wins / small losses → per-trade EV +0.34
-  const V25 = variantId(0.25, 'bull_put_spread')
-  const V30 = variantId(0.3, 'bull_put_spread')
-  const V35 = variantId(0.35, 'bull_put_spread')
+  // Arms are taken from SHORT_DELTA_ARMS, never written as literals — this test
+  // asserts the BANDIT's objective (per-trade P&L, not win rate); it must not
+  // break every time the arm ladder is re-tuned.
+  //   POP_ARM: 80% win rate but tiny wins / big losses → per-trade EV −0.10
+  //   EV_ARM:  60% win rate but big wins / small losses → per-trade EV +0.34
+  const V25 = variantId(SHORT_DELTA_ARMS[0], 'bull_put_spread')
+  const V30 = variantId(SHORT_DELTA_ARMS[1], 'bull_put_spread')
+  const V35 = variantId(SHORT_DELTA_ARMS[SHORT_DELTA_ARMS.length - 1], 'bull_put_spread')
   const w = (variant: string, pnl: number) =>
     snap({ variant, maxProfit: 1, maxLoss: -1,
       outcome: { ...snap({}, true).outcome!, managedPnl: pnl } }, pnl > 0)
@@ -110,13 +115,26 @@ test('tuner: rejects the win-rate trap — picks the high-EV arm over the high-P
 
   const stats = buildArmStats(snaps)
   const rng = mulberry32(7)
-  const picks: Record<string, number> = { [V25]: 0, [V30]: 0, [V35]: 0 }
+  // Seed EVERY arm: an unseeded key increments from undefined to NaN and its
+  // count is silently lost (that bug hid 208 of 500 picks when the ladder grew).
+  const picks: Record<string, number> = Object.fromEntries(
+    SHORT_DELTA_ARMS.map((d) => [variantId(d, 'bull_put_spread'), 0]))
   for (let i = 0; i < 500; i++) picks[pickShortDelta('bull_put_spread', 'sell', stats, rng)!.variant]++
 
   // A win/loss-reward bandit would crown sd0.25 (80% > 60%). The PnL reward
   // must instead favor sd0.35, while still exploring the others.
   assert.ok(picks[V35] > picks[V25], `EV arm ${picks[V35]} vs POP arm ${picks[V25]}`)
-  assert.ok(picks[V35] > 250, `EV arm should dominate: ${picks[V35]}/500`)
+  // Dominance is measured against the arm ladder's UNIFORM share, not a literal
+  // 250/500 — that constant silently encoded a 3-arm ladder and broke the moment
+  // the ladder widened, even though the bandit's behaviour was unchanged.
+  // Dominance is measured against the ladder's UNIFORM share and against the
+  // other arms — not a literal 250/500, which silently encoded a 3-arm ladder
+  // and broke the moment the ladder widened even though the bandit was unchanged.
+  const uniform = 500 / SHORT_DELTA_ARMS.length
+  const top = Math.max(...Object.values(picks))
+  assert.equal(picks[V35], top, `EV arm must be the modal pick: ${JSON.stringify(picks)}`)
+  assert.ok(picks[V35] > uniform * 1.5,
+    `EV arm should dominate: ${picks[V35]}/500 vs uniform share ${uniform.toFixed(0)}`)
   assert.ok(picks[V25] + picks[V30] > 0, 'other arms must still get explored')
 })
 
@@ -145,12 +163,13 @@ test('condor (w2): skew shorts by delta, equal-$ wings by width', () => {
 })
 
 test('condor: tuner picks only condor arms and learns from its own outcomes', () => {
-  // sd0.24 wins big, sd0.16 loses. Bounds ±1 → r=(pnl+1)/2.
+  // Arms from CONDOR_ARMS, never literals — the widest arm wins big, the
+  // tightest loses. Bounds ±1 → r=(pnl+1)/2.
   const w = (variant: string, pnl: number) =>
     snap({ strategyId: 'iron_condor', variant, maxProfit: 1, maxLoss: -1,
       outcome: { ...snap({}, true).outcome!, managedPnl: pnl } }, pnl > 0)
-  const V24 = variantId(0.24, 'iron_condor')
-  const V16 = variantId(0.16, 'iron_condor')
+  const V24 = variantId(CONDOR_ARMS[CONDOR_ARMS.length - 1], 'iron_condor')
+  const V16 = variantId(CONDOR_ARMS[0], 'iron_condor')
   const snaps: RecommendationSnapshot[] = []
   for (let i = 0; i < 14; i++) snaps.push(w(V24, +0.8))
   for (let i = 0; i < 4; i++) snaps.push(w(V24, -0.6))
@@ -167,7 +186,7 @@ test('condor: tuner picks only condor arms and learns from its own outcomes', ()
   assert.ok(Object.keys(picks).every((v) => condorVariants.includes(v)),
     `picked a non-condor arm: ${Object.keys(picks)}`)
   assert.ok((picks[V24] ?? 0) > (picks[V16] ?? 0),
-    `winner ${picks[V24]} vs loser ${picks[V16]}`)
+    `winner ${V24}=${picks[V24]} vs loser ${V16}=${picks[V16]}`)
 })
 
 test('condor: legacy snapshots (no variant, old structure) are skipped, not mis-attributed', () => {
@@ -184,16 +203,17 @@ test('engine: specOverrides moves the credit-spread short strike', () => {
   const def = runEngineLive(base)
   const tuned = runEngineLive({
     ...base,
-    specOverrides: { bull_put_spread: legsForShortDelta('bull_put_spread', 0.2)! }
+    specOverrides: { bull_put_spread: legsForShortDelta('bull_put_spread', SHORT_DELTA_ARMS[0])! }
   })
 
   const shortStrike = (r: typeof def) =>
     r.results.find((x) => x.strategy === 'bull_put_spread')!
       .legs.find((l) => l.action === 'sell')!.strike
 
-  // 20-delta put sits further OTM (lower strike) than the default 30-delta.
+  // The tightest arm sits further OTM (lower strike) than the default arm.
   assert.ok(shortStrike(tuned) < shortStrike(def),
-    `tuned short strike ${shortStrike(tuned)} should be below default ${shortStrike(def)}`)
+    `tuned short strike ${shortStrike(tuned)} (arm ${SHORT_DELTA_ARMS[0]}Δ) should be below ` +
+    `default ${shortStrike(def)} (${DEFAULT_SHORT_DELTA}Δ)`)
 
   // Other strategies are untouched by the override.
   const condorLegs = (r: typeof def) =>
@@ -219,7 +239,7 @@ test('specOverridesFromVariants ignores unknown/empty variants (no crash, no key
   assert.deepEqual(specOverridesFromVariants({ iron_condor: 'sd9.99' }), {})
   assert.deepEqual(specOverridesFromVariants({ iron_condor: '' }), {})
   assert.deepEqual(specOverridesFromVariants({ bull_put_spread: 'sd0.30' }), {},
-    'unepoched credit-spread id is stale after @w2')
+    `unepoched credit-spread id is stale after @${CREDIT_SPREAD_STRUCT_EPOCH}`)
   assert.deepEqual(specOverridesFromVariants({}), {})
 })
 
@@ -227,7 +247,7 @@ test('scan path and detail-replay path produce identical POP/EV (deterministic)'
   const { specOverridesFromVariants } = await import('../src/feedback/tuner.js')
   const { pickExitPolicy, SCAN_SIMULATIONS } = await import('../src/engine/oppScanner.js')
   const { chain, expiration, spot } = syntheticChain()
-  const d = 0.24
+  const d = CONDOR_ARMS[CONDOR_ARMS.length - 1] // any live arm; literals rot when the ladder moves
   const icPolicy = pickExitPolicy('TEST')
   const base = {
     symbol: 'TEST', spot, expiration, chain, ivRank: 65,
