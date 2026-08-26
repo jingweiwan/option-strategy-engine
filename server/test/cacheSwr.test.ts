@@ -106,3 +106,32 @@ test('cachedSWR: reports real age after an L2 promotion', async () => {
   assert.ok(hit.ageMs >= 1_400, `age must reflect the ORIGINAL production time, got ${hit.ageMs}`)
   bust(key)
 })
+
+// bust() clears L1 synchronously but unlinks L2 asynchronously. A caller that
+// busted a poisoned entry and immediately called cached() on the same key found
+// an empty L1, read the still-present L2 file, and got the poisoned value back
+// WITHOUT the producer ever running — the fix resurrecting the bug it fixed.
+// bust() now returns a promise that settles once L2 is gone.
+test('bust: awaiting it guarantees the next cached() call rebuilds', async () => {
+  const key = 'swr-bust-await'
+  seedL2(key, 'poisoned', 60_000)
+
+  await bust(key)
+
+  let ran = false
+  const v = await cached(key, 60_000, async () => { ran = true; return 'clean' })
+  assert.equal(ran, true, 'producer must run — the L2 file was supposed to be gone')
+  assert.equal(v, 'clean', 'must not resurrect the busted entry')
+})
+
+test('bust: without awaiting, the L2 file may still be readable (documents the race)', async () => {
+  const key = 'swr-bust-race'
+  seedL2(key, 'poisoned', 60_000)
+  const p = bust(key)
+  // Not awaited yet: this is precisely the window the old code ran in. We assert
+  // only that bust returns something awaitable — the race itself is timing
+  // dependent, so asserting the poisoned read would be a flaky test.
+  assert.ok(typeof (p as Promise<void>)?.then === 'function', 'bust must be awaitable')
+  await p
+  assert.equal(await getCachedIfValid<string>(key, 60_000), null, 'gone once awaited')
+})
