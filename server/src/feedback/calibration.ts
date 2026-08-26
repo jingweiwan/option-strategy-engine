@@ -13,6 +13,8 @@
  */
 
 import { loadSnapshots } from './store.js'
+import { isCurrentRegime, SETTLEMENT_VERSION } from './settlementVersion.js'
+import { noteStaleSettlements } from './health.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import type { StrategyType } from '../engine/types.js'
 import { DIRECTIONAL_DEBIT_SPREADS, type Regime } from '../engine/index.js'
@@ -71,12 +73,19 @@ function calibKey(strategy: StrategyType, regime: Regime): string {
 }
 
 export function buildCalibrationTable(snaps: RecommendationSnapshot[]): CalibrationTable {
+  let staleRegime = 0
+  let considered = 0
   const groups = new Map<string, number[]>() // per-bucket P&Ls ($/share)
   let allPnl = 0
   let allN = 0
 
   for (const s of snaps) {
     if (!s.outcome) continue
+    considered++
+    // Only outcomes from the CURRENT settlement regime are comparable. A number
+    // produced by since-replaced marking code looks identical to a fresh one, so
+    // mixing them is silent and unfalsifiable — skip, and report how many.
+    if (!isCurrentRegime(s.outcome)) { staleRegime++; continue }
     // Calibration measures the RECOMMENDED book (was the surfaced edge real?).
     // Shadow arm rows include never-recommended combos and would triple-weight
     // tuned strategies — they are tuner-only evidence (see types.ts `source`).
@@ -95,6 +104,12 @@ export function buildCalibrationTable(snaps: RecommendationSnapshot[]): Calibrat
     allPnl += pnl
     allN++
   }
+
+  // Report BEFORE any early return. `allN === 0` is not an edge case here — it
+  // is the exact shape of "the whole book is stale after a regime bump", which
+  // is precisely when the operator needs to be told. Reporting only on the
+  // success path made the loudest case the silent one.
+  noteStaleSettlements('calibration', staleRegime, considered, SETTLEMENT_VERSION)
 
   const table: CalibrationTable = new Map()
   if (allN === 0) return table

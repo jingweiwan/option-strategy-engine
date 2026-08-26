@@ -38,10 +38,20 @@ const aiError = ref<string | null>(null)
 /** IVR at/above this is "rich enough" to auto-recommend selling premium. */
 const IVR_FLOOR = 30
 
-/** Feedback loads that failed server-side — board built without learned weights. */
+/**
+ * Server-side feedback degradations. Two DIFFERENT conditions that need two
+ * different operator actions, so they must not share one banner:
+ *   - calibration/tuner: a load FAILED → the file is missing/corrupt → check it.
+ *   - settlement: the file is fine, the outcomes in it were produced by a
+ *     superseded settlement regime → the fix is a `force` re-settle, not a
+ *     file check. Telling the operator to inspect snapshots.json here sends
+ *     them to look at healthy data.
+ */
 const feedbackDegraded = computed(() => data.value?.feedbackDegraded ?? [])
+const loadFailures = computed(() => feedbackDegraded.value.filter((d) => d.what !== 'settlement'))
+const staleSettlements = computed(() => feedbackDegraded.value.filter((d) => d.what === 'settlement'))
 const degradedLabel = (what: string) =>
-  what === 'calibration' ? '策略校准' : what === 'tuner' ? '参数调优' : what
+  what === 'calibration' ? '策略校准' : what === 'tuner' ? '参数调优' : what === 'settlement' ? '结算口径' : what
 
 // 'reference' near-misses (IVR below the floor) are shown separately and never
 // counted as recommendations; older cached opps without boardTier read as qualified.
@@ -410,12 +420,25 @@ watch(data, (v) => {
       <!-- Feedback layer degraded: engine is running WITHOUT its learned weights.
            This is the failure that once let hard-disabled strategies back onto the
            board silently, so it gets a loud banner rather than a log line. -->
-      <div v-if="feedbackDegraded.length" class="degraded-banner mono">
+      <div v-if="loadFailures.length" class="degraded-banner mono">
         <span class="db-dot" />
         <span>
-          ⚠️ 学习权重未加载（{{ feedbackDegraded.map((d) => degradedLabel(d.what)).join('、') }}）——
+          ⚠️ 学习权重未加载（{{ loadFailures.map((d) => degradedLabel(d.what)).join('、') }}）——
           下方推荐<strong>未经历史校准</strong>，历史证明会亏的策略可能重新出现。请检查
           <code>server/cache/recommendations/snapshots.json</code>
+        </span>
+      </div>
+
+      <!-- Stale settlement regime: NOT a load failure. The book loaded fine; its
+           outcomes were computed by since-replaced marking code, so learning is
+           correctly ignoring them. The fix is a force re-settle — sending the
+           operator to inspect a healthy file would be the wrong instruction.
+           The server-side message already carries which table and how many. -->
+      <div v-for="d in staleSettlements" :key="d.at" class="degraded-banner stale mono">
+        <span class="db-dot" />
+        <span>
+          ⏳ 结算口径已更新 —— {{ d.message }}
+          下方推荐<strong>只用当前口径的样本</strong>校准，样本量暂时偏小。
         </span>
       </div>
 
@@ -962,6 +985,15 @@ watch(data, (v) => {
   font-size: 12px;
   line-height: 1.6;
   color: var(--ink-2);
+}
+.degraded-banner.stale {
+  /* Distinct from the red failure banner: this is expected, self-healing state
+     after a regime bump, not a broken load. */
+  border-color: var(--rule);
+  color: var(--ink-2);
+}
+.degraded-banner.stale .db-dot {
+  background: var(--ink-3);
 }
 .degraded-banner code {
   font-size: 11px;

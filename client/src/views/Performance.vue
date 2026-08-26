@@ -240,6 +240,15 @@ const curveZeroY = computed(() => {
     <div v-else-if="error" class="error-state">{{ error }}</div>
 
     <template v-else-if="data">
+      <!-- The displayed ruler is the SAME ruler the engine learns from: outcomes
+           from a superseded settlement regime are excluded from every number on
+           this page. Say so, or the shrunken sample silently reads as the book. -->
+      <div v-if="data.staleSettlements > 0" class="stale-note mono">
+        ⏳ {{ data.staleSettlements }} 条 outcome 由旧结算口径算出（当前
+        <code>{{ data.settlementVersion }}</code>），已从下列全部统计中剔除，
+        等待重结算 —— 与学习层口径一致。
+      </div>
+
       <!-- Overview Cards -->
       <section class="stat-cards">
         <div class="stat-card">
@@ -486,6 +495,18 @@ const curveZeroY = computed(() => {
 </template>
 
 <style scoped>
+.stale-note {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.stale-note code {
+  font-size: 11px;
+}
+
 .perf-page {
   max-width: var(--max);
   margin: 0 auto;

@@ -26,7 +26,7 @@ import * as polygon from './polygon.js'
 import * as tradier from './tradier.js'
 import * as cboe from './cboe.js'
 import * as nasdaq from './nasdaq.js'
-import { cached, MIN, HOUR } from '../ai/cache.js'
+import { cached, etCalendarDay, MIN, HOUR } from '../ai/cache.js'
 import { mapSettledLimit } from '../engine/concurrency.js'
 import { impliedVolFromChain, dteFromExpiration } from '../engine/liveStrategies.js'
 
@@ -325,19 +325,39 @@ export type OhlcBar = {
   volume: number
 }
 
-// --- Inflight dedup + short-lived cache for daily candles ---
-// Prevents duplicate API calls when fetchTechnicals() and computeRvRank()
-// both request the same symbol's candles in the same Promise.all().
-const ohlcCache = new Map<string, { ts: number; bars: OhlcBar[] }>()
+// --- Per-symbol daily-candle series cache ---
+// Two providers, one quirk that shaped this design: Nasdaq's historical
+// endpoint returns ZERO rows for a narrow window that ends in the past
+// (SPY 2026-05-12→2026-06-05 → 0 rows) while the SAME start date anchored at
+// today returns the full window (2026-05-12→today → 73 rows, earliest 05/12).
+// Verified across SPY/NVDA/IWM/XOM. So we always fetch [from .. today] and
+// slice locally — which also means one fetch per symbol serves every window,
+// instead of one HTTP call per distinct (from,to) pair. That matters when
+// settling hundreds of historical snapshots.
+type OhlcSeries = { from: string; through: string; ts: number; bars: OhlcBar[] }
+// How far the last bar may lag the requested anchor before we stop believing
+// the series is complete. Weekends + a holiday + "today's bar isn't printed
+// yet" is at most ~5 calendar days; anything beyond that is the provider
+// truncating the tail, and remembering that as full coverage would recreate
+// the exact silent-empty-window failure this cache exists to prevent.
+const OHLC_TAIL_TOLERANCE_DAYS = 6
+const ohlcSeries = new Map<string, OhlcSeries>()
 const ohlcInflight = new Map<string, Promise<OhlcBar[]>>()
-// Daily bars only change once per day (after close), so cache for hours. The
-// from/to keys are date-stable, so a day's worth of scans reuse one fetch.
+// Daily bars only change once per day (after close), so cache for hours.
 const OHLC_CACHE_TTL = (Number(process.env.OHLC_CACHE_TTL_HR) || 6) * 60 * 60 * 1000
 
+function sliceBars(bars: OhlcBar[], from: string, to: string): OhlcBar[] {
+  return bars.filter((b) => b.date >= from && b.date <= to)
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000)
+}
+
 /**
- * Fetch full OHLCV daily candles from MarketData.
- * Uses /v1/stocks/candles/D which is free-tier.
- * Includes inflight dedup: concurrent calls for the same key share one HTTP request.
+ * Fetch full OHLCV daily candles (Nasdaq first, MarketData as fallback).
+ * Includes inflight dedup: concurrent calls for the same symbol share one
+ * HTTP request, and a wider cached series serves narrower requests.
  */
 export async function getDailyOhlc(
   symbol: string,
@@ -345,24 +365,57 @@ export async function getDailyOhlc(
   to: string
 ): Promise<OhlcBar[]> {
   const sym = symbol.toUpperCase()
-  const cacheKey = `${sym}:${from}:${to}`
+  const today = etCalendarDay()
+  // Anchor the fetch at today (or later, if the caller asked for it) — see the
+  // Nasdaq quirk above. Never shrink a start we have already paid to fetch.
+  const hit = ohlcSeries.get(sym)
+  const fresh = hit && Date.now() - hit.ts < OHLC_CACHE_TTL
+  if (fresh && hit!.from <= from && hit!.through >= to) {
+    return sliceBars(hit!.bars, from, to)
+  }
+  const start = fresh && hit!.from < from ? hit!.from : from
+  const anchor = to > today ? to : today
 
-  const cached = ohlcCache.get(cacheKey)
-  if (cached && Date.now() - cached.ts < OHLC_CACHE_TTL) return cached.bars
+  const key = `${sym}:${start}:${anchor}`
+  const existing = ohlcInflight.get(key)
+  if (existing) return sliceBars(await existing, from, to)
 
-  // Dedup in-flight requests (e.g. technicals + RV calling in parallel)
-  const inflight = ohlcInflight.get(cacheKey)
-  if (inflight) return inflight
-
-  const promise = fetchOhlcRaw(sym, from, to)
-  ohlcInflight.set(cacheKey, promise)
+  const promise = ohlcFetch(sym, start, anchor)
+  ohlcInflight.set(key, promise)
   try {
     const bars = await promise
-    ohlcCache.set(cacheKey, { ts: Date.now(), bars })
-    return bars
+    // Cache the coverage we ACTUALLY got, not the coverage we asked for — on
+    // BOTH ends. A provider may clamp the start (Nasdaq does), and an empty
+    // result must not be remembered as "this symbol has no history" for the
+    // next six hours. Claiming `through: anchor` when the tail was truncated
+    // would let a later window slice to zero bars and never refetch, which is
+    // the same silent failure in a new costume.
+    if (bars.length > 0) {
+      const covFrom = bars[0].date > start ? bars[0].date : start
+      const lastBar = bars[bars.length - 1].date
+      const covThrough =
+        daysBetween(lastBar, anchor) <= OHLC_TAIL_TOLERANCE_DAYS ? anchor : lastBar
+      ohlcSeries.set(sym, { from: covFrom, through: covThrough, ts: Date.now(), bars })
+    }
+    return sliceBars(bars, from, to)
   } finally {
-    ohlcInflight.delete(cacheKey)
+    ohlcInflight.delete(key)
   }
+}
+
+/**
+ * Test seam. The whole point of this cache is a PROVIDER quirk, so the
+ * regression tests have to drive a provider — see test/ohlcWindow.test.ts.
+ * Passing null restores the real fetch. Always clears the cache so tests
+ * cannot leak state into each other.
+ */
+type OhlcFetcher = (sym: string, from: string, to: string) => Promise<OhlcBar[]>
+let ohlcFetch: OhlcFetcher = (sym, from, to) => fetchOhlcRaw(sym, from, to)
+
+export function __setOhlcFetcherForTest(fn: OhlcFetcher | null): void {
+  ohlcFetch = fn ?? ((sym, from, to) => fetchOhlcRaw(sym, from, to))
+  ohlcSeries.clear()
+  ohlcInflight.clear()
 }
 
 async function fetchOhlcRaw(sym: string, from: string, to: string): Promise<OhlcBar[]> {

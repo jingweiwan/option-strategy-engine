@@ -4,6 +4,7 @@ import { runManagedExit, managedHoldDays } from '../engine/managedExit.js'
 import { deriveSimSigma } from '../engine/index.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import { storedLegsToOptionLegs } from './legAdapter.js'
+import { SETTLEMENT_VERSION } from './settlementVersion.js'
 
 function addCalendarDays(isoDate: string, days: number): string {
   const [y, m, d] = isoDate.split('-').map(Number)
@@ -181,6 +182,7 @@ export async function computeOutcomeForSnapshot(
 
   return {
     computedAt: new Date().toISOString(),
+    settlementVersion: SETTLEMENT_VERSION,
     horizonDays,
     tradingDaysUsed: win.length,
     realizedVolAnnualized: rv,
