@@ -338,6 +338,8 @@ main
 | 前端 Strategy | `client/src/views/StrategyView.vue` |
 | Variant 单测 | `server/test/tuner.test.ts` |
 | 结算口径版本 | `server/src/feedback/settlementVersion.ts` |
+| 推荐逻辑缺陷清单 | `docs/engine-recommendation-flaws.md` |
+| Step 1 待验假设 | `docs/step1-open-hypotheses.md` |
 | 日线窗口缓存 | `server/src/api/marketdata.ts` (`getDailyOhlc`) |
 | 反馈层健康 | `server/src/feedback/health.ts` |
 
@@ -352,3 +354,4 @@ main
 | 2026-07-24 | **PR follow-up**：`replay=1` 对齐非 tuned 策略 sim 数；修正单测 `metrics.*` 断言；文档同步 |
 | 2026-08-26 | **诚实检验 Step 0**：新增 §8b 结算口径版本化与 force 运维约定、§8c 日线窗口取数不变量 |
 | 2026-08-26 | 新增 §8d 月度迭代分支约定 + 切分支前备份账本的硬性要求 |
+| 2026-08-26 | 清理 4 条遗留分支：抢救缺陷清单文档与 ivSold 双向性用例，未合并的 no-stop 提案转入 `docs/step1-open-hypotheses.md` |

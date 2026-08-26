@@ -219,3 +219,23 @@ test('buy-vol keeps ATM: ivSold never reaches the straddle path', () => {
   assert.equal(withSold, withoutSold)
   assert.equal(withSold, null) // IV > RV → not cheap → never auto-boards
 })
+
+// Salvaged from the abandoned `fix/ivrv-gate-sold-strike` branch. That branch's
+// implementation was superseded by 4bc3e56, but this one assertion did not make
+// it across — and it is the assertion that keeps the change HONEST.
+//
+// Reading the sold leg instead of ATM is easy to justify when put skew lifts the
+// number (the IWM condor case above). The obligation is that it cut BOTH ways:
+// call skew runs the other direction, so a bear_call_spread whose sold call is
+// CHEAPER than ATM must be demoted where the ATM reading would have passed it.
+// Without this test, `ivSold` could silently decay into a one-way loosening of
+// the richness gate — which is exactly the failure the gate exists to prevent.
+test('soldLegIv is NOT a one-way loosening: a sold strike cheaper than ATM is demoted', () => {
+  const atmRich = { ivr: 55, iv: 0.30, rv: 0.24, spansEarnings: false, creditWidth: 0.2 }
+  // ATM alone: 0.30 / 0.24 = 1.25 ≥ 1.2 → passes.
+  assert.equal(boardTierDecision('bear_call_spread', atmRich).tier, 'qualified')
+  // What is actually SOLD is 0.26 / 0.24 = 1.08 < 1.2 → must be demoted.
+  const d = boardTierDecision('bear_call_spread', { ...atmRich, ivSold: 0.26 })
+  assert.equal(d.tier, 'reference')
+  assert.equal(d.reason, 'vol_not_rich')
+})
