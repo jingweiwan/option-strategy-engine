@@ -8,6 +8,7 @@ import { useThesisDrift } from '@/composables/useThesisDrift'
 import { useEtMarketClock } from '@/composables/useEtMarketClock'
 import BookRiskCard from '@/components/BookRiskCard.vue'
 import type { DashboardData, DashboardNarrative, Opp, OppTag } from '@/types'
+import { marketVolCheckTitle as mvTitle } from '@/utils/marketVolCheck'
 
 const router = useRouter()
 const { syms } = useWatchlist()
@@ -797,16 +798,16 @@ watch(data, (v) => {
                 <div
                   v-if="o.marketVolCheck"
                   class="stat-sub mono mv-check"
-                  :title="`上面的 POP 用 σ=${(o.marketVolCheck.simSigma * 100).toFixed(1)}%(0.7·RV+0.3·IV)模拟;市场为这些卖出腿定的价是 σ=${(o.marketVolCheck.marketSigma * 100).toFixed(1)}%。同腿同退出政策、同一批随机数,只换 σ 重跑得到 ${(o.marketVolCheck.pop * 100).toFixed(0)}%。差额就是这笔 edge 里靠「RV 会低于 IV」这个假设撑起来的部分。`"
+                  :title="mvTitle(o.marketVolCheck)"
                 >
-                  按市场 IV {{ (o.marketVolCheck.pop * 100).toFixed(0) }}%
+                  按市场卖腿 IV {{ (o.marketVolCheck.pop * 100).toFixed(0) }}%
                 </div>
               </div>
               <div class="stat">
                 <div class="stat-l mono">EV</div>
                 <div class="stat-v serif tnum">{{ fmtSigned(o.ev) }}</div>
                 <div v-if="o.marketVolCheck" class="stat-sub mono mv-check">
-                  按市场 IV {{ fmtSigned(o.marketVolCheck.ev) }}
+                  按市场卖腿 IV {{ fmtSigned(o.marketVolCheck.ev) }}
                 </div>
               </div>
               <div class="stat">

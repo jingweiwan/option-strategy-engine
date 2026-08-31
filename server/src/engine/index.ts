@@ -467,23 +467,44 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
   }
 
   // --- Market-vol cross-check -----------------------------------------------
-  // The paths above move at simSigma (0.7·RV + 0.3·IV). That is a deliberate
-  // bet — realized vol usually lands below implied — but it means every
-  // sell-side POP is computed under a distribution NARROWER than the one the
-  // market charges for the very legs being sold. On a skewed name the gap is
-  // large: the 2026-08-28 IWM 271/265P + 320/325C condor simulated at 15.4%
-  // while its premium-weighted sold IV was 21.0%. Nothing on the card showed
-  // that, so a reader could not tell how much of the quoted edge was the
-  // structure and how much was the sigma choice.
+  // WHAT THE PUBLISHED NUMBER BETS ON. simSigma = max(0.7·RV + 0.3·IV, 0.6·IV)
+  // enters the score in TWO places, and both are the same wager — "realized
+  // will land under implied":
+  //   (1) the paths DIFFUSE at simSigma, so short strikes get breached less
+  //       often than the market's own pricing implies;
+  //   (2) the legs are MARKED down toward simSigma across the hold
+  //       (`convergeTo`), so the position books the variance risk premium.
+  // Neither was visible on a card. A reader could not tell how much of the
+  // quoted edge was the structure and how much was that wager.
   //
-  // So re-run the SAME legs under the SAME exit policy on paths drawn at the
-  // market's sold-leg vol and publish both. Same seed → common random numbers,
-  // so the delta isolates sigma rather than sampling noise.
+  // THE COUNTERFACTUAL PUBLISHED ALONGSIDE. Not "the same mark model with a
+  // different diffusion" — that world is incoherent (the stock moves the way
+  // the market says, yet IV still collapses to a level nothing is realizing).
+  // The coherent question is: SUPPOSE THE MARKET'S PRICE OF VOL IS THE TRUTH.
+  // Then both halves of the wager come off together: paths diffuse at the vol
+  // the market charges for the legs this structure SELLS (`soldLegIv`), and
+  // the marks decay toward that same level rather than toward simSigma.
   //
-  // Credit structures only: a debit structure sells nothing, so "the vol it
-  // sells" is undefined. This does NOT adjudicate which sigma is right —
-  // settled outcomes do that. It only stops one number from being shown as if
-  // it were free of a modeling choice.
+  // So the published-vs-check gap is NOT attributable to diffusion alone. It is
+  // the whole VRP bet, and it has two distinct sources:
+  //   • sigma level — sold-leg IV vs simSigma, which mixes the RV blend AND
+  //     skew (soldLegIv is the vol at the SHORT strikes; simSigma is derived
+  //     from ATM iv. On a put-skewed name the shorts can be several points over
+  //     ATM before RV enters at all — the 2026-08-28 IWM 271/265P + 320/325C
+  //     condor simulated at 15.4% while its premium-weighted sold IV was 21.0%);
+  //   • mark decay — present in the published run, and under `convergeTo`'s
+  //     documented DOWNWARD-ONLY rule absent from the check whenever the sold
+  //     legs are richer than ATM (convergeTo ≥ sigma is a no-op there). That
+  //     asymmetry is deliberate: re-marking a position UP would hand it a gain
+  //     the seller-focused evidence base has never validated.
+  // Anything user-facing must say this. Calling the gap "RV vs IV" or "only the
+  // diffusion changed" would be false on both counts.
+  //
+  // Same legs, same exit policy, same seed (common random numbers), so the
+  // delta is the vol regime and not sampling noise. Credit structures only: a
+  // debit structure sells nothing, so "the vol it sells" is undefined. This
+  // does NOT adjudicate which world is right — settled outcomes do that. It
+  // only stops one number from being shown as if no choice had been made.
   const marketPathCache = new Map<string, number[][]>()
   for (const res of results) {
     if (netPremium(res.legs) <= 0) continue
@@ -491,6 +512,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
     if (marketSigma == null || !(marketSigma > 0)) continue
     if (Math.abs(marketSigma - simSigma) / simSigma < MARKET_VOL_CHECK_MIN_GAP) continue
 
+    const mJump = earningsStep >= 0 ? marketImpliedJump(iv, marketSigma, T) : 0
     const key = marketSigma.toFixed(4)
     let paths = marketPathCache.get(key)
     if (!paths) {
@@ -506,20 +528,30 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
         earningsStep,
         // The event premium is whatever IV holds ABOVE this diffusion. When the
         // market vol already exceeds ATM IV there is no excess left to shock.
-        earningsJump: earningsStep >= 0 ? marketImpliedJump(iv, marketSigma, T) : 0
+        earningsJump: mJump
       })
       marketPathCache.set(key, paths)
     }
-    // Marks converge toward the same sigma the paths move at — the whole
-    // premise of this branch is "suppose the market's vol is the right one".
+    // Marks converge toward the same sigma the paths move at — the premise of
+    // this branch is "suppose the market's vol is the truth", so the mark side
+    // must drop the VRP assumption too. When the sold legs are richer than ATM
+    // (marketSigma ≥ iv) `convergeTo` is a documented no-op and the legs simply
+    // hold their entry IV for the whole window; see the header note.
     const mCrush = Math.min(marketSigma, iv)
     const mMetrics = evaluateStrategyManaged(paths, res.legs, {
       tauAt: (i) => Math.max(0, T - (i + 1) / 252),
       r,
       q,
       sigma: iv,
+      // Same three conditions as sigmaAtFor() on the published run. `mJump > 0`
+      // is redundant by construction here — mJump > 0 ⟺ iv > marketSigma ⟺
+      // mCrush < iv — and is kept only so this guard reads identically to the
+      // published one; no test can distinguish it. Do not "simplify" the two
+      // guards apart.
       sigmaAt:
-        earningsStep >= 0 && mCrush < iv ? (i: number) => (i >= earningsStep ? mCrush : iv) : undefined,
+        earningsStep >= 0 && mJump > 0 && mCrush < iv
+          ? (i: number) => (i >= earningsStep ? mCrush : iv)
+          : undefined,
       convergeTo: marketSigma,
       maxSteps: managedHorizon(res.strategy)
     }, policyFor(res.strategy))
