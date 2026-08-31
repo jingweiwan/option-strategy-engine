@@ -101,6 +101,10 @@ export type MarketVolCheck = {
 
 // ============ Live ============
 
+/** 见 server/src/engine/managedExit.ts 的 ExitPolicy。
+ *  'user' 是本账户实际执行的规则:止盈 75% 信用、不止损、持有到期。 */
+export type ExitPolicy = 'user' | 'managed' | 'runner'
+
 export type View = 'bullish' | 'bearish' | 'neutral' | 'neutral-vol'
 export type VolExpect = 'low' | 'mid' | 'high'
 export type RiskPref = 'defined' | 'any'
@@ -119,7 +123,7 @@ export type LiveEngineInput = {
   /** Replay the scanner's frozen tuner variant so the detail re-run reproduces
    *  the card's structure (e.g. { iron_condor: 'sd0.24' }). */
   variants?: Partial<Record<StrategyType, string>>
-  exitPolicies?: Partial<Record<StrategyType, 'managed' | 'runner'>>
+  exitPolicies?: Partial<Record<StrategyType, ExitPolicy>>
   /** Set when navigating from a dashboard opp card — server uses SCAN_SIMULATIONS. */
   replay?: boolean
 }
@@ -216,7 +220,8 @@ export type OppLeg = {
 export type OppManagement = {
   /** null = runner arm (no take-profit, ride to expiry). */
   profitTarget: number | null
-  stopLoss: number
+  /** null = 'user' 政策在定风险结构上不设止损(亏损已由结构封顶)。 */
+  stopLoss: number | null
   /** null = runner arm (no early roll). */
   rollDte: number | null
   note: string
@@ -273,8 +278,9 @@ export type Opp = {
   strongTrend?: boolean
   /** 扫描器选定的 tuner 变体(如 "sd0.24");详情页据此复现同一结构 */
   variant?: string | null
-  /** 扫描该机会时的退出策略('managed' | 'runner')*/
-  exitPolicy?: 'managed' | 'runner' | null
+  /** 扫描该机会时的退出策略。'user' = 本账户实际执行的规则(止盈 75% 信用、
+   *  不止损、持有到期),是默认;'managed'/'runner' 出现在旧快照和铁鹰 A/B 上。 */
+  exitPolicy?: ExitPolicy | null
 }
 
 export type ShortLevel = {

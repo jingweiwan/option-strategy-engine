@@ -1,13 +1,13 @@
 import type { RecommendationSnapshot } from './types.js'
 import { computeOutcomeForSnapshot, type OutcomeOptions } from './outcome.js'
-import { SETTLEMENT_VERSION, isCurrentRegime } from './settlementVersion.js'
+import { SETTLEMENT_VERSION, isCurrentRegime, LEGACY_EXIT_POLICY } from './settlementVersion.js'
 import { assertLoadedHistoryMatchesFile, loadSnapshots, saveSnapshots } from './store.js'
 import { managedHoldDays } from '../engine/managedExit.js'
 
 /** Rule-based hold period (forward days) — matches the live engine, honoring
  *  the snapshot's exit-policy arm (runner condors need bars to expiry). */
 function effectiveHorizon(s: RecommendationSnapshot): number {
-  return managedHoldDays(s.strategyId, s.dte, s.exitPolicy ?? 'managed')
+  return managedHoldDays(s.strategyId, s.dte, s.exitPolicy ?? LEGACY_EXIT_POLICY)
 }
 
 function addCalendarDays(isoDate: string, days: number): string {

@@ -117,7 +117,7 @@ function expectedCheck(
   const q = 0
   const simSigma = deriveSimSigma(iv, rv)
   const marketSigma = soldIvOf(legs)
-  const policyFor = (st: string): ExitPolicy => policies[st] ?? 'managed'
+  const policyFor = (st: string): ExitPolicy => policies[st] ?? 'user'
   const steps = Math.max(...STRATEGY_SPECS.map((sp) => managedHoldDays(sp.type, dteDays, policyFor(sp.type))))
   const paths = simulatePaths({
     S0: spot, sigma: marketSigma, dtYears: 1 / 252, steps, r, q, simulations: sims, seed,

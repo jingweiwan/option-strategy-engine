@@ -673,17 +673,23 @@ const SCAN_CONCURRENCY = Number(process.env.SCAN_SYMBOL_CONCURRENCY) || 4
 
 /**
  * Condor exit-policy A/B assignment. EXIT_POLICY_EXPERIMENT=0 turns the
- * experiment off (everything runs 'managed'). Deterministic hash of
+ * experiment off (everything runs the default 'user'). Deterministic hash of
  * (symbol × ET day): same-day rescans agree, arms alternate across days.
+ *
+ * The control arm was 'managed' until 2026-08-31. It is now 'user' — the rule
+ * this account actually follows — so the experiment asks a question the account
+ * can act on ("is riding to expiry better than taking 75%?") instead of
+ * comparing two rules it never uses. Snapshots stamped 'managed' stay stamped
+ * and still settle under 'managed'; they are simply no longer produced.
  */
 const EXIT_EXPERIMENT_ON = process.env.EXIT_POLICY_EXPERIMENT !== '0'
 
 export function pickExitPolicy(sym: string, etDay: string = etCalendarDay()): ExitPolicy {
-  if (!EXIT_EXPERIMENT_ON) return 'managed'
+  if (!EXIT_EXPERIMENT_ON) return 'user'
   let h = 0
   const s = `${sym}|${etDay}`
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return h % 2 === 0 ? 'managed' : 'runner'
+  return h % 2 === 0 ? 'user' : 'runner'
 }
 
 /** Primary strategy for a given view direction. */
