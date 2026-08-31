@@ -5,7 +5,7 @@ import { fetchLiveStrategies, fetchExpirations } from '@/api/client'
 import { usePositions } from '@/composables/usePositions'
 import PayoffChart from '@/components/PayoffChart.vue'
 import HelpTip from '@/components/HelpTip.vue'
-import type { LiveMarketState, StrategyResult, StrategyType } from '@/types'
+import type { ExitPolicy, LiveMarketState, StrategyResult, StrategyType } from '@/types'
 import { STRAT_CN } from '@/utils/constants'
 import { marketVolCheckTitle } from '@/utils/marketVolCheck'
 
@@ -113,7 +113,7 @@ async function load() {
     // Replay the scanner's frozen variant/exit-policy (from the card's link) so
     // the re-run reproduces the same structure + POP/EV the card showed.
     const variant = route.query.variant as string | undefined
-    const exitPolicy = route.query.exitPolicy as 'managed' | 'runner' | undefined
+    const exitPolicy = route.query.exitPolicy as ExitPolicy | undefined
     const replayFromOpp =
       route.query.replay === '1' || route.query.replay === 'true'
     const out = await fetchLiveStrategies({

@@ -12,6 +12,7 @@
 import { chatJson, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
 import type { ScannedOpp, ShortLevel, BoardTierReason } from '../engine/oppScanner.js'
+import { managedThresholds, type ExitPolicy } from '../engine/managedExit.js'
 import type { StrategyType } from '../engine/types.js'
 
 // ---------- Types ----------
@@ -26,10 +27,12 @@ export type OppLeg = {
 }
 
 /** Suggested trade-management rules (per-share P&L, same units as netPremium).
- *  profitTarget/rollDte are null for the 'runner' exit arm (no TP, no early roll). */
+ *  profitTarget/rollDte are null for the 'runner' exit arm (no TP, no early roll).
+ *  stopLoss is null under 'user' on a defined-risk structure — that policy places
+ *  no stop, and the loss is already capped by the structure itself. */
 export type OppManagement = {
   profitTarget: number | null
-  stopLoss: number
+  stopLoss: number | null
   rollDte: number | null
   note: string
 }
@@ -84,8 +87,10 @@ export type Opp = {
   /** Tuner variant id the scanner chose (e.g. 'sd0.24'); null = static default.
    *  Passed to the detail page so its re-run reproduces this exact structure. */
   variant?: string | null
-  /** Exit policy the scanner scored this opp under ('managed' | 'runner'). */
-  exitPolicy?: 'managed' | 'runner' | null
+  /** Exit policy the scanner scored this opp under — see ExitPolicy.
+   *  'user' is the default; 'managed'/'runner' appear on older snapshots and on
+   *  the condor A/B arm. */
+  exitPolicy?: ExitPolicy | null
 }
 
 // ---------- AI copywriting ----------
@@ -146,25 +151,48 @@ function positionKind(strategyId: StrategyType): 'credit' | 'debit' {
  *   Credit: take 50% of credit, stop at 2× credit, roll ~21 DTE
  *   Debit:  take 100% of debit (1:1), stop at 50% debit, roll ~21 DTE
  */
+/**
+ * The rules printed on the card. Derived from `managedThresholds` rather than
+ * re-stated, so the displayed numbers cannot drift from the ones the POP/EV were
+ * actually simulated under — the card used to hardcode "收回 50% 权利金即离场"
+ * no matter which policy scored it.
+ */
 function buildManagement(
   strategyId: StrategyType,
   netPremium: number,
-  exitPolicy?: 'managed' | 'runner' | null
+  exitPolicy?: ExitPolicy | null,
+  maxLoss?: number | null
 ): OppManagement {
+  const policy: ExitPolicy = exitPolicy ?? 'user'
   const amt = Math.abs(netPremium)
   if (CREDIT_IDS.has(strategyId)) {
-    if (exitPolicy === 'runner') {
-      // Condor exit A/B experimental arm: no take-profit, ride to expiration.
+    const { takeProfit, stop } = managedThresholds(
+      netPremium,
+      policy,
+      maxLoss != null ? Math.abs(maxLoss) : undefined
+    )
+    if (policy === 'runner') {
       return {
         profitTarget: null,
-        stopLoss: amt * 2,
+        stopLoss: stop,
         rollDte: null,
         note: '实验组：扛到期吃满权利金，不设止盈；仅浮亏达 2× 权利金止损兜底'
       }
     }
+    if (policy === 'user') {
+      const pct = Math.round((takeProfit / amt) * 100)
+      return {
+        profitTarget: takeProfit,
+        stopLoss: Number.isFinite(stop) ? stop : null,
+        rollDte: null,
+        note: Number.isFinite(stop)
+          ? `收回 ${pct}% 权利金即离场；无界亏损结构保留 ${(stop / amt).toFixed(0)}× 权利金兜底止损；否则持有到期`
+          : `收回 ${pct}% 权利金即离场；不设止损（亏损已由结构封顶）；持有到期，不提前移仓`
+      }
+    }
     return {
-      profitTarget: amt * 0.5,
-      stopLoss: amt * 2,
+      profitTarget: takeProfit,
+      stopLoss: stop,
       rollDte: 21,
       note: '收回 50% 权利金即离场；浮亏达 2× 权利金止损；≤21 DTE 移仓避免 gamma 风险'
     }
@@ -372,7 +400,7 @@ export async function buildOppsFromScan(
           copy?.analysis?.slice(0, 400) ??
           `${o.sym} 当前 IV ${(o.iv * 100).toFixed(1)}%，引擎判定 regime=${o.regime}，推荐 ${o.strategy}。`,
         tag,
-        management: buildManagement(o.strategyId, o.netPremium, o.exitPolicy),
+        management: buildManagement(o.strategyId, o.netPremium, o.exitPolicy, o.maxLoss),
         aiView: o.aiView ?? null,
         aiViewReason: o.aiViewReason ?? null,
         lowConviction: o.regime === 'buy',

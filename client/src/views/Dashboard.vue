@@ -826,7 +826,13 @@ watch(data, (v) => {
                   止盈 <b class="tnum">扛到期</b>
                 </span>
                 <span class="mgmt-item">
-                  止损 <b class="tnum loss-text">${{ o.management.stopLoss.toFixed(2) }}</b>
+                  止损
+                  <b v-if="o.management.stopLoss != null" class="tnum loss-text">
+                    ${{ o.management.stopLoss.toFixed(2) }}
+                  </b>
+                  <b v-else class="tnum" title="按你的规则不设止损——定风险结构的亏损已由自身封顶">
+                    不设（封顶 ${{ o.maxLoss != null ? Math.abs(o.maxLoss).toFixed(2) : '—' }}）
+                  </b>
                 </span>
                 <span class="mgmt-item" v-if="o.management.rollDte != null">
                   移仓 <b class="tnum">≤{{ o.management.rollDte }}d</b>

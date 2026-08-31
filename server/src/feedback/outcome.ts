@@ -4,7 +4,7 @@ import { runManagedExit, managedHoldDays } from '../engine/managedExit.js'
 import { deriveSimSigma } from '../engine/index.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import { storedLegsToOptionLegs } from './legAdapter.js'
-import { SETTLEMENT_VERSION } from './settlementVersion.js'
+import { SETTLEMENT_VERSION, LEGACY_EXIT_POLICY } from './settlementVersion.js'
 
 function addCalendarDays(isoDate: string, days: number): string {
   const [y, m, d] = isoDate.split('-').map(Number)
@@ -162,8 +162,8 @@ export async function computeOutcomeForSnapshot(
       // `steps` drives the convergence schedule, decayed vol faster, shifting
       // take-profit/stop timing away from what was displayed. Two halves of
       // "display and learning share one managed exit" must share this too.
-      maxSteps: managedHoldDays(s.strategyId, s.dte, s.exitPolicy ?? 'managed')
-    }, s.exitPolicy ?? 'managed')
+      maxSteps: managedHoldDays(s.strategyId, s.dte, s.exitPolicy ?? LEGACY_EXIT_POLICY)
+    }, s.exitPolicy ?? LEGACY_EXIT_POLICY)
     if (me.reason !== 'end_of_window') {
       managedPnl = me.pnl
       managedExitDay = win[me.exitIndex].date

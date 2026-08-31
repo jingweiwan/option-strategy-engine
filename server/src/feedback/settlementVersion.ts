@@ -35,3 +35,19 @@ export const SETTLEMENT_VERSION = 's1'
 export function isCurrentRegime(o: { settlementVersion?: string } | null | undefined): boolean {
   return o != null && o.settlementVersion === SETTLEMENT_VERSION
 }
+
+/**
+ * Exit policy for a snapshot that carries no `exitPolicy` stamp.
+ *
+ * Every recommendation taken before 2026-08-31 predates the stamp, because
+ * 'managed' (TP 50% / stop 2×) was then the only default. Those cards displayed
+ * that rule, so that is the rule their realized outcome must be measured under.
+ *
+ * This must NOT track the current default. When the default moved to 'user',
+ * re-settling the old book under it would have measured every historical
+ * recommendation against a rule it never claimed — silently rewriting the
+ * learning record rather than extending it. That is also why the default change
+ * needed no SETTLEMENT_VERSION bump: the same (snapshot, price history) still
+ * settles to the same number.
+ */
+export const LEGACY_EXIT_POLICY = 'managed' as const

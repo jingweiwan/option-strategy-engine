@@ -381,7 +381,11 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
   // Strategy-aware management window: how many trading days forward each
   // structure is actively managed before marking. Premium sellers resolve on
   // theta within days; long-vol needs room for the move/event.
-  const policyFor = (strategy: StrategyType): ExitPolicy => input.exitPolicies?.[strategy] ?? 'managed'
+  // DEFAULT IS 'user' — the rule this account actually follows. It was
+  // 'managed' (TP 50% / stop 2×) through 2026-08-31, which made every credit
+  // structure's mechanical breakeven win rate 80% regardless of credit size and
+  // handed the board a +EV verdict that came from a stop the user never places.
+  const policyFor = (strategy: StrategyType): ExitPolicy => input.exitPolicies?.[strategy] ?? 'user'
   const managedHorizon = (strategy: StrategyType): number =>
     managedHoldDays(strategy, dte, policyFor(strategy))
   const maxHorizon = Math.max(...STRATEGY_SPECS.map((s) => managedHorizon(s.type)))

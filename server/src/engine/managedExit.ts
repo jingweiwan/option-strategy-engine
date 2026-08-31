@@ -15,8 +15,10 @@
  * produced. With a time-value mark, the 50%-credit target is only reached
  * through real theta decay / favorable moves.
  *
- * Rules (typical retail playbook):
- *   Credit (netPremium > 0): take profit at 50% of credit, stop at 2× credit
+ * Rules:
+ *   'user'    (DEFAULT) — what this account actually does: take profit at 75%
+ *                         of credit, no stop, ride to expiry. See ExitPolicy.
+ *   'managed' (legacy)  — TP 50% of credit, stop 2× credit, close at 21 DTE
  *   Debit  (netPremium < 0): take profit at 1:1 (debit paid), stop at 50% debit
  *
  * MARK VOL: each leg is marked at ITS OWN implied vol when the chain supplied
@@ -35,6 +37,7 @@
  * by 30% and the skew shape survives the event.
  */
 import { blackScholes } from './pricing.js'
+import { theoreticalExtremes } from './payoff.js'
 import type { OptionLeg, StrategyType } from './types.js'
 
 // Fraction of the beyond-stop overshoot realized as slippage when a stop is hit.
@@ -46,22 +49,60 @@ import type { OptionLeg, StrategyType } from './types.js'
 const STOP_GAP_SLIP = Number(process.env.STOP_GAP_SLIP ?? '0.35')
 
 /**
- * Exit policy A/B (currently offered for iron_condor only, picked at scan time
- * and stamped on the snapshot so realized outcomes adjudicate):
- *   'managed' — the default playbook: TP at 50% credit, stop 2×, close at 21 DTE
+ * How a position is closed. Stamped on every snapshot so a realized outcome is
+ * always settled by the rule its own card claimed.
+ *
+ *   'user'    — WHAT THIS ACCOUNT ACTUALLY DOES, and the default for new scans:
+ *               take profit at 75% of the credit, NO stop, ride to expiry.
+ *   'managed' — the textbook retail playbook: TP 50% credit, stop 2× credit,
+ *               close at 21 DTE. Was the default through 2026-08-31; kept so
+ *               older snapshots re-settle under the rule they were shown with.
  *   'runner'  — stop 2× only, NO take-profit, hold to expiration. A 3-way exit
  *               comparison on real bars showed ~8× higher avg P&L for condors
  *               (+1.97 vs +0.26/trade) but on a weak sample (n=51, one calm
  *               regime) — so it runs as a parallel experiment, not a switch.
+ *
+ * WHY 'user' HAD TO EXIST. Under 'managed' the mechanical breakeven win rate is
+ * stop/(stop+TP) = 2/(2+0.5) = 80% for EVERY credit structure, regardless of how
+ * much credit it collects — the 2× stop truncates the loss, and that truncation
+ * was doing all the work. Measured on the 2026-08-31 board, the three qualified
+ * cards showed POP 82-84% against that 80% bar and scored +EV. Under the rule
+ * this account actually follows the loss is NOT truncated, so the bar is
+ * maxLoss/(maxLoss + 0.75·credit) — 90.6% (IWM), 84.2% (XLE), 90.1% (XOM). Two
+ * of the three do not clear it even at the engine's own optimistic vol. The +EV
+ * verdict was an artifact of a stop the user does not place.
  */
-export type ExitPolicy = 'managed' | 'runner'
+export type ExitPolicy = 'user' | 'managed' | 'runner'
+
+/**
+ * Fraction of the collected credit taken as profit under 'user'. The account's
+ * written rule is a 70-85% band; 0.75 is its midpoint. Raising it holds for more
+ * of the credit and loses more often — the trade-off this policy exists to make
+ * visible rather than assume.
+ */
+export const USER_TAKE_PROFIT_FRACTION = Number(process.env.USER_TAKE_PROFIT_FRACTION ?? '0.75')
+
+/**
+ * 'user' places no stop, which is exactly representable for a defined-risk
+ * structure: the position cannot lose more than its own max loss, so `Infinity`
+ * IS the rule, not an approximation.
+ *
+ * An UNBOUNDED-loss structure (naked short_strangle) has no max loss for the
+ * rule to lean on, so "no stop" is undefined there and an unstopped sim would
+ * report a mean driven by however far the worst path happened to run. This
+ * multiple is a MODELING FLOOR, not something the account promised to do — and
+ * short_strangle is in DISABLED_STRATEGIES by default, so it should not arise.
+ */
+export const USER_UNBOUNDED_STOP_MULTIPLE = Number(process.env.USER_UNBOUNDED_STOP_MULTIPLE ?? '3')
 
 /** The DTE at which a structure is closed per its trading rule (0 = hold to
  *  expiration). Credit sellers close at 21 DTE to dodge late-cycle gamma;
  *  debit/long structures ride to expiry for the full directional/vol payoff.
  *  A 'runner' position ignores the early close-out and rides to expiry. */
 function closeAtDte(strategy: StrategyType, policy: ExitPolicy): number {
-  if (policy === 'runner') return 0
+  // 'user' has no DTE rule — the written rule is take-profit-or-expiry — so it
+  // rides the whole cycle, same as a runner.
+  if (policy === 'runner' || policy === 'user') return 0
   if (strategy === 'bull_put_spread' || strategy === 'bear_call_spread' || strategy === 'iron_condor') {
     return 21
   }
@@ -75,7 +116,7 @@ function closeAtDte(strategy: StrategyType, policy: ExitPolicy): number {
  * expiry). Take-profit / stop still exit earlier within this span; only if
  * neither triggers is the position marked at the close-out point.
  */
-export function managedHoldDays(strategy: StrategyType, dte: number, policy: ExitPolicy = 'managed'): number {
+export function managedHoldDays(strategy: StrategyType, dte: number, policy: ExitPolicy = 'user'): number {
   const target = closeAtDte(strategy, policy)
   return dte > target ? dte - target : Math.max(1, dte)
 }
@@ -121,9 +162,20 @@ export type MarkContext = {
 
 export function managedThresholds(
   netPremium: number,
-  policy: ExitPolicy = 'managed'
+  policy: ExitPolicy = 'user',
+  /** Theoretical max loss as a POSITIVE magnitude; Infinity when unbounded.
+   *  Only 'user' reads it — that policy's "no stop" is only well-defined for a
+   *  structure whose loss is bounded. Omitted → treated as unbounded. */
+  maxLoss?: number
 ): { takeProfit: number; stop: number } {
   const credit = netPremium > 0
+  if (credit && policy === 'user') {
+    const bounded = maxLoss != null && Number.isFinite(maxLoss)
+    return {
+      takeProfit: netPremium * USER_TAKE_PROFIT_FRACTION,
+      stop: bounded ? Infinity : netPremium * USER_UNBOUNDED_STOP_MULTIPLE
+    }
+  }
   if (credit && policy === 'runner') {
     // Runner: keep the 2× disaster stop, never take profit early — the position
     // rides to expiry to collect the full credit.
@@ -182,9 +234,14 @@ export function runManagedExit(
   pricePath: number[],
   netPremium: number,
   ctx: MarkContext,
-  policy: ExitPolicy = 'managed'
+  policy: ExitPolicy = 'user'
 ): ManagedExit {
-  const { takeProfit, stop } = managedThresholds(netPremium, policy)
+  // 'user' needs to know whether the loss is bounded before it can say "no stop".
+  const { takeProfit, stop } = managedThresholds(
+    netPremium,
+    policy,
+    policy === 'user' ? Math.abs(theoreticalExtremes(legs).theoMaxLoss) : undefined
+  )
   const end = ctx.maxSteps != null ? Math.min(ctx.maxSteps, pricePath.length) : pricePath.length
   // sigmaAt drops the ATM mark vol after an earnings step. Convert it to a
   // RATIO so the same crush scales each leg's own IV and the skew shape

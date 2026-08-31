@@ -21,8 +21,23 @@ const shortPut: OptionLeg[] = [
 const intrinsic = { tauAt: () => 0, r: 0.045, q: 0, sigma: 0.3 }
 
 test('managedThresholds: credit vs debit', () => {
-  assert.deepEqual(managedThresholds(2), { takeProfit: 1, stop: 4 })
-  assert.deepEqual(managedThresholds(-2), { takeProfit: 2, stop: 1 })
+  assert.deepEqual(managedThresholds(2, 'managed'), { takeProfit: 1, stop: 4 })
+  assert.deepEqual(managedThresholds(-2, 'managed'), { takeProfit: 2, stop: 1 })
+})
+
+test("managedThresholds 'user': takes 75% of credit and places NO stop", () => {
+  // Bounded loss → "no stop" is exact, not an approximation: the structure
+  // cannot lose more than its own max loss.
+  assert.deepEqual(managedThresholds(2, 'user', 8), { takeProfit: 1.5, stop: Infinity })
+  // Unbounded loss (naked) → "no stop" is undefined, so a modeling floor applies.
+  assert.deepEqual(managedThresholds(2, 'user', Infinity), { takeProfit: 1.5, stop: 6 })
+  assert.deepEqual(managedThresholds(2, 'user'), { takeProfit: 1.5, stop: 6 })
+  // The account's rule is written for credit only; debits keep the old handling.
+  assert.deepEqual(managedThresholds(-2, 'user', 2), managedThresholds(-2, 'managed'))
+})
+
+test("'user' is the default policy — the rule this account actually follows", () => {
+  assert.deepEqual(managedThresholds(2, undefined, 8), managedThresholds(2, 'user', 8))
 })
 
 test('markPnL at tau=0 equals expiration intrinsic (totalPnL)', () => {
@@ -42,13 +57,27 @@ test('markPnL: an OTM credit spread is ~flat at entry, NOT full credit', () => {
 })
 
 test('managedExit (intrinsic ctx): take-profit / stop / end-of-window', () => {
-  assert.equal(runManagedExit(shortPut, [100, 99], 2, intrinsic).reason, 'take_profit')
-  const sl = runManagedExit(shortPut, [97, 94], 2, intrinsic)
+  assert.equal(runManagedExit(shortPut, [100, 99], 2, intrinsic, 'managed').reason, 'take_profit')
+  const sl = runManagedExit(shortPut, [97, 94], 2, intrinsic, 'managed')
   assert.equal(sl.reason, 'stop_loss')
   assert.equal(sl.pnl, -4)
-  const eow = runManagedExit(shortPut, [97, 96, 95], 2, intrinsic)
+  const eow = runManagedExit(shortPut, [97, 96, 95], 2, intrinsic, 'managed')
   assert.equal(eow.reason, 'end_of_window')
   assert.equal(eow.pnl, -3)
+})
+
+test("managedExit under 'user': the same path that stopped out now rides on", () => {
+  // shortPut is a NAKED short put — unbounded loss — so 'user' still carries the
+  // modeling floor stop (3× credit = 6), not 'managed''s 2× (4). The path that
+  // hit -4 under 'managed' no longer exits.
+  const sl = runManagedExit(shortPut, [97, 94], 2, intrinsic, 'user')
+  assert.equal(sl.reason, 'end_of_window')
+  assert.equal(sl.pnl, -4)
+  // Take-profit needs 75% of the credit (1.5), not 50% (1.0). At S=99 the
+  // intrinsic mark is +1 — enough for 'managed', not for 'user'.
+  assert.equal(runManagedExit(shortPut, [99, 98], 2, intrinsic, 'managed').reason, 'take_profit')
+  assert.equal(runManagedExit(shortPut, [99, 98], 2, intrinsic, 'user').reason, 'end_of_window')
+  assert.equal(runManagedExit(shortPut, [99, 99.6], 2, intrinsic, 'user').reason, 'take_profit')
 })
 
 test('managedExit: maxSteps caps the window', () => {
