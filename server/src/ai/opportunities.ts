@@ -57,6 +57,11 @@ export type Opp = {
   tag: OppTag
   /** Suggested profit-target / stop-loss / roll rules. */
   management: OppManagement
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss);无界盈亏为 null。 */
+  creditWidth: number | null
+  /** 同一结构、同一退出政策,改用市场卖腿 IV 重跑的 POP/EV。
+   *  借方结构、以及两个 sigma 差距小于阈值时为 null。 */
+  marketVolCheck: ScannedOpp['marketVolCheck'] | null
   /** AI directional view that guided strategy selection */
   aiView?: string | null
   aiViewReason?: string | null
@@ -357,7 +362,9 @@ export async function buildOppsFromScan(
         shortLevels: o.shortLevels,
         strongTrend: o.strongTrend,
         variant: o.variant ?? null,
-        exitPolicy: o.exitPolicy ?? null
+        exitPolicy: o.exitPolicy ?? null,
+        creditWidth: o.creditWidth ?? null,
+        marketVolCheck: o.marketVolCheck ?? null
       }
     })
 

@@ -246,6 +246,15 @@ export type Opp = {
   /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它就是机械盈亏平衡胜率。
    *  无界盈亏(裸卖/借方)为 null。 */
   creditWidth?: number | null
+  /** 同一结构、同一退出政策,改用「市场为卖出腿定价的 IV」重跑的 POP/EV。
+   *  发布的 pop/ev 走的是 simSigma = 0.7·RV + 0.3·IV,比市场收的波动窄——
+   *  这一栏把那个建模选择摆到台面上。借方结构、两 sigma 差距过小时为 null。 */
+  marketVolCheck?: {
+    simSigma: number
+    marketSigma: number
+    pop: number
+    ev: number
+  } | null
   /** 每条短腿离最近关键位的距离(定行权位用) */
   shortLevels?: ShortLevel[]
   /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */

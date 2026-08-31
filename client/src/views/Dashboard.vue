@@ -794,10 +794,20 @@ watch(data, (v) => {
               <div class="stat">
                 <div class="stat-l mono">POP</div>
                 <div class="stat-v serif tnum">{{ o.pop }}%</div>
+                <div
+                  v-if="o.marketVolCheck"
+                  class="stat-sub mono mv-check"
+                  :title="`上面的 POP 用 σ=${(o.marketVolCheck.simSigma * 100).toFixed(1)}%(0.7·RV+0.3·IV)模拟;市场为这些卖出腿定的价是 σ=${(o.marketVolCheck.marketSigma * 100).toFixed(1)}%。同腿同退出政策、同一批随机数,只换 σ 重跑得到 ${(o.marketVolCheck.pop * 100).toFixed(0)}%。差额就是这笔 edge 里靠「RV 会低于 IV」这个假设撑起来的部分。`"
+                >
+                  按市场 IV {{ (o.marketVolCheck.pop * 100).toFixed(0) }}%
+                </div>
               </div>
               <div class="stat">
                 <div class="stat-l mono">EV</div>
                 <div class="stat-v serif tnum">{{ fmtSigned(o.ev) }}</div>
+                <div v-if="o.marketVolCheck" class="stat-sub mono mv-check">
+                  按市场 IV {{ fmtSigned(o.marketVolCheck.ev) }}
+                </div>
               </div>
               <div class="stat">
                 <div class="stat-l mono">IVR</div>
@@ -1550,6 +1560,14 @@ watch(data, (v) => {
 .level-item b.loss-text {
   color: var(--loss, #e53935);
 }
+/* 市场 IV 口径下的 POP/EV——同一结构换个 sigma 重跑的对照,
+   刻意做灰、做小:它是发布数字的注脚,不是第二个结论 */
+.stat-sub.mv-check {
+  color: var(--ink-3, var(--ink-2));
+  opacity: 0.8;
+  cursor: help;
+}
+
 /* 收/宽 旁边的「需胜率」——次要信息,不跟主数字抢视线 */
 .level-item .lvl-sub {
   margin-left: 5px;

@@ -292,6 +292,13 @@ function tierFor(
  * while retaining some IV-driven tail risk.
  * Floor at 60% of IV to avoid unrealistically tight paths.
  */
+/**
+ * Minimum relative gap between simSigma and the market's sold-leg vol before the
+ * cross-check is worth simulating. Below this the two POPs round to the same
+ * number and the extra ~30ms/structure buys nothing.
+ */
+export const MARKET_VOL_CHECK_MIN_GAP = Number(process.env.MARKET_VOL_CHECK_MIN_GAP) || 0.02
+
 export function deriveSimSigma(iv: number, currentRv?: number): number {
   if (currentRv == null || currentRv <= 0) return iv
   const blended = 0.7 * currentRv + 0.3 * iv
@@ -457,6 +464,71 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
       rationale: RATIONALES[spec.type]?.(baseState) ?? '',
       payoffCurve: buildPayoffCurve(legs, input.spot, expectedMoveVal)
     })
+  }
+
+  // --- Market-vol cross-check -----------------------------------------------
+  // The paths above move at simSigma (0.7·RV + 0.3·IV). That is a deliberate
+  // bet — realized vol usually lands below implied — but it means every
+  // sell-side POP is computed under a distribution NARROWER than the one the
+  // market charges for the very legs being sold. On a skewed name the gap is
+  // large: the 2026-08-28 IWM 271/265P + 320/325C condor simulated at 15.4%
+  // while its premium-weighted sold IV was 21.0%. Nothing on the card showed
+  // that, so a reader could not tell how much of the quoted edge was the
+  // structure and how much was the sigma choice.
+  //
+  // So re-run the SAME legs under the SAME exit policy on paths drawn at the
+  // market's sold-leg vol and publish both. Same seed → common random numbers,
+  // so the delta isolates sigma rather than sampling noise.
+  //
+  // Credit structures only: a debit structure sells nothing, so "the vol it
+  // sells" is undefined. This does NOT adjudicate which sigma is right —
+  // settled outcomes do that. It only stops one number from being shown as if
+  // it were free of a modeling choice.
+  const marketPathCache = new Map<string, number[][]>()
+  for (const res of results) {
+    if (netPremium(res.legs) <= 0) continue
+    const marketSigma = soldLegIv(res.legs)
+    if (marketSigma == null || !(marketSigma > 0)) continue
+    if (Math.abs(marketSigma - simSigma) / simSigma < MARKET_VOL_CHECK_MIN_GAP) continue
+
+    const key = marketSigma.toFixed(4)
+    let paths = marketPathCache.get(key)
+    if (!paths) {
+      paths = simulatePaths({
+        S0: input.spot,
+        sigma: marketSigma,
+        dtYears: 1 / 252,
+        steps: maxHorizon,
+        r,
+        q,
+        simulations: sims,
+        seed: input.seed,
+        earningsStep,
+        // The event premium is whatever IV holds ABOVE this diffusion. When the
+        // market vol already exceeds ATM IV there is no excess left to shock.
+        earningsJump: earningsStep >= 0 ? marketImpliedJump(iv, marketSigma, T) : 0
+      })
+      marketPathCache.set(key, paths)
+    }
+    // Marks converge toward the same sigma the paths move at — the whole
+    // premise of this branch is "suppose the market's vol is the right one".
+    const mCrush = Math.min(marketSigma, iv)
+    const mMetrics = evaluateStrategyManaged(paths, res.legs, {
+      tauAt: (i) => Math.max(0, T - (i + 1) / 252),
+      r,
+      q,
+      sigma: iv,
+      sigmaAt:
+        earningsStep >= 0 && mCrush < iv ? (i: number) => (i >= earningsStep ? mCrush : iv) : undefined,
+      convergeTo: marketSigma,
+      maxSteps: managedHorizon(res.strategy)
+    }, policyFor(res.strategy))
+    res.marketVolCheck = {
+      simSigma,
+      marketSigma,
+      pop: mMetrics.probabilityProfit,
+      ev: mMetrics.ev
+    }
   }
 
   // "Is the premium rich?" must be asked of the strikes a seller would SHORT,
