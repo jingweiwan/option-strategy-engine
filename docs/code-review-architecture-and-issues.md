@@ -232,6 +232,94 @@ flowchart LR
 
 ---
 
+## 8b. 结算口径（settlement regime）与运维约定
+
+**为什么存在。** `managedExit.ts` / `outcome.ts` / `payoff.ts` 决定了「一条推荐最终算赚多少」。
+2026-08 这套代码被重写了 5 次（`3637d48` `83919d0` `cb3da45` `05c3591` `372435b`），
+而当时全书 431 条 `outcome` 全部是 5–6 月算出来的。旧口径产出的数字和新口径产出的数字
+**长得一模一样**，混在一起学习既沉默又不可证伪 —— 引擎在用「已经不存在的代码」调参。
+
+**机制。** `server/src/feedback/settlementVersion.ts`：
+
+| 常量 / 函数 | 作用 |
+|---|---|
+| `SETTLEMENT_VERSION` | 当前口径标识（现为 `'s1'`） |
+| `isCurrentRegime(outcome)` | 该 outcome 是否由当前口径算出 |
+
+- `outcome.ts` / `hydrate.ts` 在写入时打戳。
+- 消费方（`calibration.ts` / `tuner.ts` / `routes/feedback.ts`）跳过非当前口径样本。
+  **展示尺子必须和学习尺子一致** —— Performance 页把 stale outcome 归入 `pendingOutcome`，
+  而不是当成有效样本统计。
+- `health.ts` 的 `noteStaleSettlements(source, skipped, total, version)` 大声上报，
+  Dashboard 用**独立**横幅呈现（不是「加载失败」那条）。
+
+**什么时候该 bump：**
+
+- ✅ 改 `managedExit.ts`、`outcome.ts`、`payoff.ts`
+- ✅ 改退出策略常量（TP/stop 倍数、`closeAtDte`）
+- ❌ 改选股、打分、闸门、arm ladder —— 这些不改变「已成交的推荐值多少钱」
+
+**bump 之后要做什么。** 什么都不用做：`hydrateDueSnapshots` 把
+`!isCurrentRegime(outcome)` 视同待更新，会按 `maxUpdates` 限速自动重结算。
+想立刻全量迁移就手动跑一次 force：
+
+```ts
+await hydrateDueSnapshots({ force: true, maxUpdates: 10000 })
+```
+
+**跑之前先备份** `server/cache/recommendations/snapshots.json`。
+
+---
+
+## 8c. 日线窗口（OHLC）的取数约定
+
+Nasdaq 历史接口对**结束日在过去的窄窗口返回 0 行**，同一起始日锚定到今天则完整返回：
+
+| 请求 | 行数 |
+|---|---|
+| `SPY 2026-05-12→2026-06-05` | **0** |
+| `SPY 2026-05-12→today` | 73（最早 05/12） |
+
+MarketData 回退路径当时已 429，于是整件事静默退化成「这个 symbol 没有历史」——
+450 条重结算里 289 条 `tradingDaysUsed=0`、P&L 全 null，**没有任何报错**。
+
+因此 `getDailyOhlc` 的不变量是：
+
+1. 永远按 `[from .. today]` 取，本地切片；
+2. 缓存按 **symbol** 一条序列，记录**实际**拿到的覆盖范围（起点被裁、尾部被截都不谎报）；
+3. **空结果不入缓存** —— 否则一次抖动会让该 symbol 黑 6 小时。
+
+回归测试见 `server/test/ohlcWindow.test.ts`（含变异验证：4 处修复各自回退都能让对应用例转红）。
+
+---
+
+## 8d. 分支与发布约定（2026-08-26 起）
+
+**月度迭代分支。** 日常改动不再各自开 PR 打 main，而是汇入当月迭代分支，
+月末一次性合入 main：
+
+```
+main
+ └── release/2026-09        ← 当月迭代分支（9/30 合入 main）
+      ├── fix/xxx           ← 每个改动仍走自己的分支 + PR
+      └── feat/yyy             但 PR 的 base 是 release/2026-09，不是 main
+```
+
+- 新工作从 `release/2026-09` 切出，PR 回 `release/2026-09`。
+- 月末（2026-09-30）开一个 `release/2026-09 → main` 的 PR。
+- 下个月新建 `release/2026-10`，从当时的 main 切。
+- **任何情况下不直接 push main。**
+
+**⚠️ 切分支前必须备份 `server/cache/recommendations/snapshots.json`。**
+这个文件是被 git 跟踪的、同时又被运行中的服务持续写入。切到一个该文件
+版本较旧的分支时，git 会把磁盘上的实时账本覆盖成旧版本；服务下一次写入
+读到的就是被截断的账本。2026-08-26 实测：切到 main 的瞬间账本从
+2743/487 退化到 1180/380，合并后才恢复。`loadSnapshots()` 每次都从磁盘
+重读（无内存缓存），所以只要磁盘上的文件是对的就安全 —— 但那个窗口期
+必须尽可能短，且事后要核对条数。
+
+---
+
 ## 9. 关键文件索引
 
 | 模块 | 路径 |
@@ -249,6 +337,11 @@ flowchart LR
 | 前端 Dashboard | `client/src/views/Dashboard.vue` |
 | 前端 Strategy | `client/src/views/StrategyView.vue` |
 | Variant 单测 | `server/test/tuner.test.ts` |
+| 结算口径版本 | `server/src/feedback/settlementVersion.ts` |
+| 推荐逻辑缺陷清单 | `docs/engine-recommendation-flaws.md` |
+| Step 1 待验假设 | `docs/step1-open-hypotheses.md` |
+| 日线窗口缓存 | `server/src/api/marketdata.ts` (`getDailyOhlc`) |
+| 反馈层健康 | `server/src/feedback/health.ts` |
 
 ---
 
@@ -259,3 +352,6 @@ flowchart LR
 | 2026-07-24 | 初版：架构梳理 + 问题清单 |
 | 2026-07-24 | **复审更新**：标记 3.1/3.2/edge/regimeBonus 修复状态；补充残留差距与测试缺口 |
 | 2026-07-24 | **PR follow-up**：`replay=1` 对齐非 tuned 策略 sim 数；修正单测 `metrics.*` 断言；文档同步 |
+| 2026-08-26 | **诚实检验 Step 0**：新增 §8b 结算口径版本化与 force 运维约定、§8c 日线窗口取数不变量 |
+| 2026-08-26 | 新增 §8d 月度迭代分支约定 + 切分支前备份账本的硬性要求 |
+| 2026-08-26 | 清理 4 条遗留分支：抢救缺陷清单文档与 ivSold 双向性用例，未合并的 no-stop 提案转入 `docs/step1-open-hypotheses.md` |

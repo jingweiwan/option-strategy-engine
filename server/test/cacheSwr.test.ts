@@ -9,7 +9,7 @@ import { join } from 'node:path'
 // cannot leak into other suites.
 const DIR = mkdtempSync(join(tmpdir(), 'ose-cache-'))
 process.env.AI_CACHE_DIR = DIR
-const { cachedSWR, cached, getCachedIfValid, bust } = await import('../src/ai/cache.js')
+const { cachedSWR, cached, getCachedIfValid, hasFreshEntry, bust } = await import('../src/ai/cache.js')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -134,4 +134,92 @@ test('bust: without awaiting, the L2 file may still be readable (documents the r
   assert.ok(typeof (p as Promise<void>)?.then === 'function', 'bust must be awaitable')
   await p
   assert.equal(await getCachedIfValid<string>(key, 60_000), null, 'gone once awaited')
+})
+
+// The warmer's "has today been warmed?" probe used an exact key
+// (`narrative-${day}`) while entries are written as
+// `narrative-v3-${day}-${pool}-${board}`. getCachedIfValid needs the exact key,
+// so the probe matched nothing that is ever written and answered "no" forever.
+test('hasFreshEntry: finds an entry by prefix, not just by exact key', async () => {
+  const day = '2026-08-26'
+  const prefix = `narrative-v3-${day}-`
+  assert.equal(await hasFreshEntry(prefix), false, 'nothing written yet')
+
+  seedL2(`narrative-v3-${day}-wl36xabc-2-IWM_XOM`, { deck: 'x' }, 60_000)
+  assert.equal(await hasFreshEntry(prefix), true, 'must match by prefix')
+
+  // The old exact-key probe is what failed: prove it still fails, so the test
+  // documents WHY the prefix probe exists.
+  assert.equal(await getCachedIfValid(`narrative-${day}`, 60_000), null)
+})
+
+test('hasFreshEntry: an expired entry does not count as warmed', async () => {
+  const prefix = 'narrative-v3-2026-08-27-'
+  seedL2('narrative-v3-2026-08-27-wl1xz-standby', { deck: 'old' }, -1_000)
+  assert.equal(await hasFreshEntry(prefix), false, 'expired must read as not-warmed')
+})
+
+test('hasFreshEntry: a different day does not satisfy the probe', async () => {
+  seedL2('narrative-v3-2026-08-28-wl1xz-standby', { deck: 'y' }, 60_000)
+  assert.equal(await hasFreshEntry('narrative-v3-2026-08-29-'), false)
+})
+
+// The daily refresh busts then immediately re-warms. If the busts are not
+// awaited, the re-warm reads the still-present L2 files and warms the OLD
+// entries back in — the refresh re-serves exactly what it meant to replace.
+test('bust: awaited busts are gone before the next read, in parallel', async () => {
+  const keys = ['dr-narrative-a', 'dr-opps-a', 'dr-ticker-notes-a']
+  for (const k of keys) seedL2(k, 'stale', 60_000)
+  for (const k of keys) assert.ok(await hasFreshEntry(k), `${k} seeded`)
+
+  await Promise.all(keys.map((k) => bust(k)))
+
+  for (const k of keys) {
+    assert.equal(await hasFreshEntry(k), false, `${k} must be gone once the bust is awaited`)
+  }
+})
+
+// Structural guard. bust() was made awaitable in one round and five call sites
+// in the warmer were left un-awaited in the same round — the fix shipped
+// without taking effect where it mattered most. A per-call-site assertion is
+// the only thing that catches "changed the primitive, missed the callers".
+test('bust: every call site in src/ awaits it', async () => {
+  const { readdirSync, readFileSync: rf, statSync } = await import('node:fs')
+  const { join: j } = await import('node:path')
+  const root = new URL('../src/', import.meta.url).pathname
+
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((n) => {
+      const p = j(dir, n)
+      return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : []
+    })
+
+  const offenders: string[] = []
+  for (const file of walk(root)) {
+    const src = rf(file, 'utf8')
+    for (const m of src.matchAll(/\bbust\(/g)) {
+      const at = m.index!
+      const before = src.slice(Math.max(0, at - 260), at)
+      // The definition and the internal helper are not call sites.
+      if (/function\s+$/.test(before) || src.slice(at - 4, at) === 'Fs') continue
+      if (/(^|[^A-Za-z])bustFs\($/.test(src.slice(Math.max(0, at - 7), at + 5))) continue
+      // Inside a comment line?
+      const lineStart = src.lastIndexOf('\n', at) + 1
+      const linePrefix = src.slice(lineStart, at)
+      if (/^\s*(\*|\/\/)/.test(linePrefix)) continue
+      if (/function bust$|export function bust$/.test(before.trimEnd())) continue
+      // Acceptable: directly awaited, directly returned, or an element of a
+      // Promise.all([...]) that the caller awaits.
+      if (/(await|return)\s+$/.test(before)) continue
+      const openAll = before.lastIndexOf('Promise.all([')
+      const closeAll = before.lastIndexOf('])')
+      if (openAll !== -1 && openAll > closeAll) continue
+      const line = src.slice(lineStart, src.indexOf('\n', at))
+      offenders.push(`${file.replace(root, 'src/')}  ${line.trim()}`)
+    }
+  }
+  assert.deepEqual(
+    offenders, [],
+    `bust() must be awaited (its L2 unlink is async) — un-awaited call sites:\n${offenders.join('\n')}`
+  )
 })

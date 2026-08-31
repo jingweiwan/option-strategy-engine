@@ -6,6 +6,7 @@
  *   3. specOverrides actually moves the engine's chosen strikes.
  */
 import { test } from 'node:test'
+import { SETTLEMENT_VERSION } from '../src/feedback/settlementVersion.js'
 import assert from 'node:assert/strict'
 import {
   buildArmStats,
@@ -41,7 +42,7 @@ function snap(over: Partial<RecommendationSnapshot>, win: boolean): Recommendati
     regime: 'sell', score: 1, pop: 0.7, ev: 0.1, netPremium: 1,
     maxProfit: 1, maxLoss: -4, dte: 30, breakevens: [], legs: [],
     outcome: {
-      computedAt: '', horizonDays: 5, tradingDaysUsed: 5,
+      computedAt: '', settlementVersion: SETTLEMENT_VERSION, horizonDays: 5, tradingDaysUsed: 5,
       realizedVolAnnualized: null, spotMin: null, spotMax: null,
       pnlPathMin: null, pnlPathMax: null, pnlAtExpirationClose: null,
       stopHit: false, stopThresholdUsed: 0, nearBreakevenTouched: false,

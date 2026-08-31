@@ -15,6 +15,7 @@ import {
   DEFAULT_CONDOR_PUT_DELTA
 } from '../feedback/tuner.js'
 import { outcomePnl } from '../feedback/calibration.js'
+import { isCurrentRegime, SETTLEMENT_VERSION } from '../feedback/settlementVersion.js'
 
 // ---------- Performance aggregation ----------
 
@@ -88,7 +89,23 @@ export async function feedbackRoutes(app: FastifyInstance) {
 
   /** Aggregate performance stats for the Performance page. */
   app.get('/api/feedback/performance', async () => {
-    const all = await loadSnapshots()
+    const raw = await loadSnapshots()
+
+    // The DISPLAYED ruler must be the same ruler the engine LEARNS from.
+    // calibration/tuner skip outcomes from a superseded settlement regime; if
+    // this page kept counting them, the Performance numbers and the numbers
+    // driving selection would silently diverge on the next bump — and the
+    // divergence would look like a stats bug, not a regime boundary. Strip the
+    // stale outcome rather than the row: it is not wrong, it is *not yet
+    // re-settled*, so it belongs in `pendingOutcome`.
+    let staleSettlements = 0
+    const all = raw.map((s) => {
+      if (s.outcome && !isCurrentRegime(s.outcome)) {
+        staleSettlements++
+        return { ...s, outcome: null }
+      }
+      return s
+    })
 
     const overall = computeGroupStats('总计', all)
 
@@ -226,6 +243,10 @@ export async function feedbackRoutes(app: FastifyInstance) {
       totalSnapshots: all.length,
       withOutcome: all.filter(s => s.outcome != null).length,
       pendingOutcome: all.filter(s => s.outcome == null).length,
+      // Surfaced so the page can say "N rows are awaiting re-settlement"
+      // instead of quietly showing a shrunken sample as if it were the book.
+      staleSettlements,
+      settlementVersion: SETTLEMENT_VERSION,
       overall,
       // The live arm ladder, SERVED rather than mirrored. The client used to
       // hardcode the variant ids so it could also render arms with no data yet

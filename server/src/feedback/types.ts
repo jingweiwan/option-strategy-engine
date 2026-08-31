@@ -70,6 +70,12 @@ export type RecommendationSnapshot = {
 
 export type RecommendationOutcome = {
   computedAt: string
+  /**
+   * Which settlement regime produced this number (see settlementVersion.ts).
+   * Absent = settled before regimes were tracked, i.e. by code that has since
+   * been replaced — learning must ignore it rather than silently mix rulers.
+   */
+  settlementVersion?: string
   horizonDays: number
   tradingDaysUsed: number
   /** Close-to-close annualized realized vol over the window (sqrt(252) * stdev of log returns). */
