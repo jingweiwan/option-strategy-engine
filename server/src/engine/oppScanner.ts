@@ -17,7 +17,7 @@
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
 import type { ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
-import type { OptionLeg, StrategyResult } from './types.js'
+import type { MarketVolCheck, OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
 import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
@@ -103,6 +103,10 @@ export type ScannedOpp = {
   /** credit/width = maxProfit/(maxProfit+maxLoss). The mechanical breakeven win
    *  rate is 1 − this. null when either leg of the payoff is unbounded. */
   creditWidth: number | null
+  /** Same POP/EV re-simulated at the market's sold-leg vol instead of simSigma.
+   *  Absent on debit structures and when the two sigmas are within
+   *  MARKET_VOL_CHECK_MIN_GAP. See MarketVolCheck. */
+  marketVolCheck?: MarketVolCheck | null
   netPremium: number
   delta: number
   gamma: number
@@ -1192,6 +1196,7 @@ async function scanSymbol(
           maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
           maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
           creditWidth: creditWidthOf(r),
+          marketVolCheck: r.marketVolCheck ?? null,
           netPremium: r.netPremium,
           delta: r.netGreeks.delta,
           gamma: r.netGreeks.gamma,
@@ -1300,6 +1305,7 @@ async function scanSymbol(
                 maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
                 maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
                 creditWidth: creditWidthOf(r),
+                marketVolCheck: r.marketVolCheck ?? null,
                 netPremium: r.netPremium,
                 delta: r.netGreeks.delta,
                 gamma: r.netGreeks.gamma,

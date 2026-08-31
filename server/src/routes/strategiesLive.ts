@@ -149,6 +149,12 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
             netPremium: r.netPremium,
             pop: r.metrics.probabilityProfit,
             ev: r.metrics.ev,
+            // 同一结构撤掉 VRP 下注(路径与盯市都改用卖出腿 IV)后的重算。
+            // 不带上,详情页的叙述会把整段 edge 当成结构自带的。
+            popAtMarketVol: r.marketVolCheck?.pop ?? null,
+            evAtMarketVol: r.marketVolCheck?.ev ?? null,
+            marketSigma: r.marketVolCheck?.marketSigma ?? null,
+            simSigma: r.marketVolCheck?.simSigma ?? null,
             maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
             maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
             delta: r.netGreeks.delta,

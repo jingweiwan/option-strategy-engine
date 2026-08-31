@@ -7,6 +7,7 @@ import PayoffChart from '@/components/PayoffChart.vue'
 import HelpTip from '@/components/HelpTip.vue'
 import type { LiveMarketState, StrategyResult, StrategyType } from '@/types'
 import { STRAT_CN } from '@/utils/constants'
+import { marketVolCheckTitle } from '@/utils/marketVolCheck'
 
 const { add: addPosition } = usePositions()
 const justAdded = ref(false)
@@ -64,6 +65,8 @@ function fmt(n: number, d = 2) {
   if (!Number.isFinite(n)) return '∞'
   return n.toFixed(d)
 }
+const mvTitle = marketVolCheckTitle
+
 function fmtSigned(n: number, d = 2) {
   if (!Number.isFinite(n)) return n > 0 ? '∞' : '−∞'
   return (n >= 0 ? '+' : '') + n.toFixed(d)
@@ -233,6 +236,11 @@ function addToPortfolio() {
           <div style="margin-top: 12px">
             POP <b>{{ fmt(strategy.metrics.probabilityProfit * 100, 1) }}%</b>
             · EV <b>{{ fmtSigned(strategy.metrics.ev) }}</b>
+          </div>
+          <div v-if="strategy.marketVolCheck" class="mv-check" :title="mvTitle(strategy.marketVolCheck)">
+            按市场卖腿 IV
+            <b>{{ fmt(strategy.marketVolCheck.pop * 100, 1) }}%</b>
+            · <b>{{ fmtSigned(strategy.marketVolCheck.ev) }}</b>
           </div>
           <div style="margin-top: 4px">
             SPOT <b>{{ fmt(state.spot) }}</b> · IV {{ (state.iv * 100).toFixed(1) }}% · DTE {{ state.dte }}d
@@ -526,6 +534,15 @@ function addToPortfolio() {
 </template>
 
 <style scoped>
+/* 市场卖腿 IV 口径下的 POP/EV —— 发布数字的注脚,不是第二个结论 */
+.mv-check {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  cursor: help;
+}
+.mv-check b { font-weight: 600; }
+
 .back-link {
   background: transparent;
   border: 0;

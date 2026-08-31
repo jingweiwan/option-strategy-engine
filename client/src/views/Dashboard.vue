@@ -8,6 +8,7 @@ import { useThesisDrift } from '@/composables/useThesisDrift'
 import { useEtMarketClock } from '@/composables/useEtMarketClock'
 import BookRiskCard from '@/components/BookRiskCard.vue'
 import type { DashboardData, DashboardNarrative, Opp, OppTag } from '@/types'
+import { marketVolCheckTitle as mvTitle } from '@/utils/marketVolCheck'
 
 const router = useRouter()
 const { syms } = useWatchlist()
@@ -794,10 +795,20 @@ watch(data, (v) => {
               <div class="stat">
                 <div class="stat-l mono">POP</div>
                 <div class="stat-v serif tnum">{{ o.pop }}%</div>
+                <div
+                  v-if="o.marketVolCheck"
+                  class="stat-sub mono mv-check"
+                  :title="mvTitle(o.marketVolCheck)"
+                >
+                  按市场卖腿 IV {{ (o.marketVolCheck.pop * 100).toFixed(0) }}%
+                </div>
               </div>
               <div class="stat">
                 <div class="stat-l mono">EV</div>
                 <div class="stat-v serif tnum">{{ fmtSigned(o.ev) }}</div>
+                <div v-if="o.marketVolCheck" class="stat-sub mono mv-check">
+                  按市场卖腿 IV {{ fmtSigned(o.marketVolCheck.ev) }}
+                </div>
               </div>
               <div class="stat">
                 <div class="stat-l mono">IVR</div>
@@ -1550,6 +1561,14 @@ watch(data, (v) => {
 .level-item b.loss-text {
   color: var(--loss, #e53935);
 }
+/* 市场 IV 口径下的 POP/EV——同一结构换个 sigma 重跑的对照,
+   刻意做灰、做小:它是发布数字的注脚,不是第二个结论 */
+.stat-sub.mv-check {
+  color: var(--ink-3, var(--ink-2));
+  opacity: 0.8;
+  cursor: help;
+}
+
 /* 收/宽 旁边的「需胜率」——次要信息,不跟主数字抢视线 */
 .level-item .lvl-sub {
   margin-left: 5px;

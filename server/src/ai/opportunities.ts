@@ -57,6 +57,11 @@ export type Opp = {
   tag: OppTag
   /** Suggested profit-target / stop-loss / roll rules. */
   management: OppManagement
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss);无界盈亏为 null。 */
+  creditWidth: number | null
+  /** 同一结构、同一退出政策,改用市场卖腿 IV 重跑的 POP/EV。
+   *  借方结构、以及两个 sigma 差距小于阈值时为 null。 */
+  marketVolCheck: ScannedOpp['marketVolCheck'] | null
   /** AI directional view that guided strategy selection */
   aiView?: string | null
   aiViewReason?: string | null
@@ -119,6 +124,12 @@ const SYSTEM = `你是一位资深期权策略分析师，擅长结合波动率�
    - 近期有财报（earn 字段非 "—"） → 优先标 "财报"
 5. 中文为主，术语保留英文（IV、RV、IVR、POP、EV、DTE、Debit、Credit、theta 等）
 6. 不要编造数字，所有数字从输入中引用
+6b. **volBetNote 非 null 时，analysis 必须承认这笔 edge 的一部分是波动率下注。**
+   发布的 POP/EV 押的是「已实现波动会低于隐含」——这个赌注同时进入路径扩散
+   和持仓期盯市两处。popAtMarketVol / evAtMarketVol 是两处一起撤掉、改用市场
+   为卖出腿定的价重算的结果。两个数差得大，就说明这单的吸引力主要来自这个
+   假设，而不是结构本身，必须写出来。**禁止**把差额说成「只是 RV 低于 IV」：
+   marketSigma 取在短腿行权价上，缺口里同时含 skew 和盯市那一半。
 7. 语气：专业、克制、有判断力。不要空泛的废话，每句话要能指导交易决策。
 
 **输出格式：** JSON 数组，与输入顺序一致。
@@ -197,6 +208,19 @@ function buildUserPrompt(opps: ScannedOpp[], earns: Record<string, string>): str
       dte: o.dte,
       pop: (o.pop * 100).toFixed(1) + '%',
       ev: o.ev.toFixed(2),
+      // 上面的 pop/ev 押的是「已实现波动会低于隐含」,这个赌注同时进入路径扩散
+      // 和盯市衰减两处。撤掉之后的同结构重算放在这里,叙述层就没法把整段 edge
+      // 当成结构自带的了。
+      popAtMarketVol:
+        o.marketVolCheck != null ? (o.marketVolCheck.pop * 100).toFixed(1) + '%' : null,
+      evAtMarketVol: o.marketVolCheck != null ? o.marketVolCheck.ev.toFixed(2) : null,
+      volBetNote:
+        o.marketVolCheck != null
+          ? `发布的 POP/EV 用 σ=${(o.marketVolCheck.simSigma * 100).toFixed(1)}% 模拟并盯市;` +
+            `市场给这些卖出腿定的价是 σ=${(o.marketVolCheck.marketSigma * 100).toFixed(1)}%(取在短腿行权价上,含 skew)。` +
+            `两处一起改用市场口径后 POP=${(o.marketVolCheck.pop * 100).toFixed(1)}%、EV=${o.marketVolCheck.ev.toFixed(2)}。` +
+            `差额是这笔 edge 里押在「波动会比市场收的便宜」上的部分,不是结构本身。`
+          : null,
       netPremium: o.netPremium.toFixed(2),
       netPremiumWords: netPremiumWords(o.strategyId, o.netPremium),
       maxProfit: o.maxProfit != null ? o.maxProfit.toFixed(2) : '无上限',
@@ -357,7 +381,9 @@ export async function buildOppsFromScan(
         shortLevels: o.shortLevels,
         strongTrend: o.strongTrend,
         variant: o.variant ?? null,
-        exitPolicy: o.exitPolicy ?? null
+        exitPolicy: o.exitPolicy ?? null,
+        creditWidth: o.creditWidth ?? null,
+        marketVolCheck: o.marketVolCheck ?? null
       }
     })
 
