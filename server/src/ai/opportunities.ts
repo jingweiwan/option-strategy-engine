@@ -126,7 +126,9 @@ const SYSTEM = `你是一位资深期权策略分析师，擅长结合波动率�
    - iron_condor / short_strangle / bear_call_spread / bull_put_spread 且 regime=sell → "高 IV"
    - long_straddle → "事件"
    - bull_call_spread / bear_put_spread → "事件"
-   - 近期有财报（earn 字段非 "—"） → 优先标 "财报"
+   - **spansEarnings=true**（财报日落在到期日之前，持仓要扛过这次财报） → 优先标 "财报"
+     注意：earn 只是"下次财报日"，spansEarnings=false 表示仓位在财报前就了结了，
+     **不得**因为 earn 有值就标 "财报"，也**不得**在 analysis 里写财报/事件风险
 5. 中文为主，术语保留英文（IV、RV、IVR、POP、EV、DTE、Debit、Credit、theta 等）
 6. 不要编造数字，所有数字从输入中引用
 6b. **volBetNote 非 null 时，analysis 必须承认这笔 edge 的一部分是波动率下注。**
@@ -261,6 +263,11 @@ function buildUserPrompt(opps: ScannedOpp[], earns: Record<string, string>): str
         premium: '$' + l.premium.toFixed(2)
       })) ?? [],
       earn: earns[o.sym] ?? '—',
+      // earn 只是下次财报日;这一条才是"仓位要不要扛过它"。
+      spansEarnings: o.spansEarnings === true,
+      earningsInWindow: o.spansEarnings === true
+        ? `是 —— ${earns[o.sym] ?? '财报'} 在 ${o.expiration} 到期之前，持仓要扛过这次财报`
+        : `否 —— 下次财报 ${earns[o.sym] ?? '未知'} 在 ${o.expiration} 到期之后，本仓位碰不到，禁止提事件风险`,
       aiView: o.aiView ?? '无（引擎根据 regime 和量化指标自动选择策略）',
       aiViewReason: o.aiViewReason ?? ''
     }
@@ -284,8 +291,24 @@ type AiCopy = { thesis: string; why: string; analysis: string; tag: string }
 
 const VALID_TAGS: Set<string> = new Set(['财报', '高 IV', '事件'])
 
-function inferTag(opp: ScannedOpp, earn?: string): OppTag {
-  if (earn && earn !== '—') return '财报'
+/**
+ * "财报" means THE POSITION WEARS THE PRINT, not "this company reports someday".
+ *
+ * This used to key off `earn !== '—'`, which is merely "an earnings date exists"
+ * — true for essentially every single name. On the 2026-09-01 board that tagged
+ * both XOM cards 财报 when XOM reports 2026-10-30 and the two structures expire
+ * 2026-10-16 and 2026-10-02: both are closed and settled before the print. The
+ * tag outranks 高 IV, so the cards lost their real label AND the AI copy dutifully
+ * wrote "10/29 财报临近，事件风险高" into the analysis of a position that cannot
+ * see the event.
+ *
+ * `opp.spansEarnings` is the engine's own answer (spansEarningsDate: the next
+ * earnings date falls on/before this expiration) — the SAME predicate the
+ * sell-vol gate uses to refuse to auto-sell through a print. Tag and gate now
+ * agree; before, they could contradict each other on the same card.
+ */
+export function inferTag(opp: ScannedOpp, earn?: string): OppTag {
+  if (opp.spansEarnings) return '财报'
   if (CREDIT_IDS.has(opp.strategyId) && opp.ivr >= 50) return '高 IV'
   return '事件'
 }
@@ -294,14 +317,14 @@ function inferTag(opp: ScannedOpp, earn?: string): OppTag {
  * Validate AI-assigned tag against actual data.
  * Prevents contradictions like "高 IV" when IVR is actually low.
  */
-function validateTag(aiTag: string, opp: ScannedOpp, earn?: string): OppTag {
+export function validateTag(aiTag: string, opp: ScannedOpp, earn?: string): OppTag {
   if (!VALID_TAGS.has(aiTag)) return inferTag(opp, earn)
 
   // "高 IV" requires IVR ≥ 40 — don't label low-IVR opps as high IV
   if (aiTag === '高 IV' && opp.ivr < 40) return inferTag(opp, earn)
 
-  // "财报" should only be used when earnings data exists
-  if (aiTag === '财报' && (!earn || earn === '—')) return inferTag(opp, earn)
+  // "财报" requires the print to land inside the position's own life — see inferTag.
+  if (aiTag === '财报' && !opp.spansEarnings) return inferTag(opp, earn)
 
   return aiTag as OppTag
 }

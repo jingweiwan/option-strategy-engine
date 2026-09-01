@@ -1311,6 +1311,9 @@ async function scanSymbol(
                 maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
                 maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
                 creditWidth: creditWidthOf(r),
+                // 这条分支只在 !spansEarningsDate 时才进(见上面的守卫),
+                // 显式写 false 而不是靠 undefined 恰好为假。
+                spansEarnings: false,
                 marketVolCheck: r.marketVolCheck ?? null,
                 netPremium: r.netPremium,
                 delta: r.netGreeks.delta,
