@@ -12,6 +12,7 @@
 import { chatJson, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
 import type { ScannedOpp, ShortLevel, BoardTierReason } from '../engine/oppScanner.js'
+import { managedThresholds, type ExitPolicy } from '../engine/managedExit.js'
 import type { StrategyType } from '../engine/types.js'
 
 // ---------- Types ----------
@@ -26,10 +27,12 @@ export type OppLeg = {
 }
 
 /** Suggested trade-management rules (per-share P&L, same units as netPremium).
- *  profitTarget/rollDte are null for the 'runner' exit arm (no TP, no early roll). */
+ *  profitTarget/rollDte are null for the 'runner' exit arm (no TP, no early roll).
+ *  stopLoss is null under 'user' on a defined-risk structure — that policy places
+ *  no stop, and the loss is already capped by the structure itself. */
 export type OppManagement = {
   profitTarget: number | null
-  stopLoss: number
+  stopLoss: number | null
   rollDte: number | null
   note: string
 }
@@ -57,6 +60,11 @@ export type Opp = {
   tag: OppTag
   /** Suggested profit-target / stop-loss / roll rules. */
   management: OppManagement
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss);无界盈亏为 null。 */
+  creditWidth: number | null
+  /** 同一结构、同一退出政策,改用市场卖腿 IV 重跑的 POP/EV。
+   *  借方结构、以及两个 sigma 差距小于阈值时为 null。 */
+  marketVolCheck: ScannedOpp['marketVolCheck'] | null
   /** AI directional view that guided strategy selection */
   aiView?: string | null
   aiViewReason?: string | null
@@ -79,8 +87,10 @@ export type Opp = {
   /** Tuner variant id the scanner chose (e.g. 'sd0.24'); null = static default.
    *  Passed to the detail page so its re-run reproduces this exact structure. */
   variant?: string | null
-  /** Exit policy the scanner scored this opp under ('managed' | 'runner'). */
-  exitPolicy?: 'managed' | 'runner' | null
+  /** Exit policy the scanner scored this opp under — see ExitPolicy.
+   *  'user' is the default; 'managed'/'runner' appear on older snapshots and on
+   *  the condor A/B arm. */
+  exitPolicy?: ExitPolicy | null
 }
 
 // ---------- AI copywriting ----------
@@ -116,9 +126,17 @@ const SYSTEM = `你是一位资深期权策略分析师，擅长结合波动率�
    - iron_condor / short_strangle / bear_call_spread / bull_put_spread 且 regime=sell → "高 IV"
    - long_straddle → "事件"
    - bull_call_spread / bear_put_spread → "事件"
-   - 近期有财报（earn 字段非 "—"） → 优先标 "财报"
+   - **spansEarnings=true**（财报日落在到期日之前，持仓要扛过这次财报） → 优先标 "财报"
+     注意：earn 只是"下次财报日"，spansEarnings=false 表示仓位在财报前就了结了，
+     **不得**因为 earn 有值就标 "财报"，也**不得**在 analysis 里写财报/事件风险
 5. 中文为主，术语保留英文（IV、RV、IVR、POP、EV、DTE、Debit、Credit、theta 等）
 6. 不要编造数字，所有数字从输入中引用
+6b. **volBetNote 非 null 时，analysis 必须承认这笔 edge 的一部分是波动率下注。**
+   发布的 POP/EV 押的是「已实现波动会低于隐含」——这个赌注同时进入路径扩散
+   和持仓期盯市两处。popAtMarketVol / evAtMarketVol 是两处一起撤掉、改用市场
+   为卖出腿定的价重算的结果。两个数差得大，就说明这单的吸引力主要来自这个
+   假设，而不是结构本身，必须写出来。**禁止**把差额说成「只是 RV 低于 IV」：
+   marketSigma 取在短腿行权价上，缺口里同时含 skew 和盯市那一半。
 7. 语气：专业、克制、有判断力。不要空泛的废话，每句话要能指导交易决策。
 
 **输出格式：** JSON 数组，与输入顺序一致。
@@ -135,25 +153,48 @@ function positionKind(strategyId: StrategyType): 'credit' | 'debit' {
  *   Credit: take 50% of credit, stop at 2× credit, roll ~21 DTE
  *   Debit:  take 100% of debit (1:1), stop at 50% debit, roll ~21 DTE
  */
+/**
+ * The rules printed on the card. Derived from `managedThresholds` rather than
+ * re-stated, so the displayed numbers cannot drift from the ones the POP/EV were
+ * actually simulated under — the card used to hardcode "收回 50% 权利金即离场"
+ * no matter which policy scored it.
+ */
 function buildManagement(
   strategyId: StrategyType,
   netPremium: number,
-  exitPolicy?: 'managed' | 'runner' | null
+  exitPolicy?: ExitPolicy | null,
+  maxLoss?: number | null
 ): OppManagement {
+  const policy: ExitPolicy = exitPolicy ?? 'user'
   const amt = Math.abs(netPremium)
   if (CREDIT_IDS.has(strategyId)) {
-    if (exitPolicy === 'runner') {
-      // Condor exit A/B experimental arm: no take-profit, ride to expiration.
+    const { takeProfit, stop } = managedThresholds(
+      netPremium,
+      policy,
+      maxLoss != null ? Math.abs(maxLoss) : undefined
+    )
+    if (policy === 'runner') {
       return {
         profitTarget: null,
-        stopLoss: amt * 2,
+        stopLoss: stop,
         rollDte: null,
         note: '实验组：扛到期吃满权利金，不设止盈；仅浮亏达 2× 权利金止损兜底'
       }
     }
+    if (policy === 'user') {
+      const pct = Math.round((takeProfit / amt) * 100)
+      return {
+        profitTarget: takeProfit,
+        stopLoss: Number.isFinite(stop) ? stop : null,
+        rollDte: null,
+        note: Number.isFinite(stop)
+          ? `收回 ${pct}% 权利金即离场；无界亏损结构保留 ${(stop / amt).toFixed(0)}× 权利金兜底止损；否则持有到期`
+          : `收回 ${pct}% 权利金即离场；不设止损（亏损已由结构封顶）；持有到期，不提前移仓`
+      }
+    }
     return {
-      profitTarget: amt * 0.5,
-      stopLoss: amt * 2,
+      profitTarget: takeProfit,
+      stopLoss: stop,
       rollDte: 21,
       note: '收回 50% 权利金即离场；浮亏达 2× 权利金止损；≤21 DTE 移仓避免 gamma 风险'
     }
@@ -197,6 +238,19 @@ function buildUserPrompt(opps: ScannedOpp[], earns: Record<string, string>): str
       dte: o.dte,
       pop: (o.pop * 100).toFixed(1) + '%',
       ev: o.ev.toFixed(2),
+      // 上面的 pop/ev 押的是「已实现波动会低于隐含」,这个赌注同时进入路径扩散
+      // 和盯市衰减两处。撤掉之后的同结构重算放在这里,叙述层就没法把整段 edge
+      // 当成结构自带的了。
+      popAtMarketVol:
+        o.marketVolCheck != null ? (o.marketVolCheck.pop * 100).toFixed(1) + '%' : null,
+      evAtMarketVol: o.marketVolCheck != null ? o.marketVolCheck.ev.toFixed(2) : null,
+      volBetNote:
+        o.marketVolCheck != null
+          ? `发布的 POP/EV 用 σ=${(o.marketVolCheck.simSigma * 100).toFixed(1)}% 模拟并盯市;` +
+            `市场给这些卖出腿定的价是 σ=${(o.marketVolCheck.marketSigma * 100).toFixed(1)}%(取在短腿行权价上,含 skew)。` +
+            `两处一起改用市场口径后 POP=${(o.marketVolCheck.pop * 100).toFixed(1)}%、EV=${o.marketVolCheck.ev.toFixed(2)}。` +
+            `差额是这笔 edge 里押在「波动会比市场收的便宜」上的部分,不是结构本身。`
+          : null,
       netPremium: o.netPremium.toFixed(2),
       netPremiumWords: netPremiumWords(o.strategyId, o.netPremium),
       maxProfit: o.maxProfit != null ? o.maxProfit.toFixed(2) : '无上限',
@@ -209,6 +263,11 @@ function buildUserPrompt(opps: ScannedOpp[], earns: Record<string, string>): str
         premium: '$' + l.premium.toFixed(2)
       })) ?? [],
       earn: earns[o.sym] ?? '—',
+      // earn 只是下次财报日;这一条才是"仓位要不要扛过它"。
+      spansEarnings: o.spansEarnings === true,
+      earningsInWindow: o.spansEarnings === true
+        ? `是 —— ${earns[o.sym] ?? '财报'} 在 ${o.expiration} 到期之前，持仓要扛过这次财报`
+        : `否 —— 下次财报 ${earns[o.sym] ?? '未知'} 在 ${o.expiration} 到期之后，本仓位碰不到，禁止提事件风险`,
       aiView: o.aiView ?? '无（引擎根据 regime 和量化指标自动选择策略）',
       aiViewReason: o.aiViewReason ?? ''
     }
@@ -232,8 +291,24 @@ type AiCopy = { thesis: string; why: string; analysis: string; tag: string }
 
 const VALID_TAGS: Set<string> = new Set(['财报', '高 IV', '事件'])
 
-function inferTag(opp: ScannedOpp, earn?: string): OppTag {
-  if (earn && earn !== '—') return '财报'
+/**
+ * "财报" means THE POSITION WEARS THE PRINT, not "this company reports someday".
+ *
+ * This used to key off `earn !== '—'`, which is merely "an earnings date exists"
+ * — true for essentially every single name. On the 2026-09-01 board that tagged
+ * both XOM cards 财报 when XOM reports 2026-10-30 and the two structures expire
+ * 2026-10-16 and 2026-10-02: both are closed and settled before the print. The
+ * tag outranks 高 IV, so the cards lost their real label AND the AI copy dutifully
+ * wrote "10/29 财报临近，事件风险高" into the analysis of a position that cannot
+ * see the event.
+ *
+ * `opp.spansEarnings` is the engine's own answer (spansEarningsDate: the next
+ * earnings date falls on/before this expiration) — the SAME predicate the
+ * sell-vol gate uses to refuse to auto-sell through a print. Tag and gate now
+ * agree; before, they could contradict each other on the same card.
+ */
+export function inferTag(opp: ScannedOpp, earn?: string): OppTag {
+  if (opp.spansEarnings) return '财报'
   if (CREDIT_IDS.has(opp.strategyId) && opp.ivr >= 50) return '高 IV'
   return '事件'
 }
@@ -242,14 +317,14 @@ function inferTag(opp: ScannedOpp, earn?: string): OppTag {
  * Validate AI-assigned tag against actual data.
  * Prevents contradictions like "高 IV" when IVR is actually low.
  */
-function validateTag(aiTag: string, opp: ScannedOpp, earn?: string): OppTag {
+export function validateTag(aiTag: string, opp: ScannedOpp, earn?: string): OppTag {
   if (!VALID_TAGS.has(aiTag)) return inferTag(opp, earn)
 
   // "高 IV" requires IVR ≥ 40 — don't label low-IVR opps as high IV
   if (aiTag === '高 IV' && opp.ivr < 40) return inferTag(opp, earn)
 
-  // "财报" should only be used when earnings data exists
-  if (aiTag === '财报' && (!earn || earn === '—')) return inferTag(opp, earn)
+  // "财报" requires the print to land inside the position's own life — see inferTag.
+  if (aiTag === '财报' && !opp.spansEarnings) return inferTag(opp, earn)
 
   return aiTag as OppTag
 }
@@ -348,7 +423,7 @@ export async function buildOppsFromScan(
           copy?.analysis?.slice(0, 400) ??
           `${o.sym} 当前 IV ${(o.iv * 100).toFixed(1)}%，引擎判定 regime=${o.regime}，推荐 ${o.strategy}。`,
         tag,
-        management: buildManagement(o.strategyId, o.netPremium, o.exitPolicy),
+        management: buildManagement(o.strategyId, o.netPremium, o.exitPolicy, o.maxLoss),
         aiView: o.aiView ?? null,
         aiViewReason: o.aiViewReason ?? null,
         lowConviction: o.regime === 'buy',
@@ -357,7 +432,9 @@ export async function buildOppsFromScan(
         shortLevels: o.shortLevels,
         strongTrend: o.strongTrend,
         variant: o.variant ?? null,
-        exitPolicy: o.exitPolicy ?? null
+        exitPolicy: o.exitPolicy ?? null,
+        creditWidth: o.creditWidth ?? null,
+        marketVolCheck: o.marketVolCheck ?? null
       }
     })
 

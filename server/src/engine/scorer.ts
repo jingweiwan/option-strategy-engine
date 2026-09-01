@@ -82,7 +82,7 @@ export function evaluateStrategyManaged(
   pricePaths: number[][],
   legs: OptionLeg[],
   mark: MarkContext,
-  policy: ExitPolicy = 'managed'
+  policy: ExitPolicy = 'user'
 ): RiskMetrics {
   const n = pricePaths.length
   if (n === 0) {
