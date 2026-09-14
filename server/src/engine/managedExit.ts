@@ -186,6 +186,35 @@ export function managedThresholds(
     : { takeProfit: Math.abs(netPremium), stop: Math.abs(netPremium) * 0.5 }
 }
 
+/**
+ * Mechanical breakeven win rate under the exit rule the card was scored with:
+ * a win banks min(takeProfit, maxProfit), a loss pays min(stop, maxLoss), so
+ * flat needs p = loss / (win + loss).
+ *
+ * The card used to show 1 − credit/width, the FULL-credit bar. Under 'user' a
+ * win is only 75% of the credit while a loss is still the whole width, so the
+ * true bar is (1 − r)/(1 − 0.25r) — 3-5pp higher across the 10-30% credit/width
+ * the board lives in (r = 0.15: 85.0% → 88.3%). Deliberately coarse: it treats
+ * every loser as a max loss. It is the bar POP must clear, not a POP estimate.
+ *
+ * null for debit structures and either-side-unbounded payoffs.
+ */
+export function requiredWinRate(
+  netPremium: number,
+  maxProfit: number | null,
+  maxLoss: number | null,
+  policy: ExitPolicy = 'user'
+): number | null {
+  if (!(netPremium > 0) || maxProfit == null || maxLoss == null) return null
+  const mp = Math.abs(maxProfit)
+  const ml = Math.abs(maxLoss)
+  if (!Number.isFinite(mp) || !Number.isFinite(ml) || mp <= 0 || ml <= 0) return null
+  const { takeProfit, stop } = managedThresholds(netPremium, policy, ml)
+  const win = Math.min(takeProfit, mp)
+  const loss = Math.min(stop, ml)
+  return loss / (win + loss)
+}
+
 /** A leg's own implied vol is usable only when the chain gave a sane one. */
 function legIvSane(iv: number | undefined): iv is number {
   return typeof iv === 'number' && Number.isFinite(iv) && iv > 0.01 && iv < 5

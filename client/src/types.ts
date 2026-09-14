@@ -264,9 +264,16 @@ export type Opp = {
     | 'vol_not_rich'
     | 'reward_too_thin'
     | 'vol_signal_missing'
-  /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它就是机械盈亏平衡胜率。
-   *  无界盈亏(裸卖/借方)为 null。 */
+    | 'negative_at_market_vol'
+    | 'illiquid'
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它是「赢了拿满信用」的胜率门槛;
+   *  实际门槛看 requiredWinRate。无界盈亏(裸卖/借方)为 null。 */
   creditWidth?: number | null
+  /** 按本单退出规则的盈亏平衡胜率:赢 = min(止盈, 最大盈利),输 = min(止损, 最大亏损)。
+   *  'user'(止盈 75%、不止损)下 = (1−r)/(1−0.25r)。借方/无界为 null。 */
+  requiredWinRate?: number | null
+  /** 往返价差 Σ(ask−bid) ÷ |净权利金|,以及最薄一腿的 OI。 */
+  liquidity?: { roundTripSpreadPct: number; minOpenInterest: number } | null
   /** 同一结构、同一退出政策,改用「市场为卖出腿定价的 IV」重跑的 POP/EV。
    *  发布的 pop/ev 押的是「已实现会低于隐含」:路径按 simSigma =
    *  max(0.7·RV + 0.3·IV, 0.6·IV) 扩散,盯市也一路衰减到那里。这一栏把两处

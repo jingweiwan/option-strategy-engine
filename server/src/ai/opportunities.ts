@@ -62,6 +62,10 @@ export type Opp = {
   management: OppManagement
   /** 收/宽 = maxProfit/(maxProfit+maxLoss);无界盈亏为 null。 */
   creditWidth: number | null
+  /** 按本单退出规则算的盈亏平衡胜率(止盈 75% 时高于 1 − 收/宽)。 */
+  requiredWinRate: number | null
+  /** 往返价差 ÷ 净权利金、最薄一腿的 OI。 */
+  liquidity: ScannedOpp['liquidity'] | null
   /** 同一结构、同一退出政策,改用市场卖腿 IV 重跑的 POP/EV。
    *  借方结构、以及两个 sigma 差距小于阈值时为 null。 */
   marketVolCheck: ScannedOpp['marketVolCheck'] | null
@@ -359,7 +363,9 @@ export async function buildOppsFromScan(
   // v10: (superseded) Plan A print-day → reference — reversed to spans hard-null;
   // v11: IV/RV richness gate (vol_not_rich); v12: that gate's numerator became
   // the SOLD legs' IV, key levels gained `side`, POP/EV mark per-leg.
-  const key = `opps-copy-v13-${etCalendarDay()}-${symKey}`
+  // v15: negative_at_market_vol + illiquid (round-trip spread) demotions;
+  // requiredWinRate/liquidity. (v14 briefly also gated on leg OI — dropped.)
+  const key = `opps-copy-v15-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit
@@ -434,6 +440,8 @@ export async function buildOppsFromScan(
         variant: o.variant ?? null,
         exitPolicy: o.exitPolicy ?? null,
         creditWidth: o.creditWidth ?? null,
+        requiredWinRate: o.requiredWinRate ?? null,
+        liquidity: o.liquidity ?? null,
         marketVolCheck: o.marketVolCheck ?? null
       }
     })

@@ -15,11 +15,11 @@
  */
 
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
-import type { ExitPolicy } from './managedExit.js'
+import { requiredWinRate, type ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
 import type { MarketVolCheck, OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
-import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
+import { impliedVolFromChain, soldLegIv, structureLiquidity, type StructureLiquidity } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
@@ -103,6 +103,11 @@ export type ScannedOpp = {
   /** credit/width = maxProfit/(maxProfit+maxLoss). The mechanical breakeven win
    *  rate is 1 − this. null when either leg of the payoff is unbounded. */
   creditWidth: number | null
+  /** Breakeven win rate under the exit rule this opp was scored with
+   *  (managedExit.requiredWinRate). null for debit / unbounded structures. */
+  requiredWinRate?: number | null
+  /** Round-trip spread ÷ premium and thinnest leg OI (structureLiquidity). */
+  liquidity?: StructureLiquidity | null
   /** Same POP/EV re-simulated at the market's sold-leg vol instead of simSigma.
    *  Absent on debit structures and when the two sigmas are within
    *  MARKET_VOL_CHECK_MIN_GAP. See MarketVolCheck. */
@@ -226,6 +231,8 @@ export type BoardTierReason =
   | 'vol_not_rich'         // sell-vol: IVR ok but IV/RV < floor → thin/negative VRP
   | 'reward_too_thin'      // sell-vol: credit/width below floor → needs a near-certain win
   | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
+  | 'negative_at_market_vol' // sell-vol: EV ≤ 0 once the VRP bet is removed (marketVolCheck)
+  | 'illiquid'             // round-trip spread eats too much of the premium
 
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
  *  replay a card with this exact count (+ seed 42 + same legs) for POP/EV to
@@ -279,6 +286,19 @@ export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
  * is known (undefined-risk / debit structures pass through untouched).
  */
 export const CREDIT_WIDTH_FLOOR = Number(process.env.CREDIT_WIDTH_FLOOR) || 0.10
+
+/**
+ * Max round-trip spread as a share of |net premium| (see structureLiquidity).
+ * Calibrated on the 2026-09 cards judged by hand: the XOM condor at 50% was
+ * still tradable (worst-fill edge +1.3pp); XLE at 62%+ and GS at 210% were not.
+ */
+export const ROUND_TRIP_SPREAD_CEILING = Number(process.env.ROUND_TRIP_SPREAD_CEILING) || 0.55
+// No open-interest floor on the board, deliberately. A per-leg OI ≥ 100 draft
+// was run against the 2026-09-14 scan: it demoted SPY 10/30 (round trip 5.6%,
+// thinnest OI 99) and IWM 10/30 (11.6%, OI 9) — weekly index strikes with tight
+// market-maker quotes — while every card rejected by hand for liquidity (GS
+// 210%, XLE 62%+) already fails the round-trip test on its own. OI is a proxy;
+// the spread is the cost. `minOpenInterest` is still carried for display.
 
 /**
  * credit/width from the SAME metrics the DTO reports, so the gate's input and the
@@ -450,13 +470,37 @@ export function boardTierDecision(
     recentlyReported?: boolean
     /** maxProfit / (maxProfit + maxLoss); null when either side is unbounded. */
     creditWidth?: number | null
+    /** marketVolCheck.ev. Null/absent when the check did not run — the sold IV
+     *  is within MARKET_VOL_CHECK_MIN_GAP of simSigma, so the published EV
+     *  (already required > 0 upstream) IS the market-vol EV. */
+    marketEv?: number | null
+    /** structureLiquidity(legs, netPremium). Null/absent → not gated. */
+    liquidity?: StructureLiquidity | null
   }
 ): BoardTierDecision {
-  if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolDecision(
-    strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
-    ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
-  )
+  const d = BUY_VOL_STRATEGIES.has(strategy)
+    ? buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
+    : sellVolDecision(
+        strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
+        ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
+      )
+  if (d.tier !== 'qualified') return d
+  // The published EV is a bet that realized vol comes in under the sold IV. If
+  // the same legs under the same exit rule lose money at the market's own
+  // price of vol, the whole edge IS that bet — label it, don't recommend it.
+  // (2026-09 XLE/XOM cards: published EV > 0, market-vol EV < 0.)
+  if (
+    SELL_VOL_STRATEGIES.has(strategy) &&
+    ctx.marketEv != null && Number.isFinite(ctx.marketEv) && ctx.marketEv <= 0
+  ) {
+    return { tier: 'reference', reason: 'negative_at_market_vol' }
+  }
+  // Execution last: "is there an edge?" before "can it be filled?". Applies to
+  // every structure — a debit spread pays the same round trip.
+  if (ctx.liquidity != null && ctx.liquidity.roundTripSpreadPct > ROUND_TRIP_SPREAD_CEILING) {
+    return { tier: 'reference', reason: 'illiquid' }
+  }
+  return d
 }
 
 /**
@@ -1105,7 +1149,9 @@ async function scanSymbol(
                 rv: ivRankInfo?.currentRv ?? null,
                 spansEarnings: spansEarningsDate(earningsDate, exp),
                 recentlyReported,
-                creditWidth: creditWidthOf(r)
+                creditWidth: creditWidthOf(r),
+                marketEv: r.marketVolCheck?.ev ?? null,
+                liquidity: structureLiquidity(r.legs, r.netPremium)
               }).tier === 'qualified'
             const cur = bestArmScore[st] == null
               ? null
@@ -1174,6 +1220,7 @@ async function scanSymbol(
         const spansEarnings = spansEarningsDate(earningsDate, exp)
         const legs = toScannedLegs(r.legs)
         const ivSold = soldLegIv(r.legs)
+        const liquidity = structureLiquidity(r.legs, r.netPremium)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
           iv: result.state.iv,
@@ -1181,8 +1228,12 @@ async function scanSymbol(
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
           recentlyReported,
-          creditWidth: creditWidthOf(r)
+          creditWidth: creditWidthOf(r),
+          marketEv: r.marketVolCheck?.ev ?? null,
+          liquidity
         })
+        const maxProfit = r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit
+        const maxLoss = r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss
         const boardTier = decision.tier ?? undefined
         const boardTierReason = decision.reason
         return {
@@ -1199,9 +1250,11 @@ async function scanSymbol(
           dte: result.state.dte,
           pop: r.metrics.probabilityProfit,
           ev: r.metrics.ev,
-          maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
-          maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
+          maxProfit,
+          maxLoss,
           creditWidth: creditWidthOf(r),
+          requiredWinRate: requiredWinRate(r.netPremium, maxProfit, maxLoss, exitPolicyBy[r.strategy] ?? 'user'),
+          liquidity,
           marketVolCheck: r.marketVolCheck ?? null,
           netPremium: r.netPremium,
           delta: r.netGreeks.delta,
@@ -1364,7 +1417,7 @@ export async function getScannedOpps(
   // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
   // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
   // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
-  const key = `opp-scan-v16-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v18-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

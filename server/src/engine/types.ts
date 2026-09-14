@@ -34,6 +34,11 @@ export type OptionLeg = {
    *  the managed-exit sim, so entry premiums (real, skewed) and marks come from
    *  the same vol surface. Absent → the caller's ATM sigma marks it. */
   iv?: number
+  /** Quoted ask − bid of this strike at selection (per share). Read by the board
+   *  liquidity gate: the round trip costs Σ spread, whatever the fill model. */
+  spread?: number
+  /** Open interest of this strike at selection. */
+  openInterest?: number
 }
 
 export type Greeks = {

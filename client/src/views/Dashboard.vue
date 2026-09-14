@@ -75,6 +75,8 @@ const referenceBannerHint = computed(() => {
   if (has('vol_not_rich')) parts.push('溢价不足·IV/RV<1.2')
   if (has('reward_too_thin')) parts.push('赔率过薄·收/宽不足')
   if (has('vol_signal_missing')) parts.push('缺 RV,便宜度存疑')
+  if (has('negative_at_market_vol')) parts.push('市场口径 EV≤0')
+  if (has('illiquid')) parts.push('流动性不足')
   if (parts.length === 0) return '离达标线最近的几个'
   return parts.length === 1 ? `${parts[0]},暂不自动荐` : `近似项:${parts.join(' / ')}`
 })
@@ -86,10 +88,41 @@ const REF_REASON_LABELS: Record<string, string> = {
   vol_not_rich: '溢价不足·IV/RV<1.2',
   reward_too_thin: '赔率过薄·收/宽不足',
   vol_signal_missing: '缺 RV,无法验便宜度',
-  ivr_below_floor: `IVR 未及 ${IVR_FLOOR}`
+  ivr_below_floor: `IVR 未及 ${IVR_FLOOR}`,
+  negative_at_market_vol: '市场口径 EV≤0',
+  illiquid: '流动性不足·往返价差>55%'
 }
 const refReasonLabel = (reason?: string): string =>
   (reason && REF_REASON_LABELS[reason]) || `IVR 未及 ${IVR_FLOOR}`
+
+/** 盈亏平衡胜率。服务端按本单退出规则算(止盈 75% 时高于 1 − 收/宽);
+ *  旧缓存没有该字段时退回满信用口径。 */
+const winBar = (o: Opp): number | null =>
+  o.requiredWinRate ?? (o.creditWidth != null ? 1 - o.creditWidth : null)
+/** 余量 = 市场口径 POP − 门槛。市场口径没跑(两 σ 差距 < 2%)时发布 POP 即市场口径。 */
+const winEdge = (o: Opp): number | null => {
+  const bar = winBar(o)
+  if (bar == null) return null
+  return (o.marketVolCheck ? o.marketVolCheck.pop : o.pop / 100) - bar
+}
+const fmtPp = (x: number): string => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)}pp`
+const winBarTitle = (o: Opp): string => {
+  const bar = winBar(o)
+  const cw = o.creditWidth
+  if (bar == null || cw == null) return ''
+  const edge = winEdge(o)
+  const popSrc = o.marketVolCheck ? '市场卖腿 IV 口径 POP' : 'POP'
+  const liq = o.liquidity
+    ? `\n往返价差 ${(o.liquidity.roundTripSpreadPct * 100).toFixed(0)}% 净权利金,最薄一腿 OI ${o.liquidity.minOpenInterest}`
+    : ''
+  return (
+    `收/宽 ${(cw * 100).toFixed(1)}%。赢了拿满信用的门槛是 ${((1 - cw) * 100).toFixed(1)}%;` +
+    `按本单规则(止盈后离场、亏损吃满宽度)门槛是 ${(bar * 100).toFixed(1)}%。` +
+    (edge != null ? `\n余量 = ${popSrc} − 门槛 = ${fmtPp(edge)}。` : '') +
+    `\n门槛把每笔亏损都算成最大亏损,偏保守。` +
+    liq
+  )
+}
 
 const opps = computed(() =>
   boardOpps.value.filter((o) => oppFilter.value === 'all' || o.tag === oppFilter.value)
@@ -739,13 +772,29 @@ watch(data, (v) => {
                 <span
                   v-if="o.creditWidth != null"
                   class="level-item"
-                  :title="`收/宽 ${(o.creditWidth * 100).toFixed(1)}% — 到期不动就得赢 ${((1 - o.creditWidth) * 100).toFixed(1)}% 的时候才打平`"
+                  :title="winBarTitle(o)"
                 >
                   收/宽
                   <b class="tnum" :class="{ 'loss-text': o.creditWidth < 0.10 }">
                     {{ (o.creditWidth * 100).toFixed(1) }}%
                   </b>
-                  <span class="lvl-sub">需胜率 {{ ((1 - o.creditWidth) * 100).toFixed(0) }}%</span>
+                  <span class="lvl-sub">需胜率 {{ ((winBar(o) ?? 0) * 100).toFixed(1) }}%</span>
+                  <span
+                    v-if="winEdge(o) != null"
+                    class="lvl-sub"
+                    :class="{ 'loss-text': (winEdge(o) ?? 0) < 0 }"
+                  >余量 {{ fmtPp(winEdge(o) ?? 0) }}</span>
+                </span>
+                <span
+                  v-if="o.liquidity"
+                  class="level-item"
+                  :title="`往返一次(开+平)付掉的买卖价差合计 Σ(ask−bid),占净权利金的比例;超过 55% 降为参考位。\n最薄一腿 OI ${o.liquidity.minOpenInterest}(仅展示,不作门槛)`"
+                >
+                  往返价差
+                  <b class="tnum" :class="{ 'loss-text': o.liquidity.roundTripSpreadPct > 0.55 }">
+                    {{ (o.liquidity.roundTripSpreadPct * 100).toFixed(0) }}%
+                  </b>
+                  <span class="lvl-sub">OI {{ o.liquidity.minOpenInterest }}</span>
                 </span>
                 <span v-if="o.breakevens && o.breakevens.length" class="level-item">
                   盈亏平衡
