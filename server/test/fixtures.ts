@@ -24,6 +24,12 @@ export type ChainOpts = {
   iv?: number
   r?: number
   q?: number
+  /**
+   * Per-strike IV override — lets a fixture carry SKEW, so `soldLegIv` (vol at
+   * the short strikes) separates from ATM `iv`. Without it every leg quotes the
+   * same number and any test about skew passes vacuously.
+   */
+  ivAt?: (strike: number, spot: number, optionType: 'call' | 'put') => number
   /** strike grid bounds + step */
   loStrike?: number
   hiStrike?: number
@@ -56,7 +62,8 @@ export function syntheticChain(opts: ChainOpts = {}): {
   for (let K = lo; K <= hi + 1e-9; K += step) {
     const strike = r2(K, 2)
     for (const optionType of ['call', 'put'] as const) {
-      const fair = blackScholes({ type: optionType, S: spot, K: strike, T, r: rate, q, sigma: iv })
+      const legIv = opts.ivAt ? opts.ivAt(strike, spot, optionType) : iv
+      const fair = blackScholes({ type: optionType, S: spot, K: strike, T, r: rate, q, sigma: legIv })
       const mid = Math.max(0.05, r2(fair, 2))
       const halfSpread = Math.max(0.02, r2(mid * 0.02, 2)) // ~4% wide, well under 40% guard
       const bid = r2(Math.max(0.01, mid - halfSpread), 2)
@@ -72,7 +79,7 @@ export function syntheticChain(opts: ChainOpts = {}): {
         openInterest: 500,
         volume: 100,
         expiration,
-        iv
+        iv: legIv
       })
     }
   }

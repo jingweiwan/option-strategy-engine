@@ -1,6 +1,8 @@
 /**
  * Condor exit-policy A/B (see managedExit.ts ExitPolicy):
- *   'managed' — TP 50% + stop 2× + close at 21 DTE (default, unchanged)
+ *   'managed' — TP 50% + stop 2× + close at 21 DTE. Was the default through
+ *               2026-08-31; now legacy, kept so old snapshots settle under the
+ *               rule they were shown with. See userExitPolicy.test.ts.
  *   'runner'  — stop 2× only, no TP, hold to expiration
  * Invariants: runner never takes profit early, holds the full DTE, keeps the
  * disaster stop; assignment is deterministic per (symbol × day); the engine

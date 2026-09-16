@@ -11,11 +11,11 @@
   "results": [
     {
       "strategy": "bear_call_spread",
-      "tier": "reference",
+      "tier": "primary",
       "netPremium": 0.39,
-      "pop": 0.657,
-      "ev": -0.05,
-      "cvar95": -0.87,
+      "pop": 0.897,
+      "ev": 0.05,
+      "cvar95": -2.11,
       "maxProfit": 0.39,
       "maxLoss": -2.11,
       "breakevens": [
@@ -38,7 +38,7 @@
     },
     {
       "strategy": "bear_put_spread",
-      "tier": "primary",
+      "tier": "reference",
       "netPremium": -1.96,
       "pop": 0.348,
       "ev": -0.01,
@@ -92,11 +92,11 @@
     },
     {
       "strategy": "bull_put_spread",
-      "tier": "reference",
+      "tier": "primary",
       "netPremium": 0.34,
-      "pop": 0.672,
-      "ev": -0.04,
-      "cvar95": -0.77,
+      "pop": 0.906,
+      "ev": 0.03,
+      "cvar95": -2.16,
       "maxProfit": 0.34,
       "maxLoss": -2.16,
       "breakevens": [
@@ -121,9 +121,9 @@
       "strategy": "iron_condor",
       "tier": "primary",
       "netPremium": 0.59,
-      "pop": 0.595,
-      "ev": -0.05,
-      "cvar95": -1.11,
+      "pop": 0.834,
+      "ev": 0.06,
+      "cvar95": -1.91,
       "maxProfit": 0.59,
       "maxLoss": -1.91,
       "breakevens": [
@@ -159,7 +159,7 @@
     },
     {
       "strategy": "long_straddle",
-      "tier": "primary",
+      "tier": "reference",
       "netPremium": -6.91,
       "pop": 0.358,
       "ev": -0.13,

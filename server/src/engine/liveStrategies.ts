@@ -235,6 +235,39 @@ export function liquidContracts(chain: OptionContract[]): OptionContract[] {
 }
 
 /**
+ * Structure-level liquidity, which `liquidContracts` cannot see. That filter
+ * judges each strike alone, and a cheap wing quoted 0.01/0.03 is a 100% spread
+ * yet costs two cents — so a per-leg % rule is either too loose for the shorts
+ * or kills every wing. What the trader actually pays is the whole round trip,
+ * Σ(ask − bid), and whether it is survivable depends on how much credit it eats:
+ *   2026-09 cards  SPY condor 3%  IWM 8%  QQQ 12%  XOM condor 50%  XLE 62-87%  GS 210%
+ * GS 1090/1110C passed every per-leg check (spreads 26%, OI 21/17) while one
+ * round trip cost twice the credit.
+ *
+ * null when any leg lacks quote data (legs built outside legsFromSpec).
+ */
+export type StructureLiquidity = {
+  /** Σ(ask − bid)·qty ÷ |net premium|. */
+  roundTripSpreadPct: number
+  minOpenInterest: number
+}
+
+export function structureLiquidity(
+  legs: readonly OptionLeg[],
+  netPremium: number
+): StructureLiquidity | null {
+  if (legs.length === 0 || !(Math.abs(netPremium) > 0)) return null
+  let spread = 0
+  let minOpenInterest = Infinity
+  for (const l of legs) {
+    if (l.spread == null || l.openInterest == null) return null
+    spread += l.spread * l.quantity
+    minOpenInterest = Math.min(minOpenInterest, l.openInterest)
+  }
+  return { roundTripSpreadPct: spread / Math.abs(netPremium), minOpenInterest }
+}
+
+/**
  * Nearest liquid contract of `type` to a target STRIKE (for equal-$ wings),
  * constrained to one side of an anchor so a wing can only land OTM of its short.
  * `bound.below`/`bound.above` keep only strictly-lower / strictly-higher strikes
@@ -332,6 +365,8 @@ export function legsFromSpec(
       // same vol surface its premium came from (see markPnL). Without it a
       // skewed structure starts the sim at a phantom P&L.
       ...(c.iv != null ? { iv: c.iv } : {}),
+      spread: c.ask - c.bid,
+      openInterest: c.openInterest,
       greeks: c.greeks
         ? {
             delta: c.greeks.delta,

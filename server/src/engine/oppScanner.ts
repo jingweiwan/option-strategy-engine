@@ -15,11 +15,11 @@
  */
 
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
-import type { ExitPolicy } from './managedExit.js'
+import { requiredWinRate, DEFAULT_EXIT_POLICY, type ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
-import type { OptionLeg, StrategyResult } from './types.js'
+import type { MarketVolCheck, OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
-import { impliedVolFromChain, soldLegIv } from './liveStrategies.js'
+import { impliedVolFromChain, soldLegIv, structureLiquidity, type StructureLiquidity } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
@@ -103,6 +103,15 @@ export type ScannedOpp = {
   /** credit/width = maxProfit/(maxProfit+maxLoss). The mechanical breakeven win
    *  rate is 1 − this. null when either leg of the payoff is unbounded. */
   creditWidth: number | null
+  /** Breakeven win rate under the exit rule this opp was scored with
+   *  (managedExit.requiredWinRate). null for debit / unbounded structures. */
+  requiredWinRate?: number | null
+  /** Round-trip spread ÷ premium and thinnest leg OI (structureLiquidity). */
+  liquidity?: StructureLiquidity | null
+  /** Same POP/EV re-simulated at the market's sold-leg vol instead of simSigma.
+   *  Absent on debit structures and when the two sigmas are within
+   *  MARKET_VOL_CHECK_MIN_GAP. See MarketVolCheck. */
+  marketVolCheck?: MarketVolCheck | null
   netPremium: number
   delta: number
   gamma: number
@@ -140,12 +149,26 @@ export type ShortLevel = {
   /** Which side of the strike a defending level must sit on. Derived from the
    *  leg, not from where the nearest level happens to be. */
   side: 'support' | 'resistance'
-  /** Nearest DEFENDING level, or null when history has none on that side. */
+  /** Nearest level on the defending side of the strike, or null when history
+   *  has none there. Present regardless of `defends` — a level beyond the
+   *  breakeven still caps the damage, it just doesn't protect the profit. */
   level: number | null
-  /** Signed % from strike to the defending level (≤0 puts, ≥0 calls). */
+  /** Signed % from strike to that level (≤0 puts, ≥0 calls). */
   distPct: number | null
-  /** How many swing pivots formed the defending level (significance). */
+  /** How many swing pivots formed the level (significance). */
   touches: number | null
+  /** This structure's breakeven on this leg's side (put → lowest, call →
+   *  highest). Null when the caller passed no breakevens. */
+  breakeven: number | null
+  /**
+   * Does the level actually protect the PROFIT? Only when it sits between the
+   * short strike and the breakeven — i.e. price turning there leaves the
+   * position in the money. A level past the breakeven limits the loss but the
+   * trade is already negative by the time price reaches it, so it is NOT a
+   * point in the setup's favour. Falls back to the old strike-side test when
+   * no breakevens were supplied.
+   */
+  defends: boolean
   /** Short strike sits ON a well-tested level, EITHER side (contested/pin risk). */
   tested: boolean
   /** The level that tripped `tested` — may be on the non-defending side. */
@@ -175,20 +198,51 @@ const LEVEL_TESTED_TOUCHES = 3 // a level this well-tested near a short strike �
  * `tested` asks a different question — is the strike PINNED on a battleground?
  * — so it still scans both directions: a well-tested level just the wrong side
  * of the strike still contests it.
+ *
+ * DEFENDING IS MEASURED AGAINST THE BREAKEVEN, NOT THE STRIKE. The 2026-09-16
+ * META 720/735C card put resistance 729.33 next to breakeven 723.21 and read as
+ * if the level were a cushion: price turning at 729.33 leaves that trade −$612
+ * at expiry, 6 points past the point where it stops making money. A level only
+ * protects the PROFIT inside the strike→breakeven band (the credit itself).
+ * Outside it the level still caps the damage — reported, but never as a plus.
  */
-export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): ShortLevel[] {
+export function shortLegLevels(
+  legs: ScannedLeg[],
+  keyLevels: KeyLevel[],
+  /** The structure's breakevens (metrics.breakevens). Omitted → `defends`
+   *  degrades to the old strike-side test rather than silently reading false. */
+  breakevens: readonly number[] = []
+): ShortLevel[] {
   if (keyLevels.length === 0) return []
+  const finiteBes = breakevens.filter((b) => Number.isFinite(b))
   const out: ShortLevel[] = []
   for (const l of legs) {
     if (l.action !== 'sell') continue
     const side: 'support' | 'resistance' = l.type === 'put' ? 'support' : 'resistance'
+    // A put is hurt by price FALLING, so its breakeven is the lowest one; a
+    // call by price RISING, so the highest. A condor has one of each.
+    const be = finiteBes.length === 0
+      ? null
+      : side === 'support' ? Math.min(...finiteBes) : Math.max(...finiteBes)
+    const protectsProfit = (price: number): boolean =>
+      be == null ? true : side === 'support' ? price >= be : price <= be
 
+    // Prefer the nearest level that protects the profit; fall back to the
+    // nearest one on the defending side of the strike so the card can still
+    // show where the move would stall (marked `defends: false`).
     let def: KeyLevel | null = null
+    let fallback: KeyLevel | null = null
     for (const kl of keyLevels) {
-      const defends = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
-      if (!defends) continue
-      if (!def || Math.abs(kl.price - l.strike) < Math.abs(def.price - l.strike)) def = kl
+      const rightSide = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
+      if (!rightSide) continue
+      const nearer = (a: KeyLevel | null) =>
+        !a || Math.abs(kl.price - l.strike) < Math.abs(a.price - l.strike)
+      if (protectsProfit(kl.price)) {
+        if (nearer(def)) def = kl
+      } else if (nearer(fallback)) fallback = kl
     }
+    const defends = def != null
+    const chosen = def ?? fallback
 
     let near = keyLevels[0]
     for (const kl of keyLevels) {
@@ -201,9 +255,11 @@ export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): Short
       strike: l.strike,
       type: l.type,
       side,
-      level: def ? def.price : null,
-      distPct: def ? Math.round(((def.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
-      touches: def ? def.touches : null,
+      level: chosen ? chosen.price : null,
+      distPct: chosen ? Math.round(((chosen.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
+      touches: chosen ? chosen.touches : null,
+      breakeven: be,
+      defends,
       tested,
       ...(tested ? { contestedLevel: near.price } : {})
     })
@@ -222,6 +278,8 @@ export type BoardTierReason =
   | 'vol_not_rich'         // sell-vol: IVR ok but IV/RV < floor → thin/negative VRP
   | 'reward_too_thin'      // sell-vol: credit/width below floor → needs a near-certain win
   | 'vol_signal_missing'   // buy-vol: no real RV to judge cheapness
+  | 'negative_at_market_vol' // sell-vol: EV ≤ 0 once the VRP bet is removed (marketVolCheck)
+  | 'illiquid'             // round-trip spread eats too much of the premium
 
 /** Monte-Carlo path count for the surfaced scan result. The detail page must
  *  replay a card with this exact count (+ seed 42 + same legs) for POP/EV to
@@ -275,6 +333,19 @@ export const SELL_IVRV_FLOOR = Number(process.env.SELL_IVRV_FLOOR) || 1.2
  * is known (undefined-risk / debit structures pass through untouched).
  */
 export const CREDIT_WIDTH_FLOOR = Number(process.env.CREDIT_WIDTH_FLOOR) || 0.10
+
+/**
+ * Max round-trip spread as a share of |net premium| (see structureLiquidity).
+ * Calibrated on the 2026-09 cards judged by hand: the XOM condor at 50% was
+ * still tradable (worst-fill edge +1.3pp); XLE at 62%+ and GS at 210% were not.
+ */
+export const ROUND_TRIP_SPREAD_CEILING = Number(process.env.ROUND_TRIP_SPREAD_CEILING) || 0.55
+// No open-interest floor on the board, deliberately. A per-leg OI ≥ 100 draft
+// was run against the 2026-09-14 scan: it demoted SPY 10/30 (round trip 5.6%,
+// thinnest OI 99) and IWM 10/30 (11.6%, OI 9) — weekly index strikes with tight
+// market-maker quotes — while every card rejected by hand for liquidity (GS
+// 210%, XLE 62%+) already fails the round-trip test on its own. OI is a proxy;
+// the spread is the cost. `minOpenInterest` is still carried for display.
 
 /**
  * credit/width from the SAME metrics the DTO reports, so the gate's input and the
@@ -446,13 +517,37 @@ export function boardTierDecision(
     recentlyReported?: boolean
     /** maxProfit / (maxProfit + maxLoss); null when either side is unbounded. */
     creditWidth?: number | null
+    /** marketVolCheck.ev. Null/absent when the check did not run — the sold IV
+     *  is within MARKET_VOL_CHECK_MIN_GAP of simSigma, so the published EV
+     *  (already required > 0 upstream) IS the market-vol EV. */
+    marketEv?: number | null
+    /** structureLiquidity(legs, netPremium). Null/absent → not gated. */
+    liquidity?: StructureLiquidity | null
   }
 ): BoardTierDecision {
-  if (BUY_VOL_STRATEGIES.has(strategy)) return buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
-  return sellVolDecision(
-    strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
-    ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
-  )
+  const d = BUY_VOL_STRATEGIES.has(strategy)
+    ? buyVolDecision(ctx.iv, ctx.rv, ctx.ivr)
+    : sellVolDecision(
+        strategy, ctx.ivr, ctx.spansEarnings, ctx.recentlyReported === true,
+        ctx.ivSold ?? ctx.iv, ctx.rv, ctx.creditWidth ?? null
+      )
+  if (d.tier !== 'qualified') return d
+  // The published EV is a bet that realized vol comes in under the sold IV. If
+  // the same legs under the same exit rule lose money at the market's own
+  // price of vol, the whole edge IS that bet — label it, don't recommend it.
+  // (2026-09 XLE/XOM cards: published EV > 0, market-vol EV < 0.)
+  if (
+    SELL_VOL_STRATEGIES.has(strategy) &&
+    ctx.marketEv != null && Number.isFinite(ctx.marketEv) && ctx.marketEv <= 0
+  ) {
+    return { tier: 'reference', reason: 'negative_at_market_vol' }
+  }
+  // Execution last: "is there an edge?" before "can it be filled?". Applies to
+  // every structure — a debit spread pays the same round trip.
+  if (ctx.liquidity != null && ctx.liquidity.roundTripSpreadPct > ROUND_TRIP_SPREAD_CEILING) {
+    return { tier: 'reference', reason: 'illiquid' }
+  }
+  return d
 }
 
 /**
@@ -669,17 +764,23 @@ const SCAN_CONCURRENCY = Number(process.env.SCAN_SYMBOL_CONCURRENCY) || 4
 
 /**
  * Condor exit-policy A/B assignment. EXIT_POLICY_EXPERIMENT=0 turns the
- * experiment off (everything runs 'managed'). Deterministic hash of
+ * experiment off (everything runs the default 'user'). Deterministic hash of
  * (symbol × ET day): same-day rescans agree, arms alternate across days.
+ *
+ * The control arm was 'managed' until 2026-08-31. It is now 'user' — the rule
+ * this account actually follows — so the experiment asks a question the account
+ * can act on ("is riding to expiry better than taking 75%?") instead of
+ * comparing two rules it never uses. Snapshots stamped 'managed' stay stamped
+ * and still settle under 'managed'; they are simply no longer produced.
  */
 const EXIT_EXPERIMENT_ON = process.env.EXIT_POLICY_EXPERIMENT !== '0'
 
 export function pickExitPolicy(sym: string, etDay: string = etCalendarDay()): ExitPolicy {
-  if (!EXIT_EXPERIMENT_ON) return 'managed'
+  if (!EXIT_EXPERIMENT_ON) return 'user'
   let h = 0
   const s = `${sym}|${etDay}`
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return h % 2 === 0 ? 'managed' : 'runner'
+  return h % 2 === 0 ? 'user' : 'runner'
 }
 
 /** Primary strategy for a given view direction. */
@@ -1038,6 +1139,16 @@ async function scanSymbol(
       // scores the condor UNDER the chosen policy (display = learning).
       const icPolicy = pickExitPolicy(sym)
       const exitPolicyBy: Partial<Record<StrategyType, ExitPolicy>> = { iron_condor: icPolicy }
+      /**
+       * What every stamped row must carry. `exitPolicyBy` only overrides the
+       * condor (its A/B arm); everything else runs the engine's default, and
+       * `policyFor` inside the engine resolves the SAME `?? DEFAULT_EXIT_POLICY`.
+       * Stamping `null` instead — as this did until 2026-09-16 — left the
+       * settler to fall back to LEGACY_EXIT_POLICY ('managed'), so a bull put
+       * scored, displayed and sized under TP 75%/no-stop was learned from under
+       * TP 50%/stop 2×/21 DTE. Resolve it once, here, for card and stamp alike.
+       */
+      const policyOf = (st: StrategyType): ExitPolicy => exitPolicyBy[st] ?? DEFAULT_EXIT_POLICY
 
       // Tuner arm selection for the BOARD: evaluate every arm on this chain and
       // keep the BEST-scoring one per tuned strategy. A random Thompson sample
@@ -1095,7 +1206,9 @@ async function scanSymbol(
                 rv: ivRankInfo?.currentRv ?? null,
                 spansEarnings: spansEarningsDate(earningsDate, exp),
                 recentlyReported,
-                creditWidth: creditWidthOf(r)
+                creditWidth: creditWidthOf(r),
+                marketEv: r.marketVolCheck?.ev ?? null,
+                liquidity: structureLiquidity(r.legs, r.netPremium)
               }).tier === 'qualified'
             const cur = bestArmScore[st] == null
               ? null
@@ -1164,6 +1277,7 @@ async function scanSymbol(
         const spansEarnings = spansEarningsDate(earningsDate, exp)
         const legs = toScannedLegs(r.legs)
         const ivSold = soldLegIv(r.legs)
+        const liquidity = structureLiquidity(r.legs, r.netPremium)
         const decision = boardTierDecision(r.strategy, {
           ivr: result.state.ivRank,
           iv: result.state.iv,
@@ -1171,8 +1285,12 @@ async function scanSymbol(
           rv: ivRankInfo?.currentRv ?? null,
           spansEarnings,
           recentlyReported,
-          creditWidth: creditWidthOf(r)
+          creditWidth: creditWidthOf(r),
+          marketEv: r.marketVolCheck?.ev ?? null,
+          liquidity
         })
+        const maxProfit = r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit
+        const maxLoss = r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss
         const boardTier = decision.tier ?? undefined
         const boardTierReason = decision.reason
         return {
@@ -1189,9 +1307,12 @@ async function scanSymbol(
           dte: result.state.dte,
           pop: r.metrics.probabilityProfit,
           ev: r.metrics.ev,
-          maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
-          maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
+          maxProfit,
+          maxLoss,
           creditWidth: creditWidthOf(r),
+          requiredWinRate: requiredWinRate(r.netPremium, maxProfit, maxLoss, policyOf(r.strategy)),
+          liquidity,
+          marketVolCheck: r.marketVolCheck ?? null,
           netPremium: r.netPremium,
           delta: r.netGreeks.delta,
           gamma: r.netGreeks.gamma,
@@ -1205,11 +1326,11 @@ async function scanSymbol(
           aiViewConfidence: viewConfidence,
           aiViewReason: viewReason,
           variant: variantBy[r.strategy] ?? null,
-          exitPolicy: exitPolicyBy[r.strategy] ?? null,
+          exitPolicy: policyOf(r.strategy),
           spansEarnings,
           boardTier,
           boardTierReason,
-          shortLevels: shortLegLevels(legs, keyLevels),
+          shortLevels: shortLegLevels(legs, keyLevels, r.metrics.breakevens),
           strongTrend
         }
       }
@@ -1300,6 +1421,10 @@ async function scanSymbol(
                 maxProfit: r.metrics.unboundedProfit ? null : r.metrics.theoMaxProfit,
                 maxLoss: r.metrics.unboundedLoss ? null : r.metrics.theoMaxLoss,
                 creditWidth: creditWidthOf(r),
+                // 这条分支只在 !spansEarningsDate 时才进(见上面的守卫),
+                // 显式写 false 而不是靠 undefined 恰好为假。
+                spansEarnings: false,
+                marketVolCheck: r.marketVolCheck ?? null,
                 netPremium: r.netPremium,
                 delta: r.netGreeks.delta,
                 gamma: r.netGreeks.gamma,
@@ -1310,7 +1435,7 @@ async function scanSymbol(
                 breakevens: [...r.metrics.breakevens],
                 legs: toScannedLegs(r.legs),
                 variant: pinnedVariant[st],
-                exitPolicy: exitPolicyBy[st] ?? null
+                exitPolicy: policyOf(st)
               })
             }
           } catch (err) {
@@ -1349,7 +1474,7 @@ export async function getScannedOpps(
   // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
   // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
   // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
-  const key = `opp-scan-v16-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v20-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

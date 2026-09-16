@@ -81,9 +81,29 @@ export type StrategyResult = {
   calibration?: number
   /** 10-point pre-trade checklist. */
   checklist?: PreTradeChecklist
+  /** 同一结构在「市场对波动的定价才是真的」那个世界里的 POP/EV:路径与盯市
+   *  都用卖出腿 IV,而不是 simSigma。与卡片上那一栏是同一个数。 */
+  marketVolCheck?: MarketVolCheck | null
+}
+
+/** 见 server/src/engine/types.ts 的 MarketVolCheck —— 发布的 POP/EV 押的是
+ *  「已实现波动会低于隐含」,这个赌注同时进入路径扩散和盯市衰减两处;
+ *  这一栏把两处一起撤掉重算。差额里既有 skew,也有盯市那一半,
+ *  不是单纯的「RV<IV」,也不是「只换了扩散 σ」。 */
+export type MarketVolCheck = {
+  /** 发布口径的 σ:max(0.7·RV + 0.3·IV, 0.6·IV) */
+  simSigma: number
+  /** 卖出腿的权重平均 IV —— 在短腿行权价上取,所以带着 skew,不是 ATM */
+  marketSigma: number
+  pop: number
+  ev: number
 }
 
 // ============ Live ============
+
+/** 见 server/src/engine/managedExit.ts 的 ExitPolicy。
+ *  'user' 是本账户实际执行的规则:止盈 75% 信用、不止损、持有到期。 */
+export type ExitPolicy = 'user' | 'managed' | 'runner'
 
 export type View = 'bullish' | 'bearish' | 'neutral' | 'neutral-vol'
 export type VolExpect = 'low' | 'mid' | 'high'
@@ -103,7 +123,7 @@ export type LiveEngineInput = {
   /** Replay the scanner's frozen tuner variant so the detail re-run reproduces
    *  the card's structure (e.g. { iron_condor: 'sd0.24' }). */
   variants?: Partial<Record<StrategyType, string>>
-  exitPolicies?: Partial<Record<StrategyType, 'managed' | 'runner'>>
+  exitPolicies?: Partial<Record<StrategyType, ExitPolicy>>
   /** Set when navigating from a dashboard opp card — server uses SCAN_SIMULATIONS. */
   replay?: boolean
 }
@@ -200,7 +220,8 @@ export type OppLeg = {
 export type OppManagement = {
   /** null = runner arm (no take-profit, ride to expiry). */
   profitTarget: number | null
-  stopLoss: number
+  /** null = 'user' 政策在定风险结构上不设止损(亏损已由结构封顶)。 */
+  stopLoss: number | null
   /** null = runner arm (no early roll). */
   rollDte: number | null
   note: string
@@ -243,17 +264,30 @@ export type Opp = {
     | 'vol_not_rich'
     | 'reward_too_thin'
     | 'vol_signal_missing'
-  /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它就是机械盈亏平衡胜率。
-   *  无界盈亏(裸卖/借方)为 null。 */
+    | 'negative_at_market_vol'
+    | 'illiquid'
+  /** 收/宽 = maxProfit/(maxProfit+maxLoss)。1 − 它是「赢了拿满信用」的胜率门槛;
+   *  实际门槛看 requiredWinRate。无界盈亏(裸卖/借方)为 null。 */
   creditWidth?: number | null
+  /** 按本单退出规则的盈亏平衡胜率:赢 = min(止盈, 最大盈利),输 = min(止损, 最大亏损)。
+   *  'user'(止盈 75%、不止损)下 = (1−r)/(1−0.25r)。借方/无界为 null。 */
+  requiredWinRate?: number | null
+  /** 往返价差 Σ(ask−bid) ÷ |净权利金|,以及最薄一腿的 OI。 */
+  liquidity?: { roundTripSpreadPct: number; minOpenInterest: number } | null
+  /** 同一结构、同一退出政策,改用「市场为卖出腿定价的 IV」重跑的 POP/EV。
+   *  发布的 pop/ev 押的是「已实现会低于隐含」:路径按 simSigma =
+   *  max(0.7·RV + 0.3·IV, 0.6·IV) 扩散,盯市也一路衰减到那里。这一栏把两处
+   *  一起撤掉重算。借方结构、两 sigma 差距过小时为 null。 */
+  marketVolCheck?: MarketVolCheck | null
   /** 每条短腿离最近关键位的距离(定行权位用) */
   shortLevels?: ShortLevel[]
   /** 标的处于强单边趋势 — 铁鹰易被碾(警示) */
   strongTrend?: boolean
   /** 扫描器选定的 tuner 变体(如 "sd0.24");详情页据此复现同一结构 */
   variant?: string | null
-  /** 扫描该机会时的退出策略('managed' | 'runner')*/
-  exitPolicy?: 'managed' | 'runner' | null
+  /** 扫描该机会时的退出策略。'user' = 本账户实际执行的规则(止盈 75% 信用、
+   *  不止损、持有到期),是默认;'managed'/'runner' 出现在旧快照和铁鹰 A/B 上。 */
+  exitPolicy?: ExitPolicy | null
 }
 
 export type ShortLevel = {
@@ -261,11 +295,16 @@ export type ShortLevel = {
   type: 'call' | 'put'
   /** 防守方向由腿决定:短 put 靠下方支撑,短 call 靠上方阻力 */
   side: 'support' | 'resistance'
-  /** 最近的「防守位」;该侧没有关键位时为 null */
+  /** 防守侧最近的关键位;该侧没有关键位时为 null */
   level: number | null
-  /** 短腿到防守位的带符号 %(put ≤0 / call ≥0) */
+  /** 短腿到该位的带符号 %(put ≤0 / call ≥0) */
   distPct: number | null
   touches: number | null
+  /** 本结构在这条腿方向上的盈亏平衡(短 put 取最低、短 call 取最高) */
+  breakeven?: number | null
+  /** 该位是否落在「行权价 → 盈亏平衡」之间。只有落在里面,价格在那里止住
+   *  才还是盈利的,才算这笔交易的加分项;落在盈亏平衡之外只限损、不护本。 */
+  defends?: boolean
   /** 短腿正压在一个被反复测试的关键位上(争夺/被钉风险,不分方向) */
   tested: boolean
   /** 触发 tested 的那个位 — 可能在非防守侧 */
