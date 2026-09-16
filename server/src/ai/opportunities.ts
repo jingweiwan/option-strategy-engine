@@ -12,7 +12,7 @@
 import { chatJson, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
 import type { ScannedOpp, ShortLevel, BoardTierReason } from '../engine/oppScanner.js'
-import { managedThresholds, type ExitPolicy } from '../engine/managedExit.js'
+import { managedThresholds, DEFAULT_EXIT_POLICY, type ExitPolicy } from '../engine/managedExit.js'
 import type { StrategyType } from '../engine/types.js'
 
 // ---------- Types ----------
@@ -169,7 +169,7 @@ function buildManagement(
   exitPolicy?: ExitPolicy | null,
   maxLoss?: number | null
 ): OppManagement {
-  const policy: ExitPolicy = exitPolicy ?? 'user'
+  const policy: ExitPolicy = exitPolicy ?? DEFAULT_EXIT_POLICY
   const amt = Math.abs(netPremium)
   if (CREDIT_IDS.has(strategyId)) {
     const { takeProfit, stop } = managedThresholds(

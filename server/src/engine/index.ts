@@ -1,6 +1,6 @@
 import { simulatePaths } from './simulator.js'
 import { evaluateStrategyManaged } from './scorer.js'
-import { managedHoldDays, type ExitPolicy } from './managedExit.js'
+import { managedHoldDays, DEFAULT_EXIT_POLICY, type ExitPolicy } from './managedExit.js'
 import { scaleByViewSkill, viewWeight } from '../feedback/viewSkill.js'
 import { netPremium, netGreeks, totalPnL } from './payoff.js'
 import {
@@ -385,7 +385,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
   // 'managed' (TP 50% / stop 2×) through 2026-08-31, which made every credit
   // structure's mechanical breakeven win rate 80% regardless of credit size and
   // handed the board a +EV verdict that came from a stop the user never places.
-  const policyFor = (strategy: StrategyType): ExitPolicy => input.exitPolicies?.[strategy] ?? 'user'
+  const policyFor = (strategy: StrategyType): ExitPolicy => input.exitPolicies?.[strategy] ?? DEFAULT_EXIT_POLICY
   const managedHorizon = (strategy: StrategyType): number =>
     managedHoldDays(strategy, dte, policyFor(strategy))
   const maxHorizon = Math.max(...STRATEGY_SPECS.map((s) => managedHorizon(s.type)))

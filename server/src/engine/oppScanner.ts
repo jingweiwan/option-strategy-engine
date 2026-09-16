@@ -15,7 +15,7 @@
  */
 
 import { runEngineLive, scoreStrategy, deriveRegime, DIRECTIONAL_DEBIT_SPREADS, type Regime, type View } from './index.js'
-import { requiredWinRate, type ExitPolicy } from './managedExit.js'
+import { requiredWinRate, DEFAULT_EXIT_POLICY, type ExitPolicy } from './managedExit.js'
 import { viewWeight, scaleByViewSkill, loadViewSkill, type ViewSkillTable } from '../feedback/viewSkill.js'
 import type { MarketVolCheck, OptionLeg, StrategyResult } from './types.js'
 import type { StrategyType } from './types.js'
@@ -1139,6 +1139,16 @@ async function scanSymbol(
       // scores the condor UNDER the chosen policy (display = learning).
       const icPolicy = pickExitPolicy(sym)
       const exitPolicyBy: Partial<Record<StrategyType, ExitPolicy>> = { iron_condor: icPolicy }
+      /**
+       * What every stamped row must carry. `exitPolicyBy` only overrides the
+       * condor (its A/B arm); everything else runs the engine's default, and
+       * `policyFor` inside the engine resolves the SAME `?? DEFAULT_EXIT_POLICY`.
+       * Stamping `null` instead — as this did until 2026-09-16 — left the
+       * settler to fall back to LEGACY_EXIT_POLICY ('managed'), so a bull put
+       * scored, displayed and sized under TP 75%/no-stop was learned from under
+       * TP 50%/stop 2×/21 DTE. Resolve it once, here, for card and stamp alike.
+       */
+      const policyOf = (st: StrategyType): ExitPolicy => exitPolicyBy[st] ?? DEFAULT_EXIT_POLICY
 
       // Tuner arm selection for the BOARD: evaluate every arm on this chain and
       // keep the BEST-scoring one per tuned strategy. A random Thompson sample
@@ -1300,7 +1310,7 @@ async function scanSymbol(
           maxProfit,
           maxLoss,
           creditWidth: creditWidthOf(r),
-          requiredWinRate: requiredWinRate(r.netPremium, maxProfit, maxLoss, exitPolicyBy[r.strategy] ?? 'user'),
+          requiredWinRate: requiredWinRate(r.netPremium, maxProfit, maxLoss, policyOf(r.strategy)),
           liquidity,
           marketVolCheck: r.marketVolCheck ?? null,
           netPremium: r.netPremium,
@@ -1316,7 +1326,7 @@ async function scanSymbol(
           aiViewConfidence: viewConfidence,
           aiViewReason: viewReason,
           variant: variantBy[r.strategy] ?? null,
-          exitPolicy: exitPolicyBy[r.strategy] ?? null,
+          exitPolicy: policyOf(r.strategy),
           spansEarnings,
           boardTier,
           boardTierReason,
@@ -1425,7 +1435,7 @@ async function scanSymbol(
                 breakevens: [...r.metrics.breakevens],
                 legs: toScannedLegs(r.legs),
                 variant: pinnedVariant[st],
-                exitPolicy: exitPolicyBy[st] ?? null
+                exitPolicy: policyOf(st)
               })
             }
           } catch (err) {
@@ -1464,7 +1474,7 @@ export async function getScannedOpps(
   // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
   // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
   // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
-  const key = `opp-scan-v19-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v20-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit

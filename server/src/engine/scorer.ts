@@ -1,5 +1,5 @@
 import { totalPnL, findBreakevens, theoreticalExtremes, netPremium } from './payoff.js'
-import { runManagedExit, type MarkContext, type ExitPolicy } from './managedExit.js'
+import { runManagedExit, DEFAULT_EXIT_POLICY, type MarkContext, type ExitPolicy } from './managedExit.js'
 import type { OptionLeg, RiskMetrics } from './types.js'
 
 export function evaluateStrategy(
@@ -82,7 +82,7 @@ export function evaluateStrategyManaged(
   pricePaths: number[][],
   legs: OptionLeg[],
   mark: MarkContext,
-  policy: ExitPolicy = 'user'
+  policy: ExitPolicy = DEFAULT_EXIT_POLICY
 ): RiskMetrics {
   const n = pricePaths.length
   if (n === 0) {

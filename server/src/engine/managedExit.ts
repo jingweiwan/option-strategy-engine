@@ -75,6 +75,17 @@ const STOP_GAP_SLIP = Number(process.env.STOP_GAP_SLIP ?? '0.35')
 export type ExitPolicy = 'user' | 'managed' | 'runner'
 
 /**
+ * The policy a scan uses when nothing overrides it — and therefore the policy
+ * every card's numbers are computed under. ONE constant drives all three halves
+ * of the contract: the engine scores with it, the card copy quotes it, and the
+ * snapshot is STAMPED with it so the realized outcome is settled by the same
+ * ruler. Leaving any of those to its own `?? 'user'` is how a stamp goes null
+ * and the settler silently falls back to the legacy rule — scoring the trade
+ * under one exit and learning from another.
+ */
+export const DEFAULT_EXIT_POLICY: ExitPolicy = 'user'
+
+/**
  * Fraction of the collected credit taken as profit under 'user'. The account's
  * written rule is a 70-85% band; 0.75 is its midpoint. Raising it holds for more
  * of the credit and loses more often — the trade-off this policy exists to make
@@ -116,7 +127,7 @@ function closeAtDte(strategy: StrategyType, policy: ExitPolicy): number {
  * expiry). Take-profit / stop still exit earlier within this span; only if
  * neither triggers is the position marked at the close-out point.
  */
-export function managedHoldDays(strategy: StrategyType, dte: number, policy: ExitPolicy = 'user'): number {
+export function managedHoldDays(strategy: StrategyType, dte: number, policy: ExitPolicy = DEFAULT_EXIT_POLICY): number {
   const target = closeAtDte(strategy, policy)
   return dte > target ? dte - target : Math.max(1, dte)
 }
@@ -162,7 +173,7 @@ export type MarkContext = {
 
 export function managedThresholds(
   netPremium: number,
-  policy: ExitPolicy = 'user',
+  policy: ExitPolicy = DEFAULT_EXIT_POLICY,
   /** Theoretical max loss as a POSITIVE magnitude; Infinity when unbounded.
    *  Only 'user' reads it — that policy's "no stop" is only well-defined for a
    *  structure whose loss is bounded. Omitted → treated as unbounded. */
@@ -203,7 +214,7 @@ export function requiredWinRate(
   netPremium: number,
   maxProfit: number | null,
   maxLoss: number | null,
-  policy: ExitPolicy = 'user'
+  policy: ExitPolicy = DEFAULT_EXIT_POLICY
 ): number | null {
   if (!(netPremium > 0) || maxProfit == null || maxLoss == null) return null
   const mp = Math.abs(maxProfit)
@@ -263,7 +274,7 @@ export function runManagedExit(
   pricePath: number[],
   netPremium: number,
   ctx: MarkContext,
-  policy: ExitPolicy = 'user'
+  policy: ExitPolicy = DEFAULT_EXIT_POLICY
 ): ManagedExit {
   // 'user' needs to know whether the loss is bounded before it can say "no stop".
   const { takeProfit, stop } = managedThresholds(

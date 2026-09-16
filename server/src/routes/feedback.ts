@@ -15,7 +15,7 @@ import {
   DEFAULT_CONDOR_PUT_DELTA
 } from '../feedback/tuner.js'
 import { outcomePnl } from '../feedback/calibration.js'
-import { isCurrentRegime, SETTLEMENT_VERSION } from '../feedback/settlementVersion.js'
+import { isCurrentRegime, SETTLEMENT_VERSION, exitPolicyOf } from '../feedback/settlementVersion.js'
 
 // ---------- Performance aggregation ----------
 
@@ -214,8 +214,9 @@ export async function feedbackRoutes(app: FastifyInstance) {
         a.variant.localeCompare(b.variant)
       )
 
-    // Condor exit A/B scoreboard: realized P&L per exit-policy arm. Pre-
-    // experiment snapshots (exitPolicy absent) count as 'managed'.
+    // Condor exit A/B scoreboard: realized P&L per exit-policy arm. Unstamped
+    // snapshots are bucketed by the rule their own card claimed (exitPolicyOf),
+    // the same resolver that settles them — not a blanket 'managed'.
     const exitPolicyStats = (() => {
       const acc: Record<string, { n: number; totalPnl: number; wins: number }> = {}
       for (const s of all) {
@@ -225,7 +226,7 @@ export async function feedbackRoutes(app: FastifyInstance) {
         if (s.source === 'shadow') continue
         const pnl = outcomePnl(s.outcome)
         if (pnl == null) continue
-        const k = s.exitPolicy ?? 'managed'
+        const k = exitPolicyOf(s)
         const a = acc[k] ?? (acc[k] = { n: 0, totalPnl: 0, wins: 0 })
         a.n++
         a.totalPnl += pnl
