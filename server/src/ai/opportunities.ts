@@ -365,7 +365,9 @@ export async function buildOppsFromScan(
   // the SOLD legs' IV, key levels gained `side`, POP/EV mark per-leg.
   // v15: negative_at_market_vol + illiquid (round-trip spread) demotions;
   // requiredWinRate/liquidity. (v14 briefly also gated on leg OI — dropped.)
-  const key = `opps-copy-v15-${etCalendarDay()}-${symKey}`
+  // v16: ShortLevel gained breakeven/defends — a level past the breakeven is
+  // no longer presented as a cushion.
+  const key = `opps-copy-v16-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<Opp[]>(key, 12 * HOUR)
   if (hit != null) return hit

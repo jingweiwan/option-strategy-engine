@@ -295,11 +295,16 @@ export type ShortLevel = {
   type: 'call' | 'put'
   /** 防守方向由腿决定:短 put 靠下方支撑,短 call 靠上方阻力 */
   side: 'support' | 'resistance'
-  /** 最近的「防守位」;该侧没有关键位时为 null */
+  /** 防守侧最近的关键位;该侧没有关键位时为 null */
   level: number | null
-  /** 短腿到防守位的带符号 %(put ≤0 / call ≥0) */
+  /** 短腿到该位的带符号 %(put ≤0 / call ≥0) */
   distPct: number | null
   touches: number | null
+  /** 本结构在这条腿方向上的盈亏平衡(短 put 取最低、短 call 取最高) */
+  breakeven?: number | null
+  /** 该位是否落在「行权价 → 盈亏平衡」之间。只有落在里面,价格在那里止住
+   *  才还是盈利的,才算这笔交易的加分项;落在盈亏平衡之外只限损、不护本。 */
+  defends?: boolean
   /** 短腿正压在一个被反复测试的关键位上(争夺/被钉风险,不分方向) */
   tested: boolean
   /** 触发 tested 的那个位 — 可能在非防守侧 */

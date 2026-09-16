@@ -815,6 +815,10 @@ watch(data, (v) => {
                       {{ sl.distPct! > 0 ? '+' : '' }}{{ sl.distPct }}%
                     </span>
                     <span class="dim">· {{ sl.touches }}次</span>
+                    <span v-if="sl.defends" class="keylevel-ok">✓ 在盈亏平衡内·护本</span>
+                    <span v-else-if="sl.breakeven != null" class="keylevel-warn">
+                      ⚠ 在盈亏平衡 ${{ sl.breakeven.toFixed(2) }} 之外·只限损不护本
+                    </span>
                   </template>
                   <span v-else class="dim">→ {{ sl.side === 'resistance' ? '上方无阻力位' : '下方无支撑位' }}</span>
                   <span v-if="sl.tested" class="keylevel-warn">
@@ -1613,6 +1617,9 @@ watch(data, (v) => {
 .keylevel-row b { color: var(--ink); font-weight: 600; }
 .keylevel-row.tested { color: var(--loss, #e53935); }
 .keylevel-warn { color: var(--loss, #e53935); font-size: 10.5px; }
+/* 只有落在「行权价 → 盈亏平衡」之间的位才是真防守位,做成正色;
+   其余保持灰/红,免得又被读成安全垫 */
+.keylevel-ok { color: var(--gain, #2e7d32); font-size: 10.5px; }
 .level-item b.loss-text {
   color: var(--loss, #e53935);
 }

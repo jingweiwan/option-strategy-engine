@@ -49,6 +49,76 @@ test('shortLegLevels: short strike on a well-tested level is flagged tested', ()
   assert.equal(put.tested, true)
 })
 
+/**
+ * Regression — the 2026-09-16 META 720/735C card. Resistance 729.33 (3 touches)
+ * sat 1.3% above the short call and was shown next to breakeven 723.21 as if it
+ * were a cushion. Price turning at 729.33 leaves that trade −$612 at expiry: the
+ * level is 6 points PAST the point where the position stops making money.
+ * A level only protects the profit inside the strike→breakeven band.
+ */
+test('shortLegLevels: a level beyond the breakeven is reported but does NOT defend', () => {
+  const keyLevels = [{ price: 729.33, touches: 3 }]
+  const legs = [{ type: 'call' as const, action: 'sell' as const, strike: 720, premium: 13.03, quantity: 1 }]
+  const [sl] = shortLegLevels(legs, keyLevels, [723.21])
+  assert.equal(sl.level, 729.33, 'still shown — it caps the damage')
+  assert.equal(sl.breakeven, 723.21)
+  assert.equal(sl.defends, false, 'past the breakeven → not a plus')
+})
+
+test('shortLegLevels: a level inside the strike→breakeven band defends', () => {
+  const legs = [{ type: 'call' as const, action: 'sell' as const, strike: 720, premium: 13.03, quantity: 1 }]
+  const [sl] = shortLegLevels(legs, [{ price: 722, touches: 4 }], [723.21])
+  assert.equal(sl.defends, true)
+  assert.equal(sl.level, 722)
+})
+
+test('shortLegLevels: the nearer PROFIT-protecting level wins over a nearer one past the breakeven', () => {
+  // 724 (past the breakeven) is the better-tested level and 723 the weaker one;
+  // proximity to the strike decides only among levels that still protect profit.
+  const legs = [{ type: 'call' as const, action: 'sell' as const, strike: 720, premium: 13.03, quantity: 1 }]
+  const levels = [{ price: 724, touches: 5 }, { price: 723, touches: 2 }]
+  const [sl] = shortLegLevels(legs, levels, [723.21])
+  assert.equal(sl.level, 723, 'takes the one that still protects the profit')
+  assert.equal(sl.defends, true)
+})
+
+test('shortLegLevels: puts measure against the LOWEST breakeven, calls the highest', () => {
+  // Condor: put 276 (credit → breakeven 274), call 321 (breakeven 323).
+  const keyLevels = [
+    { price: 262, touches: 4 },   // below the put breakeven → limits loss only
+    { price: 275, touches: 3 },   // inside 274…276 → real defence
+    { price: 322, touches: 3 },   // inside 321…323 → real defence
+    { price: 330, touches: 5 }    // past the call breakeven
+  ]
+  const legs = [
+    { type: 'put' as const, action: 'sell' as const, strike: 276, premium: 2, quantity: 1 },
+    { type: 'call' as const, action: 'sell' as const, strike: 321, premium: 2, quantity: 1 }
+  ]
+  const sl = shortLegLevels(legs, keyLevels, [274, 323])
+  const put = sl.find((x) => x.type === 'put')!
+  assert.equal(put.breakeven, 274)
+  assert.equal(put.level, 275)
+  assert.equal(put.defends, true)
+  const call = sl.find((x) => x.type === 'call')!
+  assert.equal(call.breakeven, 323)
+  assert.equal(call.level, 322)
+  assert.equal(call.defends, true)
+})
+
+test('shortLegLevels: a put support under the breakeven limits loss but does not defend', () => {
+  const legs = [{ type: 'put' as const, action: 'sell' as const, strike: 276, premium: 2, quantity: 1 }]
+  const [sl] = shortLegLevels(legs, [{ price: 262, touches: 4 }], [274])
+  assert.equal(sl.level, 262)
+  assert.equal(sl.defends, false)
+})
+
+test('shortLegLevels: no breakevens passed → falls back to the strike-side test', () => {
+  const legs = [{ type: 'call' as const, action: 'sell' as const, strike: 720, premium: 13.03, quantity: 1 }]
+  const [sl] = shortLegLevels(legs, [{ price: 729.33, touches: 3 }])
+  assert.equal(sl.breakeven, null)
+  assert.equal(sl.defends, true, 'old behaviour preserved when the caller knows no breakeven')
+})
+
 test('shortLegLevels: far-from-level short is not flagged; no levels → empty', () => {
   const keyLevels = [{ price: 90, touches: 5 }, { price: 110, touches: 5 }]
   const far = shortLegLevels([{ type: 'call', action: 'sell', strike: 100, premium: 1, quantity: 1 }], keyLevels)

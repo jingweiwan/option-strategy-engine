@@ -149,12 +149,26 @@ export type ShortLevel = {
   /** Which side of the strike a defending level must sit on. Derived from the
    *  leg, not from where the nearest level happens to be. */
   side: 'support' | 'resistance'
-  /** Nearest DEFENDING level, or null when history has none on that side. */
+  /** Nearest level on the defending side of the strike, or null when history
+   *  has none there. Present regardless of `defends` — a level beyond the
+   *  breakeven still caps the damage, it just doesn't protect the profit. */
   level: number | null
-  /** Signed % from strike to the defending level (≤0 puts, ≥0 calls). */
+  /** Signed % from strike to that level (≤0 puts, ≥0 calls). */
   distPct: number | null
-  /** How many swing pivots formed the defending level (significance). */
+  /** How many swing pivots formed the level (significance). */
   touches: number | null
+  /** This structure's breakeven on this leg's side (put → lowest, call →
+   *  highest). Null when the caller passed no breakevens. */
+  breakeven: number | null
+  /**
+   * Does the level actually protect the PROFIT? Only when it sits between the
+   * short strike and the breakeven — i.e. price turning there leaves the
+   * position in the money. A level past the breakeven limits the loss but the
+   * trade is already negative by the time price reaches it, so it is NOT a
+   * point in the setup's favour. Falls back to the old strike-side test when
+   * no breakevens were supplied.
+   */
+  defends: boolean
   /** Short strike sits ON a well-tested level, EITHER side (contested/pin risk). */
   tested: boolean
   /** The level that tripped `tested` — may be on the non-defending side. */
@@ -184,20 +198,51 @@ const LEVEL_TESTED_TOUCHES = 3 // a level this well-tested near a short strike �
  * `tested` asks a different question — is the strike PINNED on a battleground?
  * — so it still scans both directions: a well-tested level just the wrong side
  * of the strike still contests it.
+ *
+ * DEFENDING IS MEASURED AGAINST THE BREAKEVEN, NOT THE STRIKE. The 2026-09-16
+ * META 720/735C card put resistance 729.33 next to breakeven 723.21 and read as
+ * if the level were a cushion: price turning at 729.33 leaves that trade −$612
+ * at expiry, 6 points past the point where it stops making money. A level only
+ * protects the PROFIT inside the strike→breakeven band (the credit itself).
+ * Outside it the level still caps the damage — reported, but never as a plus.
  */
-export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): ShortLevel[] {
+export function shortLegLevels(
+  legs: ScannedLeg[],
+  keyLevels: KeyLevel[],
+  /** The structure's breakevens (metrics.breakevens). Omitted → `defends`
+   *  degrades to the old strike-side test rather than silently reading false. */
+  breakevens: readonly number[] = []
+): ShortLevel[] {
   if (keyLevels.length === 0) return []
+  const finiteBes = breakevens.filter((b) => Number.isFinite(b))
   const out: ShortLevel[] = []
   for (const l of legs) {
     if (l.action !== 'sell') continue
     const side: 'support' | 'resistance' = l.type === 'put' ? 'support' : 'resistance'
+    // A put is hurt by price FALLING, so its breakeven is the lowest one; a
+    // call by price RISING, so the highest. A condor has one of each.
+    const be = finiteBes.length === 0
+      ? null
+      : side === 'support' ? Math.min(...finiteBes) : Math.max(...finiteBes)
+    const protectsProfit = (price: number): boolean =>
+      be == null ? true : side === 'support' ? price >= be : price <= be
 
+    // Prefer the nearest level that protects the profit; fall back to the
+    // nearest one on the defending side of the strike so the card can still
+    // show where the move would stall (marked `defends: false`).
     let def: KeyLevel | null = null
+    let fallback: KeyLevel | null = null
     for (const kl of keyLevels) {
-      const defends = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
-      if (!defends) continue
-      if (!def || Math.abs(kl.price - l.strike) < Math.abs(def.price - l.strike)) def = kl
+      const rightSide = side === 'support' ? kl.price <= l.strike : kl.price >= l.strike
+      if (!rightSide) continue
+      const nearer = (a: KeyLevel | null) =>
+        !a || Math.abs(kl.price - l.strike) < Math.abs(a.price - l.strike)
+      if (protectsProfit(kl.price)) {
+        if (nearer(def)) def = kl
+      } else if (nearer(fallback)) fallback = kl
     }
+    const defends = def != null
+    const chosen = def ?? fallback
 
     let near = keyLevels[0]
     for (const kl of keyLevels) {
@@ -210,9 +255,11 @@ export function shortLegLevels(legs: ScannedLeg[], keyLevels: KeyLevel[]): Short
       strike: l.strike,
       type: l.type,
       side,
-      level: def ? def.price : null,
-      distPct: def ? Math.round(((def.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
-      touches: def ? def.touches : null,
+      level: chosen ? chosen.price : null,
+      distPct: chosen ? Math.round(((chosen.price - l.strike) / l.strike) * 100 * 10) / 10 : null,
+      touches: chosen ? chosen.touches : null,
+      breakeven: be,
+      defends,
       tested,
       ...(tested ? { contestedLevel: near.price } : {})
     })
@@ -1273,7 +1320,7 @@ async function scanSymbol(
           spansEarnings,
           boardTier,
           boardTierReason,
-          shortLevels: shortLegLevels(legs, keyLevels),
+          shortLevels: shortLegLevels(legs, keyLevels, r.metrics.breakevens),
           strongTrend
         }
       }
@@ -1417,7 +1464,7 @@ export async function getScannedOpps(
   // v15: skew-aware pass — boardTier now gates on the SOLD legs' IV (ivSold),
   // ShortLevel gained `side` + nullable `level`, and POP/EV are marked per-leg.
   // A v14 hit would re-serve stale tiers, side-less key levels and phantom EV.
-  const key = `opp-scan-v18-${etCalendarDay()}-${wlSlug}`
+  const key = `opp-scan-v19-${etCalendarDay()}-${wlSlug}`
 
   const hit = await getCachedIfValid<ScannedOpp[]>(key, 12 * HOUR)
   if (hit != null) return hit
