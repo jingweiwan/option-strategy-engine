@@ -5,16 +5,41 @@ import { deriveSimSigma } from '../engine/index.js'
 import type { RecommendationOutcome, RecommendationSnapshot } from './types.js'
 import { storedLegsToOptionLegs } from './legAdapter.js'
 import { SETTLEMENT_VERSION, exitPolicyOf } from './settlementVersion.js'
+import {
+  addCalendarDays,
+  calendarDaysBetween,
+  currentTime,
+  lastSettledEtDay,
+  lastWeekdayOnOrBefore
+} from '../api/marketSession.js'
 
-function addCalendarDays(isoDate: string, days: number): string {
-  const [y, m, d] = isoDate.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d))
-  dt.setUTCDate(dt.getUTCDate() + days)
-  return dt.toISOString().slice(0, 10)
+/**
+ * The price data for this window is not complete YET — retry on a later run.
+ * Distinct from a settlement that ran and could not price anything: that one
+ * is persisted; this one must not be, because a current-regime outcome is never
+ * recomputed, so persisting a window without its final close freezes the wrong
+ * number into the learning record until the next SETTLEMENT_VERSION bump.
+ */
+export class SettlementNotReadyError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SettlementNotReadyError'
+  }
 }
 
-function todayUtcDate(): string {
-  return new Date().toISOString().slice(0, 10)
+/**
+ * Days a missing tail bar is attributed to "not printed yet" before it is
+ * accepted as a market holiday (or a genuinely empty history). Long enough to
+ * outlast a provider lag plus a weekend; short enough that a window ending on
+ * Good Friday settles the following week.
+ */
+export const TAIL_PUBLISH_GRACE_DAYS = 4
+
+/** Does the window's newest bar reach its last weekday — or has the grace
+ *  period for it to appear run out? */
+export function tailPublished(lastBarDate: string | null, capEnd: string, now: Date = currentTime()): boolean {
+  if (lastBarDate != null && lastBarDate >= lastWeekdayOnOrBefore(capEnd)) return true
+  return calendarDaysBetween(capEnd, lastSettledEtDay(now)) >= TAIL_PUBLISH_GRACE_DAYS
 }
 
 /** Calendar days from isoA to isoB (B − A). */
@@ -80,18 +105,27 @@ export async function computeOutcomeForSnapshot(
   const { horizonDays } = opts
   const stopFrac = opts.stopLossFraction ?? 0.5
   const windowEnd = addCalendarDays(s.etDay, horizonDays)
-  const capEnd = todayUtcDate() < windowEnd ? todayUtcDate() : windowEnd
+  // Only sessions that have CLOSED — never "today by UTC" (see marketSession.ts).
+  const settled = lastSettledEtDay()
+  const capEnd = settled < windowEnd ? settled : windowEnd
   const legs = storedLegsToOptionLegs(s.legs)
 
-  let note = ''
   let bars: DailyBar[] = []
   try {
     bars = await getDailyBars(s.sym, s.etDay, capEnd)
   } catch (e) {
-    note = `bars fetch failed: ${(e as Error).message}`
+    // A fetch failure is transient (429s, proxy). Persisting it stamped 876
+    // outcomes "bars fetch failed" with null P&L that nothing ever retried.
+    throw new SettlementNotReadyError(`bars fetch failed: ${(e as Error).message}`)
   }
 
   const win = barsInWindow(bars, s.etDay, capEnd)
+  const lastBarDate = win.length > 0 ? win[win.length - 1].date : null
+  if (!tailPublished(lastBarDate, capEnd)) {
+    throw new SettlementNotReadyError(
+      `${s.sym}: newest bar ${lastBarDate ?? 'none'} stops short of ${lastWeekdayOnOrBefore(capEnd)}`
+    )
+  }
   const closes = win.map((b) => b.close)
   const rv = annualizedRvFromCloses(closes)
 
@@ -197,6 +231,5 @@ export async function computeOutcomeForSnapshot(
     managedPnl,
     managedExitDay,
     managedExitReason,
-    note: note || undefined
   }
 }

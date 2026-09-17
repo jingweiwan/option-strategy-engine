@@ -20,6 +20,7 @@
  * being last in every chain, its error masked the real upstream failure.
  */
 
+import { lastSettledEtDay } from './marketSession.js'
 import type { Quote, OptionContract } from './types.js'
 import * as finnhub from './finnhub.js'
 import * as polygon from './polygon.js'
@@ -334,7 +335,11 @@ export type OhlcBar = {
 // slice locally — which also means one fetch per symbol serves every window,
 // instead of one HTTP call per distinct (from,to) pair. That matters when
 // settling hundreds of historical snapshots.
-type OhlcSeries = { from: string; through: string; ts: number; bars: OhlcBar[] }
+// `settledAtFetch`: the last settled ET session when the series was fetched.
+// A series fetched at 10:00 ET claims coverage "through today" (tail tolerance)
+// but cannot contain today's close; without this, a settlement at 17:30 ET hits
+// that 6h-fresh entry and silently loses the final bar.
+type OhlcSeries = { from: string; through: string; settledAtFetch: string; ts: number; bars: OhlcBar[] }
 // How far the last bar may lag the requested anchor before we stop believing
 // the series is complete. Weekends + a holiday + "today's bar isn't printed
 // yet" is at most ~5 calendar days; anything beyond that is the provider
@@ -369,7 +374,13 @@ export async function getDailyOhlc(
   // Anchor the fetch at today (or later, if the caller asked for it) — see the
   // Nasdaq quirk above. Never shrink a start we have already paid to fetch.
   const hit = ohlcSeries.get(sym)
-  const fresh = hit && Date.now() - hit.ts < OHLC_CACHE_TTL
+  const settledNow = lastSettledEtDay()
+  // Stale when a session inside the request has closed since the fetch. Intraday
+  // callers asking "through today" keep hitting the cache: nothing new can exist.
+  const fresh =
+    hit &&
+    Date.now() - hit.ts < OHLC_CACHE_TTL &&
+    !(to > hit.settledAtFetch && settledNow > hit.settledAtFetch)
   if (fresh && hit!.from <= from && hit!.through >= to) {
     return sliceBars(hit!.bars, from, to)
   }
@@ -395,7 +406,7 @@ export async function getDailyOhlc(
       const lastBar = bars[bars.length - 1].date
       const covThrough =
         daysBetween(lastBar, anchor) <= OHLC_TAIL_TOLERANCE_DAYS ? anchor : lastBar
-      ohlcSeries.set(sym, { from: covFrom, through: covThrough, ts: Date.now(), bars })
+      ohlcSeries.set(sym, { from: covFrom, through: covThrough, settledAtFetch: settledNow, ts: Date.now(), bars })
     }
     return sliceBars(bars, from, to)
   } finally {

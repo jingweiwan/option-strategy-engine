@@ -1,8 +1,9 @@
 import type { RecommendationSnapshot } from './types.js'
-import { computeOutcomeForSnapshot, type OutcomeOptions } from './outcome.js'
+import { computeOutcomeForSnapshot, SettlementNotReadyError, type OutcomeOptions } from './outcome.js'
 import { SETTLEMENT_VERSION, isCurrentRegime, exitPolicyOf } from './settlementVersion.js'
 import { assertLoadedHistoryMatchesFile, loadSnapshots, saveSnapshots } from './store.js'
 import { managedHoldDays } from '../engine/managedExit.js'
+import { addCalendarDays, currentTime, lastSettledEtDay } from '../api/marketSession.js'
 
 /** Rule-based hold period (forward days) — matches the live engine, honoring
  *  the snapshot's exit-policy arm (runner condors need bars to expiry). */
@@ -10,20 +11,17 @@ function effectiveHorizon(s: RecommendationSnapshot): number {
   return managedHoldDays(s.strategyId, s.dte, exitPolicyOf(s))
 }
 
-function addCalendarDays(isoDate: string, days: number): string {
-  const [y, m, d] = isoDate.split('-').map(Number)
-  const dt = new Date(Date.UTC(y, m - 1, d))
-  dt.setUTCDate(dt.getUTCDate() + days)
-  return dt.toISOString().slice(0, 10)
-}
-
-function todayUtcDate(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-/** Outcome window ends `horizonDays` calendar days after snapshot ET day. */
-function snapshotPastHorizon(s: RecommendationSnapshot, horizonDays: number): boolean {
-  return todayUtcDate() >= addCalendarDays(s.etDay, horizonDays)
+/**
+ * Outcome window ends `horizonDays` calendar days after snapshot ET day, and is
+ * due once THAT day's session has settled — not once the UTC date reaches it,
+ * which is 20:00 ET the evening before the final close (see marketSession.ts).
+ */
+export function snapshotPastHorizon(
+  s: Pick<RecommendationSnapshot, 'etDay'>,
+  horizonDays: number,
+  now: Date = currentTime()
+): boolean {
+  return lastSettledEtDay(now) >= addCalendarDays(s.etDay, horizonDays)
 }
 
 /**
@@ -70,6 +68,13 @@ export async function hydrateDueSnapshots(
       next.push({ ...s, outcome })
       updated++
     } catch (e) {
+      if (e instanceof SettlementNotReadyError) {
+        // Data not complete yet — leave the row (and any superseded outcome)
+        // as it is; a later run settles it.
+        next.push(s)
+        pendingWithinHorizon++
+        continue
+      }
       next.push({
         ...s,
         outcome: {
