@@ -5,6 +5,7 @@ import { runEngineLive } from '../engine/index.js'
 import { specOverridesFromVariants } from '../feedback/tuner.js'
 import { SCAN_SIMULATIONS, pickExitPolicy } from '../engine/oppScanner.js'
 import { getQuote, getOptionChain, computeIvRank } from '../api/marketdata.js'
+import { chainSpotBasis } from '../api/sessionSpot.js'
 import { fetchEarningsCalendar } from '../api/finnhub.js'
 import { impliedVolFromChain } from '../engine/liveStrategies.js'
 import { getAiStrategyRationales, type RationaleInput } from '../ai/strategyRationale.js'
@@ -76,7 +77,7 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
     }
 
     try {
-      const [quote, chain, earningsDate, calibration] = await Promise.all([
+      const [liveQuote, chain, earningsDate, calibration] = await Promise.all([
         getQuote(symbol),
         getOptionChain(symbol, b.expiration),
         nextEarningsBeforeExpiry(symbol, b.expiration).catch((err) => {
@@ -88,6 +89,11 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
           return null
         })
       ])
+
+      // Outside regular hours the chain is frozen at the close while the quote
+      // follows extended trading; price the chain against its own session.
+      const spotBasis = chainSpotBasis(liveQuote)
+      const quote = { ...liveQuote, last: spotBasis.spot }
 
       if (!quote.last || !Number.isFinite(quote.last)) {
         return reply.code(502).send({ error: `No spot price for ${symbol}` })
@@ -199,6 +205,7 @@ export async function strategiesLiveRoutes(app: FastifyInstance) {
         state: {
           ...result.state,
           ivRank: result.state.ivRank ?? null,
+          spotBasis,
           earningsDate: earningsDate ?? null,
           earningsInWindow: earningsDate != null,
           ivRankSamples: ivRankInfo?.samples ?? null,

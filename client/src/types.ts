@@ -138,6 +138,15 @@ export type LiveMarketState = MarketState & {
   symbol: string
   expiration: string
   regime?: Regime
+  /** Set when the quote had moved in extended hours: `spot` is then the regular
+   *  close the (frozen) chain was quoted against, not the extended-hours last. */
+  spotBasis?: {
+    basis: 'live' | 'regular_close'
+    spot: number
+    extendedLast: number | null
+    extendedGapPct: number | null
+    asOf: string | null
+  }
   /** Next earnings date (YYYY-MM-DD) falling before expiration, if any. */
   earningsDate?: string | null
   /** True when an earnings report lands before expiration (jump risk priced in). */

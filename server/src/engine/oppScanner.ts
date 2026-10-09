@@ -22,6 +22,7 @@ import type { StrategyType } from './types.js'
 import { impliedVolFromChain, soldLegIv, structureLiquidity, type StructureLiquidity } from './liveStrategies.js'
 import { mapSettledLimit } from './concurrency.js'
 import { getQuote, getExpirations, getOptionChain, computeIvRank, getDailyOhlc } from '../api/marketdata.js'
+import { alignQuoteToChain } from '../api/sessionSpot.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from '../ai/cache.js'
 import { watchlistCacheSlug } from '../watchlistDefaults.js'
 import { getDirectionalViews, type SymbolContext } from '../ai/directionalView.js'
@@ -1086,11 +1087,14 @@ async function scanSymbol(
   const { sym, name } = entry
 
   // Use pre-fetched data when available; only fetch what's missing
-  const [quote, exps, ivRankInfo] = await Promise.all([
+  const [liveQuote, exps, ivRankInfo] = await Promise.all([
     prefetchedQuote ?? getQuote(sym),
     getExpirations(sym),
     prefetchedIvr !== undefined ? prefetchedIvr : computeIvRank(sym, 0).catch(() => null)
   ])
+  // The daily scan runs outside regular hours, when the chain is frozen at the
+  // close but the quote follows extended trading — score against the close.
+  const quote = alignQuoteToChain(liveQuote)
 
   if (!quote.last || !Number.isFinite(quote.last)) {
     console.warn(`[oppScanner] no quote for ${sym}`)

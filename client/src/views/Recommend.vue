@@ -226,6 +226,12 @@ function calibChip(c?: number): { txt: string; cls: string } | null {
         <div v-if="state">{{ state.symbol }} · {{ state.expiration }}</div>
         <div v-if="state">IV {{ (state.iv * 100).toFixed(1) }}% · IVR {{ state.ivRank.toFixed(0) }}</div>
         <div v-if="state?.earningsInWindow" class="earn-flag">⚠ 财报 {{ state.earningsDate }} 在到期前 · 已计入跳空风险</div>
+        <template v-if="state?.spotBasis?.basis === 'regular_close'">
+          <div class="earn-flag">⚠ 盘外 · 期权链停在收盘 · 按收盘价 {{ state.spotBasis.spot.toFixed(2) }} 定价</div>
+          <div class="earn-flag">
+            盘外现价 {{ state.spotBasis.extendedLast?.toFixed(2) }}（{{ (state.spotBasis.extendedGapPct ?? 0) >= 0 ? '+' : '' }}{{ (state.spotBasis.extendedGapPct ?? 0).toFixed(2) }}%）· 开盘后数字会变
+          </div>
+        </template>
         <div>5,000 路径 · seed 42</div>
       </div>
     </div>
