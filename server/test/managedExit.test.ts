@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runManagedExit, managedThresholds, markPnL } from '../src/engine/managedExit.js'
+import { runManagedExit, managedThresholds, markPnL, tradingStepsFor } from '../src/engine/managedExit.js'
 import { totalPnL } from '../src/engine/payoff.js'
 import { readFileSync } from 'node:fs'
 import { storedLegsToOptionLegs } from '../src/feedback/legAdapter.js'
@@ -406,4 +406,71 @@ test('managedExit: live and settlement schedules agree at the same window fracti
     settle.pnl < live.pnl,
     `half the window must be less converged than the whole: ${settle.pnl} vs ${live.pnl}`
   )
+})
+
+// --- Calendar days vs trading steps -----------------------------------------
+// Hold windows (and DTE) are CALENDAR days; a simulated path advances one
+// TRADING day per step. Walking the calendar count as steps ran every
+// hold-to-expiry card ~45% past its own expiry, at intrinsic, with the
+// take-profit still armed. Measured on a real 42-DTE QQQ 778/794 call spread:
+// card POP 85.9% that way, 80.2% when the walk stops at expiry — against a
+// breakeven win rate of 80.4%.
+test('tradingStepsFor: calendar days convert at 252/365, never below one step', () => {
+  assert.equal(tradingStepsFor(42), 29)
+  assert.equal(tradingStepsFor(30), 21)
+  assert.equal(tradingStepsFor(7), 5)
+  assert.equal(tradingStepsFor(1), 1)
+  assert.equal(tradingStepsFor(0), 1)
+  for (let dte = 1; dte <= 120; dte++) {
+    const steps = tradingStepsFor(dte)
+    // The last walked step sits AT expiry: less than one trading day of time
+    // value either side, never weeks beyond it.
+    const tauLast = dte / 365 - steps / 252
+    assert.ok(Math.abs(tauLast) < 1 / 252, `dte ${dte}: last step is ${tauLast * 252} trading days from expiry`)
+    // An earnings date anywhere inside the calendar window lands inside the walk.
+    for (let dE = 1; dE <= dte; dE++) {
+      assert.ok(tradingStepsFor(dE) - 1 < steps, `dte ${dte}: earnings at day ${dE} fell off the path`)
+    }
+  }
+})
+
+test('managedExit: walkSteps stops a spread at its expiry — no recovery afterwards', () => {
+  const legs: OptionLeg[] = [
+    { type: 'call', action: 'sell', strike: 100, premium: 3, quantity: 1, greeks: g(0.3) },
+    { type: 'call', action: 'buy', strike: 105, premium: 1, quantity: 1, greeks: g(0.15) }
+  ]
+  const dte = 42
+  const expirySteps = tradingStepsFor(dte) // 29
+  // Deep in the money through expiry, then back below the short strike on the
+  // 13 steps that only exist because 42 calendar days were walked as 42 steps.
+  const path = Array.from({ length: dte }, (_, i) => (i < expirySteps ? 110 : 95))
+  const ctx = {
+    tauAt: (i: number) => Math.max(0, dte / 365 - (i + 1) / 252),
+    r: 0.045, q: 0, sigma: 0.2, maxSteps: dte
+  }
+  const pastExpiry = runManagedExit(legs, path, 2, ctx, 'user')
+  assert.equal(pastExpiry.reason, 'take_profit', 'precondition: the unbounded walk is what books the phantom win')
+  assert.ok(pastExpiry.exitIndex >= expirySteps)
+
+  const atExpiry = runManagedExit(legs, path, 2, { ...ctx, walkSteps: expirySteps }, 'user')
+  assert.equal(atExpiry.reason, 'end_of_window')
+  assert.equal(atExpiry.exitIndex, expirySteps - 1)
+  assert.equal(atExpiry.pnl, totalPnL(legs, 110), 'expired 5 wide in the money: full max loss, at intrinsic')
+  assert.equal(atExpiry.pnl, -3)
+})
+
+test('managedExit: walkSteps bounds the walk only — maxSteps still sets the convergence schedule', () => {
+  const legs = storedLegsToOptionLegs([
+    { type: 'put', action: 'sell', strike: 100, premium: 3, quantity: 1 },
+    { type: 'put', action: 'buy', strike: 95, premium: 1, quantity: 1 }
+  ] as any)
+  const path = Array.from({ length: 30 }, () => 100)
+  const base = {
+    tauAt: (i: number) => Math.max(0, (60 - i) / 365),
+    r: 0.045, q: 0, sigma: 0.5, convergeTo: 0.25, walkSteps: 10
+  }
+  const a = runManagedExit(legs, path, 2, { ...base, maxSteps: 15 }, 'runner')
+  const b = runManagedExit(legs, path, 2, { ...base, maxSteps: 30 }, 'runner')
+  assert.ok(a.exitIndex <= 9 && b.exitIndex <= 9, 'both walks stop inside walkSteps')
+  assert.notEqual(a.pnl, b.pnl, 'the denominator must still be maxSteps, or live and settlement decay vol on different clocks')
 })

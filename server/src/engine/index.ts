@@ -1,6 +1,6 @@
 import { simulatePaths } from './simulator.js'
 import { evaluateStrategyManaged } from './scorer.js'
-import { managedHoldDays, DEFAULT_EXIT_POLICY, type ExitPolicy } from './managedExit.js'
+import { managedHoldDays, tradingStepsFor, DEFAULT_EXIT_POLICY, type ExitPolicy } from './managedExit.js'
 import { scaleByViewSkill, viewWeight } from '../feedback/viewSkill.js'
 import { netPremium, netGreeks, totalPnL } from './payoff.js'
 import {
@@ -378,7 +378,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
   // managed exit usually triggers before the terminal tail matters.)
   const returnSkew = skewFromChain(enrichedChain, input.spot, iv)
 
-  // Strategy-aware management window: how many trading days forward each
+  // Strategy-aware management window: how many calendar days forward each
   // structure is actively managed before marking. Premium sellers resolve on
   // theta within days; long-vol needs room for the move/event.
   // DEFAULT IS 'user' — the rule this account actually follows. It was
@@ -389,6 +389,11 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
   const managedHorizon = (strategy: StrategyType): number =>
     managedHoldDays(strategy, dte, policyFor(strategy))
   const maxHorizon = Math.max(...STRATEGY_SPECS.map((s) => managedHorizon(s.type)))
+  // The horizons above are CALENDAR days; paths step in TRADING days. Everything
+  // that indexes a path (its length, each strategy's walk, the earnings step)
+  // goes through tradingStepsFor so no structure is walked past its own expiry.
+  const walkSteps = (strategy: StrategyType): number => tradingStepsFor(managedHorizon(strategy))
+  const pathSteps = tradingStepsFor(maxHorizon)
 
   // Earnings jump: if an earnings date lands inside the hold window, shock that
   // day. Each strategy walks only its own prefix, so a credit spread that closes
@@ -402,7 +407,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
       (new Date(input.earningsDate + 'T16:00:00-04:00').getTime() - Date.now()) / 86_400_000
     )
     if (dE >= 1 && dE <= maxHorizon) {
-      earningsStep = dE - 1
+      earningsStep = tradingStepsFor(dE) - 1
       earningsJump = marketImpliedJump(iv, simSigma, T)
     }
   }
@@ -425,7 +430,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
     S0: input.spot,
     sigma: simSigma,
     dtYears: 1 / 252,
-    steps: maxHorizon,
+    steps: pathSteps,
     r,
     q,
     simulations: sims,
@@ -457,7 +462,8 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
       // IV decays toward the diffusion vol across the hold — without this the
       // position is marked at entry IV forever and the VRP is never harvested.
       convergeTo: simSigma,
-      maxSteps: managedHorizon(spec.type)
+      maxSteps: managedHorizon(spec.type),
+      walkSteps: walkSteps(spec.type)
     }, policyFor(spec.type))
     results.push({
       strategy: spec.type,
@@ -524,7 +530,7 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
         S0: input.spot,
         sigma: marketSigma,
         dtYears: 1 / 252,
-        steps: maxHorizon,
+        steps: pathSteps,
         r,
         q,
         simulations: sims,
@@ -557,7 +563,8 @@ export function runEngineLive(input: LiveEngineInput): LiveEngineResult {
           ? (i: number) => (i >= earningsStep ? mCrush : iv)
           : undefined,
       convergeTo: marketSigma,
-      maxSteps: managedHorizon(res.strategy)
+      maxSteps: managedHorizon(res.strategy),
+      walkSteps: walkSteps(res.strategy)
     }, policyFor(res.strategy))
     res.marketVolCheck = {
       simSigma,
