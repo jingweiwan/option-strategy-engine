@@ -138,6 +138,15 @@ export type LiveMarketState = MarketState & {
   symbol: string
   expiration: string
   regime?: Regime
+  /** Set when the quote had moved in extended hours: `spot` is then the regular
+   *  close the (frozen) chain was quoted against, not the extended-hours last. */
+  spotBasis?: {
+    basis: 'live' | 'regular_close'
+    spot: number
+    extendedLast: number | null
+    extendedGapPct: number | null
+    asOf: string | null
+  }
   /** Next earnings date (YYYY-MM-DD) falling before expiration, if any. */
   earningsDate?: string | null
   /** True when an earnings report lands before expiration (jump risk priced in). */
@@ -721,6 +730,8 @@ export type TickerResponse = {
 
 export type GroupStats = {
   label: string
+  /** Set on symbol × strategy rows. */
+  strategy?: string
   total: number
   withOutcome: number
   wins: number
@@ -731,6 +742,21 @@ export type GroupStats = {
   avgPop: number | null
   avgEv: number | null
   stopHits: number
+  /** Distinct entry days among priced rows — independent samples. */
+  days: number
+  /** Σ P&L ÷ Σ max loss over bounded priced rows. */
+  returnOnRisk: number | null
+  /** Priced rows with no finite max loss (excluded from returnOnRisk). */
+  unbounded: number
+}
+
+export type PerformanceScope = {
+  bookRows: number
+  shadowRows: number
+  settledFrom: string | null
+  settledTo: string | null
+  settledDays: number
+  rulers: Partial<Record<'user' | 'managed' | 'runner', number>>
 }
 
 export type DailyCurvePoint = {
@@ -788,6 +814,11 @@ export type PerformanceData = {
   strategies: GroupStats[]
   regimes: GroupStats[]
   symbols: GroupStats[]
+  /** What every number on the page measures: recommended book only, which exit
+   *  rule settled it, over which entry days. */
+  scope?: PerformanceScope
+  /** Symbol × strategy — pooled per-symbol totals mix straddles with condors. */
+  symbolStrategies?: GroupStats[]
   dailyCurve: DailyCurvePoint[]
   recent: RecentSnapshot[]
   tunerArms?: TunerArm[]

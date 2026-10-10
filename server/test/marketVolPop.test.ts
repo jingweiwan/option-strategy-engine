@@ -20,7 +20,7 @@ import { runEngineLive, MARKET_VOL_CHECK_MIN_GAP, deriveSimSigma } from '../src/
 import { netPremium } from '../src/engine/payoff.js'
 import { simulatePaths } from '../src/engine/simulator.js'
 import { evaluateStrategyManaged } from '../src/engine/scorer.js'
-import { managedHoldDays, type ExitPolicy } from '../src/engine/managedExit.js'
+import { managedHoldDays, tradingStepsFor, type ExitPolicy } from '../src/engine/managedExit.js'
 import { STRATEGY_SPECS } from '../src/engine/liveStrategies.js'
 import { syntheticChain } from './fixtures.js'
 
@@ -118,7 +118,10 @@ function expectedCheck(
   const simSigma = deriveSimSigma(iv, rv)
   const marketSigma = soldIvOf(legs)
   const policyFor = (st: string): ExitPolicy => policies[st] ?? 'user'
-  const steps = Math.max(...STRATEGY_SPECS.map((sp) => managedHoldDays(sp.type, dteDays, policyFor(sp.type))))
+  // Hold windows are calendar days; paths step in trading days.
+  const steps = tradingStepsFor(
+    Math.max(...STRATEGY_SPECS.map((sp) => managedHoldDays(sp.type, dteDays, policyFor(sp.type))))
+  )
   const paths = simulatePaths({
     S0: spot, sigma: marketSigma, dtYears: 1 / 252, steps, r, q, simulations: sims, seed,
     earningsStep: -1, earningsJump: 0
@@ -128,7 +131,8 @@ function expectedCheck(
     r, q,
     sigma: iv,
     convergeTo: variant.convergeTo === 'sim' ? simSigma : marketSigma,
-    maxSteps: managedHoldDays(strategy, dteDays, policyFor(strategy))
+    maxSteps: managedHoldDays(strategy, dteDays, policyFor(strategy)),
+    walkSteps: tradingStepsFor(managedHoldDays(strategy, dteDays, policyFor(strategy)))
   }, policyFor(strategy))
   return { simSigma, marketSigma, pop: m.probabilityProfit, ev: m.ev }
 }

@@ -121,15 +121,29 @@ function closeAtDte(strategy: StrategyType, policy: ExitPolicy): number {
 }
 
 /**
- * Forward trading days the position is actively held — rule-based, not a fixed
+ * Forward CALENDAR days the position is actively held — rule-based, not a fixed
  * window: hold until the strategy's close-at-DTE (so a 45-DTE credit spread
  * holds ~24 days to 21 DTE; a 30-DTE one holds ~9 days; debit/long hold to
  * expiry). Take-profit / stop still exit earlier within this span; only if
- * neither triggers is the position marked at the close-out point.
+ * neither triggers is the position marked at the close-out point. Convert
+ * with `tradingStepsFor` before using it to index a simulated path.
  */
 export function managedHoldDays(strategy: StrategyType, dte: number, policy: ExitPolicy = DEFAULT_EXIT_POLICY): number {
   const target = closeAtDte(strategy, policy)
   return dte > target ? dte - target : Math.max(1, dte)
+}
+
+/**
+ * Calendar days → simulated daily steps. `managedHoldDays` (like DTE) counts
+ * CALENDAR days; a simulated path advances one TRADING day per step (dt =
+ * 1/252). Walking a 42-calendar-day hold as 42 steps runs ~13 steps past the
+ * option's own expiry — `tauAt` is already 0 there, so those steps mark at
+ * intrinsic and hand a spread that expired in the money two more weeks to
+ * drift back and "take profit". Measured on a 42-DTE QQQ call spread: POP
+ * 85.9% walked that way, 80.2% walked to expiry.
+ */
+export function tradingStepsFor(calendarDays: number): number {
+  return Math.max(1, Math.round((calendarDays * 252) / 365))
 }
 
 export type ManagedExitReason = 'take_profit' | 'stop_loss' | 'end_of_window'
@@ -169,6 +183,15 @@ export type MarkContext = {
   convergeTo?: number
   /** Cap how far into the path to walk (the strategy-aware management window). */
   maxSteps?: number
+  /**
+   * Walk bound in PATH STEPS when it differs from `maxSteps`. Simulated paths
+   * step in trading days while `maxSteps` is a calendar-day count, so the live
+   * engine passes `tradingStepsFor(maxSteps)` here. `maxSteps` stays the
+   * convergence denominator on both sides. Settlement leaves this unset: its
+   * real bars already end with the calendar window, so `min(maxSteps, bars)`
+   * is the right bound there.
+   */
+  walkSteps?: number
 }
 
 export function managedThresholds(
@@ -282,7 +305,8 @@ export function runManagedExit(
     policy,
     policy === 'user' ? Math.abs(theoreticalExtremes(legs).theoMaxLoss) : undefined
   )
-  const end = ctx.maxSteps != null ? Math.min(ctx.maxSteps, pricePath.length) : pricePath.length
+  const bound = ctx.walkSteps ?? ctx.maxSteps
+  const end = bound != null ? Math.min(bound, pricePath.length) : pricePath.length
   // sigmaAt drops the ATM mark vol after an earnings step. Convert it to a
   // RATIO so the same crush scales each leg's own IV and the skew shape
   // survives the event (a flat override would erase it exactly when the
@@ -316,10 +340,10 @@ export function runManagedExit(
   // two schedules line up. A short bar series simply ends mid-schedule, still
   // partly converged — which is the honest reading of a window that ended early.
   //
-  // KNOWN, PRE-EXISTING: maxSteps itself is a calendar-day count
-  // (`dte - closeAtDte`) used as a trading-step count. That unit slip is
-  // identical on both sides, so the display/learning invariant holds; fixing it
-  // means moving live and settlement together, and is not this change.
+  // maxSteps is a CALENDAR-day count (`dte - closeAtDte`). As the denominator
+  // that is fine and identical on both sides. As the WALK BOUND it is only right
+  // for settlement, whose bars stop with the calendar window; live paths step in
+  // trading days and pass `walkSteps` so they stop there too (see MarkContext).
   const steps = Math.max(1, ctx.maxSteps ?? end)
   const ratioOf = (i: number) => {
     const crush = ctx.sigmaAt && ctx.sigma > 0 ? ctx.sigmaAt(i) / ctx.sigma : 1

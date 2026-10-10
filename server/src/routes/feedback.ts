@@ -5,7 +5,14 @@ import {
   hydrateSnapshotById,
   loadSnapshots
 } from '../feedback/index.js'
-import type { RecommendationSnapshot, RecommendationOutcome } from '../feedback/types.js'
+import type { RecommendationSnapshot } from '../feedback/types.js'
+import {
+  bestPnl,
+  computeGroupStats,
+  performanceScope,
+  splitBook,
+  symbolStrategyStats
+} from '../feedback/performance.js'
 import {
   buildArmStats,
   variantId,
@@ -16,63 +23,6 @@ import {
 } from '../feedback/tuner.js'
 import { outcomePnl } from '../feedback/calibration.js'
 import { isCurrentRegime, SETTLEMENT_VERSION, exitPolicyOf } from '../feedback/settlementVersion.js'
-
-// ---------- Performance aggregation ----------
-
-type GroupStats = {
-  label: string
-  total: number
-  withOutcome: number
-  wins: number
-  losses: number
-  winRate: number | null
-  avgPnl: number | null
-  totalPnl: number
-  avgPop: number | null
-  avgEv: number | null
-  stopHits: number
-}
-
-/**
- * Get P&L for a snapshot using managed exit simulation.
- * Managed exit applies realistic trade management rules:
- *   Credit: take profit at 50% credit, stop at 2× credit
- *   Debit:  take profit at 1:1 (profit = debit paid), stop at 50% debit
- * Falls back to path midpoint for legacy outcomes without managedPnl.
- */
-function bestPnl(o: RecommendationOutcome): number | null {
-  const MULTIPLIER = 100 // standard equity option contract multiplier
-  if (o.managedPnl != null) return o.managedPnl * MULTIPLIER
-  if (o.pnlAtExpirationClose != null) return o.pnlAtExpirationClose * MULTIPLIER
-  if (o.pnlPathMin != null && o.pnlPathMax != null) {
-    return ((o.pnlPathMin + o.pnlPathMax) / 2) * MULTIPLIER
-  }
-  return null
-}
-
-function computeGroupStats(label: string, rows: RecommendationSnapshot[]): GroupStats {
-  const withOutcome = rows.filter(r => r.outcome != null && (r.outcome.pnlPathMax != null || r.outcome.pnlAtExpirationClose != null))
-  const pnls = withOutcome
-    .map(r => bestPnl(r.outcome!))
-    .filter((v): v is number => v != null)
-
-  const wins = pnls.filter(p => p > 0).length
-  const losses = pnls.filter(p => p <= 0).length
-
-  return {
-    label,
-    total: rows.length,
-    withOutcome: withOutcome.length,
-    wins,
-    losses,
-    winRate: pnls.length > 0 ? wins / pnls.length : null,
-    avgPnl: pnls.length > 0 ? pnls.reduce((a, b) => a + b, 0) / pnls.length : null,
-    totalPnl: pnls.reduce((a, b) => a + b, 0),
-    avgPop: rows.length > 0 ? rows.reduce((a, r) => a + r.pop, 0) / rows.length : null,
-    avgEv: rows.length > 0 ? rows.reduce((a, r) => a + r.ev, 0) / rows.length : null,
-    stopHits: withOutcome.filter(r => r.outcome!.stopHit).length
-  }
-}
 
 export async function feedbackRoutes(app: FastifyInstance) {
   app.get('/api/feedback/recommendations', async (req, reply) => {
@@ -99,13 +49,16 @@ export async function feedbackRoutes(app: FastifyInstance) {
     // stale outcome rather than the row: it is not wrong, it is *not yet
     // re-settled*, so it belongs in `pendingOutcome`.
     let staleSettlements = 0
-    const all = raw.map((s) => {
+    const everything = raw.map((s) => {
       if (s.outcome && !isCurrentRegime(s.outcome)) {
-        staleSettlements++
+        if (s.source !== 'shadow') staleSettlements++
         return { ...s, outcome: null }
       }
       return s
     })
+    // Every number below describes the RECOMMENDED book — cards that reached
+    // the board. Shadow arms feed the tuner panel only (see performance.ts).
+    const { book: all, shadow } = splitBook(everything)
 
     const overall = computeGroupStats('总计', all)
 
@@ -197,7 +150,7 @@ export async function feedbackRoutes(app: FastifyInstance) {
     // (strategy × regime × variant). score = mean P&L; the tuner ranks arms by
     // this (variance drives exploration). Meaningful for RANKING arms within the
     // same strategy×regime bucket.
-    const tunerArms = [...buildArmStats(all).entries()]
+    const tunerArms = [...buildArmStats(everything).entries()]
       .map(([k, v]) => {
         const [strategy, regime, variant] = k.split('|')
         return {
@@ -266,9 +219,11 @@ export async function feedbackRoutes(app: FastifyInstance) {
           isDefault: d === DEFAULT_CONDOR_PUT_DELTA
         }))
       },
+      scope: performanceScope(all, shadow.length),
       strategies,
       regimes,
       symbols,
+      symbolStrategies: symbolStrategyStats(all),
       dailyCurve,
       recent,
       tunerArms,

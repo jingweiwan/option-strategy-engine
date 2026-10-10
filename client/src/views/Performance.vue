@@ -60,6 +60,40 @@ function regimeLabel(r: string): string {
   if (r === 'buy') return 'Buy (低 IVR)'
   return 'Mid (中性)'
 }
+// Exit rule each settled outcome was measured under — the page must say which,
+// because none of them is automatically the rule the account trades.
+const RULER_CN: Record<string, string> = {
+  user: '止盈75%·不止损·持到期',
+  managed: '止盈50%·止损2×·21DTE平仓',
+  runner: '不止盈·止损2×·持到期'
+}
+const rulerLine = computed(() => {
+  const r = data.value?.scope?.rulers ?? {}
+  return Object.entries(r)
+    .filter(([, n]) => (n ?? 0) > 0)
+    .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+    .map(([k, n]) => `${RULER_CN[k] ?? k} ${n} 笔`)
+    .join('；')
+})
+const scopeHasUserRule = computed(() => (data.value?.scope?.rulers.user ?? 0) > 0)
+
+/** Fewer independent entry days than this and the row is an anecdote. */
+const MIN_DAYS = 5
+function rorText(s: GroupStats): string {
+  if (s.returnOnRisk == null) return s.unbounded > 0 ? '无上限' : '—'
+  const v = s.returnOnRisk * 100
+  return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'
+}
+function rorTitle(s: GroupStats): string {
+  const base = '累计盈亏 ÷ 累计最大亏损（仅限亏损有上限的结构）'
+  return s.unbounded > 0 ? `${base}；另有 ${s.unbounded} 笔亏损无上限，未计入` : base
+}
+/** Symbol × strategy rows with the symbol printed only on its first row. */
+const symStratRows = computed(() => {
+  const rows = data.value?.symbolStrategies ?? []
+  return rows.map((r, i) => ({ ...r, first: i === 0 || rows[i - 1].label !== r.label }))
+})
+
 function pnlClass(v: number | null): string {
   if (v == null) return ''
   return v > 0 ? 'up' : v < 0 ? 'dn' : ''
@@ -249,11 +283,28 @@ const curveZeroY = computed(() => {
         等待重结算 —— 与学习层口径一致。
       </div>
 
+      <div v-if="data.scope" class="scope-note">
+        <div>
+          <b>口径</b> · 只统计上过推荐板的 <b class="mono">{{ data.scope.bookRows }}</b> 条推荐；
+          <span class="mono">{{ data.scope.shadowRows }}</span> 条影子实验（从未推荐给你）只进「参数实验」。
+        </div>
+        <div v-if="data.scope.settledDays > 0">
+          已结算入场日 <span class="mono">{{ data.scope.settledFrom }} → {{ data.scope.settledTo }}</span>，
+          覆盖 <b class="mono">{{ data.scope.settledDays }}</b> 个交易日（同一天的多笔共享同一条价格路径，不是独立样本）。
+        </div>
+        <div v-if="rulerLine">
+          结算规则：{{ rulerLine }}。
+          <span v-if="!scopeHasUserRule" class="scope-warn">
+            还没有一笔按你实际的「止盈75%·不止损」结算 —— 下面的成绩不是你这套打法的成绩。
+          </span>
+        </div>
+      </div>
+
       <!-- Overview Cards -->
       <section class="stat-cards">
         <div class="stat-card">
           <div class="stat-n mono">{{ data.totalSnapshots }}</div>
-          <div class="stat-l">总推荐数</div>
+          <div class="stat-l">推荐（上板）</div>
         </div>
         <div class="stat-card">
           <div class="stat-n mono">{{ data.withOutcome }}</div>
@@ -276,6 +327,12 @@ const curveZeroY = computed(() => {
             {{ dollar(data.overall.totalPnl, 0) }}
           </div>
           <div class="stat-l">累计盈亏</div>
+        </div>
+        <div class="stat-card" :title="rorTitle(data.overall)">
+          <div class="stat-n mono" :class="pnlClass(data.overall.returnOnRisk)">
+            {{ rorText(data.overall) }}
+          </div>
+          <div class="stat-l">收益/风险</div>
         </div>
         <div class="stat-card">
           <div class="stat-n mono">{{ data.overall.stopHits }}</div>
@@ -343,16 +400,18 @@ const curveZeroY = computed(() => {
             <span>胜率</span>
             <span>平均盈亏</span>
             <span>累计</span>
+            <span>收益/风险</span>
             <span>止损</span>
             <span>Avg POP</span>
           </div>
-          <div v-for="s in data.strategies" :key="s.label" class="bt-row">
+          <div v-for="s in data.strategies" :key="s.label" class="bt-row" :class="{ thin: s.days < MIN_DAYS }">
             <span class="bt-label">{{ stratLabel(s.label) }}</span>
             <span class="mono">{{ s.total }}</span>
-            <span class="mono">{{ s.withOutcome }}</span>
+            <span class="mono" :title="`${s.days} 个独立入场日`">{{ s.withOutcome }}<small class="days"> /{{ s.days }}天</small></span>
             <span class="mono" :class="pnlClass(s.winRate)">{{ pct(s.winRate) }}</span>
             <span class="mono" :class="pnlClass(s.avgPnl)">{{ dollar(s.avgPnl) }}</span>
             <span class="mono" :class="pnlClass(s.totalPnl)">{{ dollar(s.totalPnl, 0) }}</span>
+            <span class="mono" :class="pnlClass(s.returnOnRisk)" :title="rorTitle(s)">{{ rorText(s) }}</span>
             <span class="mono">{{ s.stopHits }}</span>
             <span class="mono">{{ pct(s.avgPop) }}</span>
           </div>
@@ -386,23 +445,38 @@ const curveZeroY = computed(() => {
 
       <!-- Symbol Breakdown -->
       <section class="section-card">
-        <div class="eyebrow">BY SYMBOL</div>
-        <div class="breakdown-table sym-table">
-          <div class="bt-header">
-            <span>标的</span>
-            <span>推荐</span>
-            <span>已回测</span>
-            <span>胜率</span>
-            <span>平均盈亏</span>
-            <span>累计</span>
-          </div>
-          <div v-for="s in data.symbols" :key="s.label" class="bt-row">
-            <span class="bt-label mono">{{ s.label }}</span>
-            <span class="mono">{{ s.total }}</span>
-            <span class="mono">{{ s.withOutcome }}</span>
-            <span class="mono" :class="pnlClass(s.winRate)">{{ pct(s.winRate) }}</span>
-            <span class="mono" :class="pnlClass(s.avgPnl)">{{ dollar(s.avgPnl) }}</span>
-            <span class="mono" :class="pnlClass(s.totalPnl)">{{ dollar(s.totalPnl, 0) }}</span>
+        <div class="eyebrow">BY SYMBOL × STRATEGY</div>
+        <p class="bt-note">
+          同一标的按结构拆开 —— 跨式的亏损和铁鹰的盈利不再加在一起。
+          「天」是独立入场日；少于 {{ MIN_DAYS }} 天的行变淡，只能当个例看。
+        </p>
+        <div class="bt-scroll">
+          <div class="breakdown-table sym-table">
+            <div class="bt-header">
+              <span>标的</span>
+              <span>策略</span>
+              <span>推荐</span>
+              <span>已回测</span>
+              <span>胜率</span>
+              <span>平均盈亏</span>
+              <span>累计</span>
+              <span>收益/风险</span>
+            </div>
+            <div
+              v-for="s in symStratRows"
+              :key="s.label + s.strategy"
+              class="bt-row"
+              :class="{ 'group-start': s.first, thin: s.days < MIN_DAYS }"
+            >
+              <span class="bt-label mono">{{ s.first ? s.label : '' }}</span>
+              <span>{{ stratLabel(s.strategy ?? '') }}</span>
+              <span class="mono">{{ s.total }}</span>
+              <span class="mono" :title="`${s.days} 个独立入场日`">{{ s.withOutcome }}<small class="days"> /{{ s.days }}天</small></span>
+              <span class="mono" :class="pnlClass(s.winRate)">{{ pct(s.winRate) }}</span>
+              <span class="mono" :class="pnlClass(s.avgPnl)">{{ dollar(s.avgPnl) }}</span>
+              <span class="mono" :class="pnlClass(s.totalPnl)">{{ dollar(s.totalPnl, 0) }}</span>
+              <span class="mono" :class="pnlClass(s.returnOnRisk)" :title="rorTitle(s)">{{ rorText(s) }}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -680,7 +754,7 @@ const curveZeroY = computed(() => {
 .breakdown-table { font-size: 13px; }
 .bt-header, .bt-row {
   display: grid;
-  grid-template-columns: 1.6fr repeat(7, 1fr);
+  grid-template-columns: 1.6fr repeat(8, 1fr);
   gap: 4px;
   padding: 6px 0;
   align-items: center;
@@ -688,9 +762,25 @@ const curveZeroY = computed(() => {
 .regime-table .bt-header, .regime-table .bt-row {
   grid-template-columns: 1.6fr repeat(6, 1fr);
 }
+.sym-table { min-width: 720px; }
 .sym-table .bt-header, .sym-table .bt-row {
-  grid-template-columns: 1fr repeat(5, 1fr);
+  grid-template-columns: 0.8fr 1.3fr repeat(6, 1fr);
 }
+.sym-table .bt-row.group-start { border-top: 1px solid var(--rule-soft); }
+.bt-row.thin { opacity: 0.5; }
+.bt-scroll { overflow-x: auto; }
+.bt-note { font-size: 12px; color: var(--ink-3); margin: 0 0 10px; line-height: 1.6; }
+small.days { font-size: 10px; color: var(--ink-4); }
+.scope-note {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.scope-warn { color: var(--loss); }
 .bt-header {
   font-size: 10px;
   font-weight: 600;

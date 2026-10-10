@@ -7,6 +7,14 @@ export type Quote = {
   change?: number
   /** Percent change from previous close (e.g. 0.61 means +0.61%). */
   changePct?: number
+  /** Last REGULAR-session price, when the provider reports it separately. Equal
+   *  to `last` while the market is open; outside regular hours `last` follows
+   *  extended trading while this stays at the close — the price the option
+   *  chain was last quoted against (see sessionSpot.ts). */
+  regularClose?: number
+  /** Exchange-local (ET) time of the last regular-session trade,
+   *  e.g. '2026-10-08T15:59:59'. */
+  regularTradeTime?: string
 }
 
 export type ContractGreeks = {

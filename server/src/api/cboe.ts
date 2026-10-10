@@ -40,6 +40,11 @@ type RawData = {
   bid: number
   ask: number
   prev_day_close: number
+  /** Regular-session last: tracks current_price while the market is open, then
+   *  stays at the close while current_price follows extended-hours trading. */
+  close?: number
+  /** ET wall-clock time of the last regular-session trade (no zone suffix). */
+  last_trade_time?: string
   options: RawOption[]
 }
 
@@ -148,7 +153,9 @@ export async function getQuote(symbol: string): Promise<Quote> {
     bid: d.bid ?? 0,
     ask: d.ask ?? 0,
     change: Number.isFinite(d.price_change) ? d.price_change : undefined,
-    changePct: Number.isFinite(d.price_change_percent) ? d.price_change_percent : undefined
+    changePct: Number.isFinite(d.price_change_percent) ? d.price_change_percent : undefined,
+    regularClose: Number.isFinite(d.close) && (d.close as number) > 0 ? d.close : undefined,
+    regularTradeTime: typeof d.last_trade_time === 'string' ? d.last_trade_time : undefined
   }
 }
 
