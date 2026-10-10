@@ -21,6 +21,7 @@
  */
 
 import { lastSettledEtDay } from './marketSession.js'
+import { alignQuoteToChain } from './sessionSpot.js'
 import type { Quote, OptionContract } from './types.js'
 import * as finnhub from './finnhub.js'
 import * as polygon from './polygon.js'
@@ -711,7 +712,11 @@ const LIVE_IV_TTL_MS = 24 * 60 * 60 * 1000
  */
 async function liveIvFromCboeChain(sym: string): Promise<LiveIvData | null> {
   try {
-    const q = await getQuote(sym)
+    // ATM is "the strike nearest spot" — and the chain's strikes carry IVs solved
+    // at the CLOSE. Outside regular hours `last` follows extended trading, so an
+    // unaligned spot reads a neighbouring strike's IV off the skew and records it
+    // into the IV history as if it were ATM.
+    const q = alignQuoteToChain(await getQuote(sym))
     if (!q.last || !Number.isFinite(q.last)) return null
     const exps = await getExpirations(sym)
     const today = Date.now()
