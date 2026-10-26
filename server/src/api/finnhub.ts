@@ -208,10 +208,45 @@ export async function fetchEarningsCalendar(
     `/api/v1/calendar/earnings?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   )
   const list: any[] = data?.earningsCalendar ?? []
+  // A capped response is missing its NEAR end. Fixed 15-day slices aren't
+  // enough in peak season: 2026-10-26..11-10 came back as 1500 rows all dated
+  // ≥ 11-04, dropping AMZN 10-29 / GOOGL 10-28 and letting a bear call spread
+  // across AMZN earnings qualify. Bisect until each piece fits.
+  if (list.length >= EARNINGS_ROW_CAP && from < to) {
+    const mid = addDaysIso(from, Math.floor(daysBetweenIso(from, to) / 2))
+    const [head, tail] = await Promise.all([
+      fetchEarningsCalendar(from, mid),
+      fetchEarningsCalendar(addDaysIso(mid, 1), to)
+    ])
+    return [...head, ...tail]
+  }
   return list
     .filter((e: any) => e.symbol && e.date)
-    .map((e: any) => ({ date: e.date, symbol: String(e.symbol).toUpperCase() }))
+    .flatMap((e: any) => {
+      const symbol = String(e.symbol).toUpperCase()
+      const twin = SHARE_CLASS_TWIN[symbol]
+      return twin ? [{ date: e.date, symbol }, { date: e.date, symbol: twin }] : [{ date: e.date, symbol }]
+    })
 }
+
+/**
+ * Finnhub lists a dual-class issuer under one ticker only (GOOGL, never GOOG),
+ * so the other class looked earnings-free: a GOOG 11-27 condor across the
+ * 10-28 print showed spansEarnings=false. Same company, same print.
+ */
+const SHARE_CLASS_TWIN: Record<string, string> = {
+  GOOGL: 'GOOG', GOOG: 'GOOGL',
+  FOXA: 'FOX', FOX: 'FOXA',
+  NWSA: 'NWS', NWS: 'NWSA'
+}
+
+/** Finnhub's /calendar/earnings row cap; it drops the nearest dates first. */
+const EARNINGS_ROW_CAP = 1500
+
+const addDaysIso = (iso: string, n: number) =>
+  new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10)
+const daysBetweenIso = (a: string, b: string) =>
+  Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000)
 
 /**
  * Earliest upcoming earnings date per symbol over `horizonDays`, fetched in
