@@ -107,6 +107,21 @@ function unwrapMarkdownJson(raw: string): string {
   return t.trim()
 }
 
+/**
+ * JSON mode (`response_format: json_object`) only allows an object at the top
+ * level, so a prompt asking for an array can come back wrapped — DeepSeek
+ * returns e.g. `{"type":"json_object","items":[…]}`. Accept either shape; null
+ * when there is no single array to take.
+ */
+export function jsonArrayOf<T>(data: unknown): T[] | null {
+  if (Array.isArray(data)) return data as T[]
+  if (data && typeof data === 'object') {
+    const arrays = Object.values(data).filter(Array.isArray)
+    if (arrays.length === 1) return arrays[0] as T[]
+  }
+  return null
+}
+
 export async function chatJson<T>(
   messages: AiMessage[],
   opts: AiOptions = {}

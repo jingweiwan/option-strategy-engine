@@ -9,7 +9,7 @@
  * Cached per ET calendar day, 12h TTL.
  */
 
-import { chatJson, type AiMessage } from './client.js'
+import { chatJson, jsonArrayOf, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
 import type { ScannedOpp, ShortLevel, BoardTierReason } from '../engine/oppScanner.js'
 import { managedThresholds, DEFAULT_EXIT_POLICY, type ExitPolicy } from '../engine/managedExit.js'
@@ -380,7 +380,7 @@ export async function buildOppsFromScan(
         { role: 'system', content: SYSTEM },
         { role: 'user', content: buildUserPrompt(scannedOpps, earns) }
       ]
-      const { data, usage } = await chatJson<AiCopy[]>(messages, {
+      const { data, usage } = await chatJson<unknown>(messages, {
         model: 'deepseek-chat',
         temperature: 0.4,
         maxTokens: 4000
@@ -391,7 +391,7 @@ export async function buildOppsFromScan(
             (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
         )
       }
-      if (Array.isArray(data)) aiCopies = data
+      aiCopies = jsonArrayOf<AiCopy>(data) ?? []
     } catch (err) {
       console.warn('[ai/opps-copy] AI copywriting failed:', (err as Error).message)
       // Fallback: generate basic copies without AI

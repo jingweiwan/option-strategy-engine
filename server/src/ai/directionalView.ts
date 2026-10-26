@@ -14,7 +14,7 @@
  * Cached per ET calendar day, 12h TTL.
  */
 
-import { chatJson, type AiMessage } from './client.js'
+import { chatJson, jsonArrayOf, type AiMessage } from './client.js'
 import { cached, getCachedIfValid, etCalendarDay, HOUR } from './cache.js'
 import type { View } from '../engine/index.js'
 
@@ -107,8 +107,8 @@ const SYSTEM = `你是一位资深美股期权策略分析师。根据每个标�
 
 **reason: ≤ 30 字，引用关键数据**
 
-**输出 JSON 数组，与输入顺序一致：**
-[{ "sym": "AAPL", "view": "bullish", "confidence": 0.7, "reason": "5日+3.2%，MACD翻多，RSI 58，趋势确立" }]
+**输出 JSON 对象，views 数组与输入顺序一致、每个标的一条：**
+{ "views": [{ "sym": "AAPL", "view": "bullish", "confidence": 0.7, "reason": "5日+3.2%，MACD翻多，RSI 58，趋势确立" }] }
 直接 JSON，不要 markdown。`
 
 function fmtPct(v: number | null | undefined): string {
@@ -143,10 +143,10 @@ function buildPrompt(symbols: SymbolContext[]): string {
 ${JSON.stringify(data, null, 2)}
 \`\`\`
 
-输出 JSON 数组（与输入顺序一致）。直接 JSON，不要 markdown。`
+输出 JSON 对象 { "views": [...] }（与输入顺序一致）。直接 JSON，不要 markdown。`
 }
 
-type AiViewResult = {
+export type AiViewResult = {
   sym: string
   view: string
   confidence: number
@@ -167,52 +167,70 @@ export async function getDirectionalViews(
   if (symbols.length === 0) return new Map()
 
   const symKey = symbols.map((s) => s.sym).sort().join(',')
-  const key = `directional-view-v2-${etCalendarDay()}-${symKey}`
+  const key = `directional-view-v3-${etCalendarDay()}-${symKey}`
 
   const hit = await getCachedIfValid<DirectionalView[]>(key, 12 * HOUR)
   if (hit != null) {
     return new Map(hit.map((v) => [v.sym, v]))
   }
 
-  return new Map(
-    (
-      await cached<DirectionalView[]>(key, 12 * HOUR, async () => {
-        try {
-          const messages: AiMessage[] = [
-            { role: 'system', content: SYSTEM },
-            { role: 'user', content: buildPrompt(symbols) }
-          ]
-          const { data, usage } = await chatJson<AiViewResult[]>(messages, {
-            model: 'deepseek-chat',
-            temperature: 0.3,
-            maxTokens: 1500
-          })
-          if (usage) {
-            console.log(
-              `[ai/view] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
-                (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
-            )
-          }
-
-          if (!Array.isArray(data)) return fallbackViews(symbols)
-
-          return data.map((d, i) => {
-            const sym = d.sym ?? symbols[i]?.sym ?? 'UNKNOWN'
-            const view = VALID_VIEWS.has(d.view) ? (d.view as View) : 'neutral'
-            return {
-              sym,
-              view,
-              confidence: typeof d.confidence === 'number' ? d.confidence : 0.5,
-              reason: d.reason?.slice(0, 60) ?? ''
-            }
-          })
-        } catch (err) {
-          console.warn('[ai/view] directional view failed:', (err as Error).message)
-          return fallbackViews(symbols)
-        }
+  // A failed AI call throws out of `cached`, so the fallback is NOT cached — the
+  // next scan retries. From 2026-09-07 to 10-26 every call silently fell back
+  // (JSON mode wrapped the array in an object, `!Array.isArray` returned the
+  // fallback, and that got cached for 12h), so no AI view reached the engine.
+  let views: DirectionalView[]
+  try {
+    views = await cached<DirectionalView[]>(key, 12 * HOUR, async () => {
+      const messages: AiMessage[] = [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: buildPrompt(symbols) }
+      ]
+      // ~45 output tokens per symbol; 36 symbols already used 1473 of the old 1500.
+      const { data, usage } = await chatJson<unknown>(messages, {
+        model: 'deepseek-chat',
+        temperature: 0.3,
+        maxTokens: Math.max(1500, symbols.length * 100)
       })
-    ).map((v) => [v.sym, v])
-  )
+      if (usage) {
+        console.log(
+          `[ai/view] tokens in=${usage.promptTokens} out=${usage.completionTokens}` +
+            (usage.cachedTokens ? ` cached=${usage.cachedTokens}` : '')
+        )
+      }
+      const rows = jsonArrayOf<AiViewResult>(data)
+      if (!rows) throw new Error(`no view array in AI response: ${JSON.stringify(data).slice(0, 200)}`)
+      return mergeAiViews(symbols, rows)
+    })
+  } catch (err) {
+    console.warn('[ai/view] directional view failed, using technical fallback:', (err as Error).message)
+    views = fallbackViews(symbols)
+  }
+  return new Map(views.map((v) => [v.sym, v]))
+}
+
+/**
+ * One view per input symbol, matched by `sym` (the model may reorder or drop
+ * rows). Symbols the model skipped get the technical fallback; if it answered
+ * almost none, treat the call as failed.
+ */
+export function mergeAiViews(symbols: SymbolContext[], rows: AiViewResult[]): DirectionalView[] {
+  const bySym = new Map<string, AiViewResult>()
+  for (const r of rows) if (r && typeof r.sym === 'string') bySym.set(r.sym.toUpperCase(), r)
+  const answered = symbols.filter((s) => bySym.has(s.sym.toUpperCase())).length
+  if (answered < Math.ceil(symbols.length / 2)) {
+    throw new Error(`AI answered ${answered}/${symbols.length} symbols`)
+  }
+  const fb = new Map(fallbackViews(symbols).map((v) => [v.sym, v]))
+  return symbols.map((s) => {
+    const d = bySym.get(s.sym.toUpperCase())
+    if (!d) return fb.get(s.sym)!
+    return {
+      sym: s.sym,
+      view: VALID_VIEWS.has(d.view) ? (d.view as View) : 'neutral',
+      confidence: typeof d.confidence === 'number' ? d.confidence : 0.5,
+      reason: d.reason?.slice(0, 60) ?? ''
+    }
+  })
 }
 
 /** Fallback: technicals-based heuristic when AI is unavailable. */
