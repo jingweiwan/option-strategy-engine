@@ -259,7 +259,7 @@ export async function getMarketNarrative(snap: MarketSnapshot): Promise<Dashboar
         { role: 'user', content: USER_TEMPLATE(snap) + correction }
       ]
       const { data, usage } = await chatJson<DashboardNarrative>(messages, {
-        model: 'deepseek-chat',
+        model: 'deepseek-flash',
         temperature: 0.5,
         maxTokens: 2000
       })

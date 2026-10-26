@@ -85,7 +85,7 @@ export async function getAiTickerNotes(
       { role: 'user', content: buildUserPrompt(input) }
     ]
     const { data, usage } = await chatJson<Record<string, string>>(messages, {
-      model: 'deepseek-chat',  // lightweight model suffices for short notes
+      model: 'deepseek-flash',  // lightweight model suffices for short notes
       temperature: 0.4,
       maxTokens: 1000
     })

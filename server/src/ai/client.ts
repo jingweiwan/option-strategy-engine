@@ -2,12 +2,16 @@
  * DeepSeek client (OpenAI-compatible API).
  * No SDK — just fetch.
  *
- * Models:
- *   deepseek-chat     — V3, fast + cheap, default for narrative
- *   deepseek-reasoner — has chain-of-thought; reserve for complex analysis
+ * Models (live /models list, 2026-10-26):
+ *   deepseek-flash  — DeepSeek-V4.1-Flash (released 2026-09), the default
+ *   deepseek-v4-pro — DeepSeek-V4-Pro, being phased out pending V4.1-Pro
+ * The legacy `deepseek-chat` / `deepseek-reasoner` names were scheduled for
+ * retirement (2026-07-24) and now just route to deepseek-flash.
  *
- * Pricing (as of 2026):
- *   chat: $0.14 / 1M input, $0.28 / 1M output (cached input: $0.014 / 1M)
+ * Thinking: deepseek-flash reasons by default. Every caller here wants the old
+ * deepseek-chat behaviour (direct JSON, no chain-of-thought), so thinking is
+ * sent as disabled unless `thinking: true` — and when enabled, reasoning tokens
+ * count against max_tokens, so budget for them.
  *
  * Strict JSON mode: when `jsonSchema` is provided we add response_format
  * + schema in the system prompt for reliability.
@@ -22,7 +26,9 @@ export type AiMessage = {
 }
 
 export type AiOptions = {
-  model?: 'deepseek-chat' | 'deepseek-reasoner' | 'deepseek-v4-pro' | 'deepseek-v4-flash'
+  model?: 'deepseek-flash' | 'deepseek-v4-pro'
+  /** Chain-of-thought before answering. Default off (see header). */
+  thinking?: boolean
   temperature?: number
   maxTokens?: number
   json?: boolean
@@ -41,8 +47,9 @@ export async function chat(messages: AiMessage[], opts: AiOptions = {}): Promise
   if (!apiKey) throw new Error('DEEPSEEK_API_KEY not configured')
 
   const body: Record<string, unknown> = {
-    model: opts.model ?? 'deepseek-chat',
+    model: opts.model ?? 'deepseek-flash',
     messages,
+    thinking: { type: opts.thinking ? 'enabled' : 'disabled' },
     temperature: opts.temperature ?? 0.6,
     max_tokens: opts.maxTokens ?? 800
   }

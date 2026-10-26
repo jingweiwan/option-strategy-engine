@@ -9,7 +9,7 @@
  *   Q — 连续季报验证 (Consecutive quarterly validation)
  *
  * Data sources: Finnhub financials + news + filings + recommendations.
- * AI model: DeepSeek deepseek-chat with structured JSON output.
+ * AI model: DeepSeek deepseek-flash (V4.1-Flash, thinking off) with structured JSON output.
  *
  * Cached per ticker per ET calendar day, 6-hour TTL.
  */

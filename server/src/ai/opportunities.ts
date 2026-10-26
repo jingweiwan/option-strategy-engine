@@ -381,7 +381,7 @@ export async function buildOppsFromScan(
         { role: 'user', content: buildUserPrompt(scannedOpps, earns) }
       ]
       const { data, usage } = await chatJson<unknown>(messages, {
-        model: 'deepseek-chat',
+        model: 'deepseek-flash',
         temperature: 0.4,
         maxTokens: 4000
       })

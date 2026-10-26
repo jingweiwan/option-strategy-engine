@@ -187,7 +187,7 @@ export async function getDirectionalViews(
       ]
       // ~45 output tokens per symbol; 36 symbols already used 1473 of the old 1500.
       const { data, usage } = await chatJson<unknown>(messages, {
-        model: 'deepseek-chat',
+        model: 'deepseek-flash',
         temperature: 0.3,
         maxTokens: Math.max(1500, symbols.length * 100)
       })
